@@ -89,10 +89,12 @@ class NibMotionController extends ChangeNotifier {
       'NibMotionController.start: only one of `target` or `keyframes` may be provided.',
     );
     final futures = _animators.map((animator) {
-      if (keyframes != null)
+      if (keyframes != null) {
         return animator.playKeyframes(keyframes, transition: transition);
-      if (target != null)
+      }
+      if (target != null) {
         return animator.animateTo(target, transition: transition);
+      }
       return animator.replayEntrance();
     });
     return Future.wait(futures).then((_) {

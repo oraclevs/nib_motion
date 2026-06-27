@@ -876,8 +876,9 @@ class _NibMotionState extends State<NibMotion>
   void _onTapDown(TapDownDetails details) {
     _gestureState = NibGestureState.tap;
     final target = widget.whileTap;
-    if (target != null)
+    if (target != null) {
       animateTo(target, transition: NibTransition.springSnappy);
+    }
   }
 
   void _onTapEnd() {
@@ -888,7 +889,9 @@ class _NibMotionState extends State<NibMotion>
   void _onHoverEnter(PointerEnterEvent event) {
     _isHovering = true;
     if (_gestureState == NibGestureState.tap ||
-        _gestureState == NibGestureState.drag) return;
+        _gestureState == NibGestureState.drag) {
+      return;
+    }
     _gestureState = NibGestureState.hover;
     final target = widget.whileHover;
     if (target != null) animateTo(target);
@@ -897,7 +900,9 @@ class _NibMotionState extends State<NibMotion>
   void _onHoverExit(PointerExitEvent event) {
     _isHovering = false;
     if (_gestureState == NibGestureState.tap ||
-        _gestureState == NibGestureState.drag) return;
+        _gestureState == NibGestureState.drag) {
+      return;
+    }
     _gestureState = NibGestureState.none;
     _revertFromGesture();
   }
@@ -985,8 +990,9 @@ class _NibMotionState extends State<NibMotion>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _checkInView();
-      if (framesRemaining > 0)
+      if (framesRemaining > 0) {
         _scheduleInViewCheckRepeatedly(framesRemaining - 1);
+      }
     });
   }
 
@@ -996,7 +1002,9 @@ class _NibMotionState extends State<NibMotion>
     final renderObject = context.findRenderObject();
     if (renderObject is! RenderBox ||
         !renderObject.attached ||
-        !renderObject.hasSize) return;
+        !renderObject.hasSize) {
+      return;
+    }
 
     final size = renderObject.size;
     if (size.isEmpty) return;

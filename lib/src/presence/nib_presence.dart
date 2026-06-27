@@ -87,7 +87,9 @@ class _NibPresenceState extends State<NibPresence> {
       final current = _entries[key];
       if (current == null ||
           !current.isExiting ||
-          current.exitCompleter != completer) return;
+          current.exitCompleter != completer) {
+        return;
+      }
       setState(() => _entries.remove(key));
     });
   }
