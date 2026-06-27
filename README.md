@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/Nib-Motion/main/assets/niblogo.png" alt="NibMotion Logo" width="120" />
+  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/niblogo.png" alt="NibMotion Logo" width="120" />
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/Nib-Motion/main/assets/nibbanner.png" alt="NibMotion Banner" width="100%" />
+  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nibbanner.png" alt="NibMotion Banner" width="100%" />
 </p>
 
 <h1 align="center">NibMotion</h1>
@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://pub.dev/packages/nib_motion"><img src="https://img.shields.io/pub/v/nib_motion.svg?label=pub.dev&color=02569B" alt="pub.dev version" /></a>
   <a href="https://pub.dev/packages/nib_motion/score"><img src="https://img.shields.io/pub/points/nib_motion?color=02569B" alt="pub points" /></a>
-  <a href="https://github.com/oraclevs/Nib-Motion/blob/main/LICENSE"><img src="https://img.shields.io/github/license/oraclevs/Nib-Motion?color=02569B" alt="license" /></a>
+  <a href="https://github.com/oraclevs/nib_motion/blob/main/LICENSE"><img src="https://img.shields.io/github/license/oraclevs/nib_motion?color=02569B" alt="license" /></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/platform-flutter-54C5F8.svg" alt="platform: flutter" /></a>
 </p>
 
@@ -30,13 +30,13 @@
 ## Preview
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/Nib-Motion/main/assets/nib_preview.gif" alt="NibMotion preview" width="720" />
+  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nib_preview.gif" alt="NibMotion preview" width="720" />
 </p>
 
 ## App Demo
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/Nib-Motion/main/assets/daily_focus.gif" alt="Daily Focus app demo" width="340" />
+  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/daily_focus.gif" alt="Daily Focus app demo" width="340" />
 </p>
 
 ---
