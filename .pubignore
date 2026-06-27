@@ -1,3 +1,7 @@
+# Build artifacts
+build/
+coverage/
+
 # Raw video source files — GIFs in assets/ are used by the README instead
 assets/*.mp4
 
@@ -6,6 +10,10 @@ doc/
 
 # Showcase apps — large standalone demos, browsable on GitHub but not needed on pub.dev
 showcase/
+
+# IDE
+*.iml
+.idea/
 
 # Claude Code
 .claude/

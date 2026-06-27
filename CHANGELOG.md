@@ -1,3 +1,10 @@
+## 0.2.1
+
+* Added example app demonstrating core primitives.
+* Fixed `curly_braces_in_flow_control_structures` lint issues.
+* Improved pub.dev package description and metadata.
+* Added CI/CD via GitHub Actions.
+
 ## 0.2.0
 
 Framework expansion: text animation, GPU shaders, presets, gestures,
