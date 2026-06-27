@@ -14,7 +14,10 @@ import 'nib_anim_presets.dart';
 /// ```
 class NibBounce extends StatelessWidget {
   /// Creates a `NibBounce`.
-  const NibBounce({super.key, required this.child, this.duration = const Duration(milliseconds: 800)});
+  const NibBounce(
+      {super.key,
+      required this.child,
+      this.duration = const Duration(milliseconds: 800)});
 
   /// The widget to animate in.
   final Widget child;

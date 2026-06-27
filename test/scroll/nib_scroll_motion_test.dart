@@ -23,7 +23,8 @@ Widget _scrollable(ScrollController controller, WidgetBuilder builder) {
 
 void main() {
   group('NibScrollMotion', () {
-    testWidgets('builder receives a bridge tracking the given controller', (tester) async {
+    testWidgets('builder receives a bridge tracking the given controller',
+        (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
 
@@ -48,7 +49,8 @@ void main() {
       expect(received!.scrollY.value, 100.0);
     });
 
-    testWidgets('dispose removes the bridge listener from the controller', (tester) async {
+    testWidgets('dispose removes the bridge listener from the controller',
+        (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
 
@@ -62,7 +64,8 @@ void main() {
         ),
       );
 
-      await tester.pumpWidget(_scrollable(controller, (context) => const SizedBox.shrink()));
+      await tester.pumpWidget(
+          _scrollable(controller, (context) => const SizedBox.shrink()));
 
       expect(() => controller.jumpTo(50), returnsNormally);
     });

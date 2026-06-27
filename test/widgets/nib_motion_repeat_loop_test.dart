@@ -5,7 +5,8 @@ import 'package:nib_motion/nib_motion.dart';
 Widget _wrap(Widget child) {
   return NibMotionConfig(
     entranceWarmup: Duration.zero,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 
@@ -25,14 +26,16 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibMotion.repeatAnimationInLoop', () {
-    testWidgets('ping-pongs opacity between initial and animate forever', (tester) async {
+    testWidgets('ping-pongs opacity between initial and animate forever',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: const NibAnim(opacity: 0.0),
             animate: const NibAnim(opacity: 1.0),
             repeatAnimationInLoop: true,
-            transition: const NibTransition(duration: Duration(milliseconds: 100)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 100)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -54,7 +57,9 @@ void main() {
       expect(renderObject.opacity.value, closeTo(1.0, 0.05));
     });
 
-    testWidgets('NibMotionController.repeat() starts the loop on a widget with repeatAnimationInLoop: false', (
+    testWidgets(
+        'NibMotionController.repeat() starts the loop on a widget with repeatAnimationInLoop: false',
+        (
       tester,
     ) async {
       final controller = NibMotionController();
@@ -66,7 +71,8 @@ void main() {
             initial: const NibAnim(opacity: 0.0),
             animate: const NibAnim(opacity: 1.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 100)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 100)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),

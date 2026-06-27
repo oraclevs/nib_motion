@@ -135,9 +135,8 @@ class _NibDrawPathState extends State<NibDrawPath>
   void _onTick(Duration elapsed) {
     final durationUs = widget.duration.inMicroseconds;
     final elapsedUs = (elapsed - _startTime).inMicroseconds;
-    final rawT = durationUs <= 0
-        ? 1.0
-        : (elapsedUs / durationUs).clamp(0.0, 1.0);
+    final rawT =
+        durationUs <= 0 ? 1.0 : (elapsedUs / durationUs).clamp(0.0, 1.0);
     final curvedT = widget.curve.transform(rawT);
     _progress.value = curvedT;
 
@@ -200,7 +199,8 @@ class _DrawPathBox extends LeafRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderNibDrawPath renderObject) {
+  void updateRenderObject(
+      BuildContext context, RenderNibDrawPath renderObject) {
     renderObject
       ..path = path
       ..progress = progress
@@ -222,11 +222,11 @@ class RenderNibDrawPath extends RenderBox {
     required double strokeWidth,
     required Color color,
     required StrokeCap strokeCap,
-  }) : _path = path,
-       _progress = progress,
-       _strokeWidth = strokeWidth,
-       _color = color,
-       _strokeCap = strokeCap {
+  })  : _path = path,
+        _progress = progress,
+        _strokeWidth = strokeWidth,
+        _color = color,
+        _strokeCap = strokeCap {
     _progress.addListener(_onProgressChanged);
   }
 

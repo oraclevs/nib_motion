@@ -12,7 +12,8 @@ void main() {
   });
 
   group('NibMotion debug registration', () {
-    testWidgets('registers its MotionValues with NibMotionRegistry on mount', (tester) async {
+    testWidgets('registers its MotionValues with NibMotionRegistry on mount',
+        (tester) async {
       await tester.pumpWidget(
         Directionality(
           textDirection: TextDirection.ltr,
@@ -30,7 +31,8 @@ void main() {
       expect(ids.any((id) => id.contains('boxShadow')), isTrue);
     });
 
-    testWidgets('reflects live updates through the registered MotionValue', (tester) async {
+    testWidgets('reflects live updates through the registered MotionValue',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -41,13 +43,15 @@ void main() {
             key: const ValueKey('probe'),
             controller: controller,
             initial: const NibAnim(opacity: 0.0),
-            transition: const NibTransition(duration: Duration(milliseconds: 10)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 10)),
             child: const SizedBox(width: 10, height: 10),
           ),
         ),
       );
 
-      final opacityEntry = NibMotionRegistry.instance.values.entries.firstWhere((e) => e.key.contains('opacity'));
+      final opacityEntry = NibMotionRegistry.instance.values.entries
+          .firstWhere((e) => e.key.contains('opacity'));
       expect(opacityEntry.value.value, 0.0);
 
       controller.set(const NibAnim(opacity: 1.0));

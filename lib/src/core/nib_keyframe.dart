@@ -39,13 +39,15 @@ class NibKeyframe {
 ///   that segment, applies the upcoming keyframe's [NibKeyframe.curve] (or
 ///   [defaultCurve] if unset), and interpolates between the two keyframes'
 ///   values with [NibAnim.lerp].
-NibAnim computeAnimFromKeyframes(List<NibKeyframe> keyframes, double t, Curve defaultCurve) {
+NibAnim computeAnimFromKeyframes(
+    List<NibKeyframe> keyframes, double t, Curve defaultCurve) {
   assert(keyframes.isNotEmpty, 'NibMotion.keyframes must not be empty.');
 
   var sorted = keyframes;
   for (var i = 1; i < sorted.length; i++) {
     if (sorted[i].at < sorted[i - 1].at) {
-      sorted = List<NibKeyframe>.of(keyframes)..sort((a, b) => a.at.compareTo(b.at));
+      sorted = List<NibKeyframe>.of(keyframes)
+        ..sort((a, b) => a.at.compareTo(b.at));
       break;
     }
   }

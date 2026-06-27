@@ -21,7 +21,8 @@ void main() {
       expect(transition.spring, NibSpringDescription.gentle);
     });
 
-    test('springGentle/springSnappy/springWobbly presets use matching springs', () {
+    test('springGentle/springSnappy/springWobbly presets use matching springs',
+        () {
       expect(
         NibTransition.springGentle.spring,
         NibSpringDescription.gentle,

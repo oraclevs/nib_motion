@@ -28,18 +28,18 @@ class RenderNibMotion extends RenderProxyBox {
     required MotionValue<BorderRadius?> borderRadius,
     required BoxShadowMotionValue boxShadow,
     RenderBox? child,
-  }) : _opacity = opacity,
-       _translateX = translateX,
-       _translateY = translateY,
-       _scaleX = scaleX,
-       _scaleY = scaleY,
-       _rotate = rotate,
-       _skewX = skewX,
-       _skewY = skewY,
-       _color = color,
-       _borderRadius = borderRadius,
-       _boxShadow = boxShadow,
-       super(child) {
+  })  : _opacity = opacity,
+        _translateX = translateX,
+        _translateY = translateY,
+        _scaleX = scaleX,
+        _scaleY = scaleY,
+        _rotate = rotate,
+        _skewX = skewX,
+        _skewY = skewY,
+        _color = color,
+        _borderRadius = borderRadius,
+        _boxShadow = boxShadow,
+        super(child) {
     _opacity.addListener(_onOpacityChanged);
     _translateX.addListener(_onPaintValueChanged);
     _translateY.addListener(_onPaintValueChanged);
@@ -223,7 +223,8 @@ class RenderNibMotion extends RenderProxyBox {
     if (matrix.isIdentity()) {
       _paintBoxAndChild(context, offset);
     } else {
-      context.pushTransform(needsCompositing, offset, matrix, _paintBoxAndChild);
+      context.pushTransform(
+          needsCompositing, offset, matrix, _paintBoxAndChild);
     }
   }
 
@@ -235,7 +236,8 @@ class RenderNibMotion extends RenderProxyBox {
 
     if (shadows != null) {
       for (final shadow in shadows) {
-        final shadowRect = rect.shift(shadow.offset).inflate(shadow.spreadRadius);
+        final shadowRect =
+            rect.shift(shadow.offset).inflate(shadow.spreadRadius);
         final shadowRRect = radius != null
             ? radius.toRRect(shadowRect)
             : RRect.fromRectAndRadius(shadowRect, Radius.zero);
@@ -261,7 +263,8 @@ class RenderNibMotion extends RenderProxyBox {
       // actually paints and clipping the child out entirely whenever
       // `offset` is non-zero.
       final localRect = Offset.zero & size;
-      context.pushClipRRect(needsCompositing, offset, localRect, radius.toRRect(localRect), _paintChild);
+      context.pushClipRRect(needsCompositing, offset, localRect,
+          radius.toRRect(localRect), _paintChild);
     } else {
       _paintChild(context, offset);
     }

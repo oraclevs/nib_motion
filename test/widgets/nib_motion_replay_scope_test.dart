@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 const _screens = [
-  NibNavScreen(child: _AnimatedScreen(key: ValueKey('screen0'), label: 'Screen 0')),
-  NibNavScreen(child: _AnimatedScreen(key: ValueKey('screen1'), label: 'Screen 1')),
+  NibNavScreen(
+      child: _AnimatedScreen(key: ValueKey('screen0'), label: 'Screen 0')),
+  NibNavScreen(
+      child: _AnimatedScreen(key: ValueKey('screen1'), label: 'Screen 1')),
 ];
 
 const _items = [
@@ -45,12 +47,14 @@ class _AnimatedScreenState extends State<_AnimatedScreen> {
 
 Future<void> _tapItem(WidgetTester tester, Rect bar, int index, int of) async {
   final itemWidth = bar.width / of;
-  await tester.tapAt(Offset(bar.left + itemWidth * (index + 0.5), bar.center.dy));
+  await tester
+      .tapAt(Offset(bar.left + itemWidth * (index + 0.5), bar.center.dy));
 }
 
 RenderNibMotion _motionRenderObject(WidgetTester tester, Key screenKey) {
   return tester.renderObject<RenderNibMotion>(
-    find.descendant(of: find.byKey(screenKey), matching: find.byType(NibMotion)),
+    find.descendant(
+        of: find.byKey(screenKey), matching: find.byType(NibMotion)),
   );
 }
 
@@ -59,13 +63,16 @@ void main() {
     _AnimatedScreenState.replayCount = 0;
   });
 
-  testWidgets('retriggerPageAnimations: false (default) does not replay on tab switch', (tester) async {
+  testWidgets(
+      'retriggerPageAnimations: false (default) does not replay on tab switch',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: NibScaffold(
           screens: _screens,
           navItems: _items,
-          screenTransition: const NibNavScreenTransition(type: NibNavTransitionType.none),
+          screenTransition:
+              const NibNavScreenTransition(type: NibNavTransitionType.none),
         ),
       ),
     );
@@ -86,7 +93,9 @@ void main() {
     expect(find.text('Screen 0'), findsOneWidget);
   });
 
-  testWidgets('retriggerPageAnimations: true replays entrance animation after tab switch settles', (tester) async {
+  testWidgets(
+      'retriggerPageAnimations: true replays entrance animation after tab switch settles',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: NibScaffold(
@@ -120,7 +129,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('retriggerDelay delays the entrance-animation replay after tab switch', (tester) async {
+  testWidgets(
+      'retriggerDelay delays the entrance-animation replay after tab switch',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: NibScaffold(
@@ -145,11 +156,13 @@ void main() {
     // animation reset is delayed by `retriggerDelay` — right after the tap,
     // screen 0's opacity should still be settled at its post-entrance value.
     await tester.pump();
-    expect(_motionRenderObject(tester, const ValueKey('screen0')).opacity.value, 1.0);
+    expect(_motionRenderObject(tester, const ValueKey('screen0')).opacity.value,
+        1.0);
 
     // Once the delay elapses, the entrance animation resets to `initial`
     // (opacity: 0) before animating back toward `animate` (opacity: 1).
     await tester.pump(const Duration(milliseconds: 200));
-    expect(_motionRenderObject(tester, const ValueKey('screen0')).opacity.value, 0.0);
+    expect(_motionRenderObject(tester, const ValueKey('screen0')).opacity.value,
+        0.0);
   });
 }

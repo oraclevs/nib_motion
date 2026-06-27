@@ -77,7 +77,8 @@ class _NibParallaxState extends State<NibParallax> {
 
   void _attach() {
     _bridge = ScrollMotionBridge(controller: widget.scrollController);
-    final source = widget.axis == Axis.horizontal ? _bridge.scrollX : _bridge.scrollY;
+    final source =
+        widget.axis == Axis.horizontal ? _bridge.scrollX : _bridge.scrollY;
     _offset = source.transform((value) => value * widget.factor);
   }
 
@@ -89,13 +90,15 @@ class _NibParallaxState extends State<NibParallax> {
   @override
   void didUpdateWidget(NibParallax oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollController != widget.scrollController || oldWidget.axis != widget.axis) {
+    if (oldWidget.scrollController != widget.scrollController ||
+        oldWidget.axis != widget.axis) {
       _detach();
       _attach();
     } else if (oldWidget.factor != widget.factor) {
       // Re-derive with the new factor; the old derived value is replaced
       // wholesale since `DerivedMotionValue`'s mapper is immutable.
-      final source = widget.axis == Axis.horizontal ? _bridge.scrollX : _bridge.scrollY;
+      final source =
+          widget.axis == Axis.horizontal ? _bridge.scrollX : _bridge.scrollY;
       _offset.dispose();
       _offset = source.transform((value) => value * widget.factor);
     }

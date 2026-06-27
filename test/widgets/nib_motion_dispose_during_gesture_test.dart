@@ -35,12 +35,14 @@ void main() {
         ),
       );
 
-      final gesture = await tester.startGesture(tester.getCenter(find.byKey(const Key('tappable'))));
+      final gesture = await tester
+          .startGesture(tester.getCenter(find.byKey(const Key('tappable'))));
       await tester.pump();
 
       // Simulate Navigator.pushReplacement swapping out the whole tree while
       // the pointer is still down.
-      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox())));
+      await tester
+          .pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox())));
 
       await gesture.up();
       await tester.pumpAndSettle();

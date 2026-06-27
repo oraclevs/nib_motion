@@ -11,7 +11,8 @@ class NibMotionSequenceStep {
   /// Creates a sequence step that animates to [target] using [transition]
   /// (or each `NibMotion`'s default transition if `null`), then waits for
   /// [wait] before the next step starts.
-  const NibMotionSequenceStep({required this.target, this.transition, this.wait});
+  const NibMotionSequenceStep(
+      {required this.target, this.transition, this.wait});
 
   /// The animation values to transition toward.
   final NibAnim target;
@@ -79,14 +80,19 @@ class NibMotionController extends ChangeNotifier {
   ///   `repeatAnimationInLoop` loop).
   ///
   /// Only one of `target`/`keyframes` may be provided.
-  Future<void> start({NibAnim? target, List<NibKeyframe>? keyframes, NibTransition? transition}) {
+  Future<void> start(
+      {NibAnim? target,
+      List<NibKeyframe>? keyframes,
+      NibTransition? transition}) {
     assert(
       target == null || keyframes == null,
       'NibMotionController.start: only one of `target` or `keyframes` may be provided.',
     );
     final futures = _animators.map((animator) {
-      if (keyframes != null) return animator.playKeyframes(keyframes, transition: transition);
-      if (target != null) return animator.animateTo(target, transition: transition);
+      if (keyframes != null)
+        return animator.playKeyframes(keyframes, transition: transition);
+      if (target != null)
+        return animator.animateTo(target, transition: transition);
       return animator.replayEntrance();
     });
     return Future.wait(futures).then((_) {

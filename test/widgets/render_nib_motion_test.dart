@@ -30,17 +30,17 @@ class _TestMotionValues {
     Color? color,
     BorderRadius? borderRadius,
     List<BoxShadow>? boxShadow,
-  }) : opacity = MotionValue<double>(opacity),
-       translateX = MotionValue<double>(translateX),
-       translateY = MotionValue<double>(translateY),
-       scaleX = MotionValue<double>(scaleX),
-       scaleY = MotionValue<double>(scaleY),
-       rotate = MotionValue<double>(rotate),
-       skewX = MotionValue<double>(skewX),
-       skewY = MotionValue<double>(skewY),
-       color = MotionValue<Color?>(color),
-       borderRadius = MotionValue<BorderRadius?>(borderRadius),
-       boxShadow = MotionValue<List<BoxShadow>?>(boxShadow);
+  })  : opacity = MotionValue<double>(opacity),
+        translateX = MotionValue<double>(translateX),
+        translateY = MotionValue<double>(translateY),
+        scaleX = MotionValue<double>(scaleX),
+        scaleY = MotionValue<double>(scaleY),
+        rotate = MotionValue<double>(rotate),
+        skewX = MotionValue<double>(skewX),
+        skewY = MotionValue<double>(skewY),
+        color = MotionValue<Color?>(color),
+        borderRadius = MotionValue<BorderRadius?>(borderRadius),
+        boxShadow = MotionValue<List<BoxShadow>?>(boxShadow);
 
   final MotionValue<double> opacity;
   final MotionValue<double> translateX;
@@ -55,18 +55,18 @@ class _TestMotionValues {
   final MotionValue<List<BoxShadow>?> boxShadow;
 
   List<MotionValue<Object?>> get all => [
-    opacity,
-    translateX,
-    translateY,
-    scaleX,
-    scaleY,
-    rotate,
-    skewX,
-    skewY,
-    color,
-    borderRadius,
-    boxShadow,
-  ];
+        opacity,
+        translateX,
+        translateY,
+        scaleX,
+        scaleY,
+        rotate,
+        skewX,
+        skewY,
+        color,
+        borderRadius,
+        boxShadow,
+      ];
 }
 
 class _NibMotionTestBox extends SingleChildRenderObjectWidget {
@@ -109,7 +109,8 @@ class _NibMotionTestBox extends SingleChildRenderObjectWidget {
 }
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 void main() {
@@ -122,7 +123,10 @@ void main() {
         _wrap(
           _NibMotionTestBox(
             values: values,
-            child: SizedBox(width: 50, height: 50, child: CustomPaint(painter: _PaintSpy(paintCount))),
+            child: SizedBox(
+                width: 50,
+                height: 50,
+                child: CustomPaint(painter: _PaintSpy(paintCount))),
           ),
         ),
       );
@@ -130,56 +134,71 @@ void main() {
       expect(paintCount.value, 0);
     });
 
-    testWidgets('opacity of 0.0 hides the background color too', (tester) async {
-      final values = _TestMotionValues(opacity: 0.0, color: const Color(0xFF112233));
+    testWidgets('opacity of 0.0 hides the background color too',
+        (tester) async {
+      final values =
+          _TestMotionValues(opacity: 0.0, color: const Color(0xFF112233));
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 40, height: 40))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 40, height: 40))),
       );
 
       expect(find.byType(_NibMotionTestBox), paintsNothing);
     });
 
-    testWidgets('translateX offsets the child by a pure translation', (tester) async {
+    testWidgets('translateX offsets the child by a pure translation',
+        (tester) async {
       final values = _TestMotionValues(translateX: 50.0);
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 100, height: 100))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 100, height: 100))),
       );
 
-      final renderObject = tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
+      final renderObject =
+          tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
       expect(renderObject.transform, Matrix4.translationValues(50.0, 0.0, 0.0));
     });
 
-    testWidgets('scale of 2.0 doubles the apparent size of the child', (tester) async {
+    testWidgets('scale of 2.0 doubles the apparent size of the child',
+        (tester) async {
       final values = _TestMotionValues(scaleX: 2.0, scaleY: 2.0);
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 100, height: 100))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 100, height: 100))),
       );
 
-      final renderObject = tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
+      final renderObject =
+          tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
       expect(renderObject.transform.getMaxScaleOnAxis(), closeTo(2.0, 1e-9));
     });
 
-    testWidgets('rotate of 0.5 turns flips the child upside down', (tester) async {
+    testWidgets('rotate of 0.5 turns flips the child upside down',
+        (tester) async {
       final values = _TestMotionValues(rotate: 0.5);
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 100, height: 100))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 100, height: 100))),
       );
 
-      final renderObject = tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
+      final renderObject =
+          tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
       final transform = renderObject.transform;
 
-      final topCenter = MatrixUtils.transformPoint(transform, const Offset(50, 0));
-      final bottomCenter = MatrixUtils.transformPoint(transform, const Offset(50, 100));
+      final topCenter =
+          MatrixUtils.transformPoint(transform, const Offset(50, 0));
+      final bottomCenter =
+          MatrixUtils.transformPoint(transform, const Offset(50, 100));
 
       expect(topCenter, within(distance: 1e-9, from: const Offset(50, 100)));
       expect(bottomCenter, within(distance: 1e-9, from: const Offset(50, 0)));
     });
 
-    testWidgets('updating a MotionValue repaints without rebuilding ancestors', (tester) async {
+    testWidgets('updating a MotionValue repaints without rebuilding ancestors',
+        (tester) async {
       var buildCount = 0;
       final values = _TestMotionValues();
 
@@ -190,7 +209,9 @@ void main() {
             builder: (context) {
               buildCount++;
               return Center(
-                child: _NibMotionTestBox(values: values, child: const SizedBox(width: 50, height: 50)),
+                child: _NibMotionTestBox(
+                    values: values,
+                    child: const SizedBox(width: 50, height: 50)),
               );
             },
           ),
@@ -207,11 +228,13 @@ void main() {
       expect(buildCount, 1);
     });
 
-    testWidgets('dispose removes listeners from every MotionValue', (tester) async {
+    testWidgets('dispose removes listeners from every MotionValue',
+        (tester) async {
       final values = _TestMotionValues();
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 10, height: 10))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 10, height: 10))),
       );
 
       for (final motionValue in values.all) {
@@ -225,38 +248,51 @@ void main() {
       }
     });
 
-    testWidgets('translateX moves the background color along with the child', (tester) async {
-      final values = _TestMotionValues(translateX: 50.0, color: const Color(0xFF112233));
+    testWidgets('translateX moves the background color along with the child',
+        (tester) async {
+      final values =
+          _TestMotionValues(translateX: 50.0, color: const Color(0xFF112233));
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 40, height: 40))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 40, height: 40))),
       );
 
-      expect(find.byType(_NibMotionTestBox), paints..transform()..rect(color: const Color(0xFF112233)));
+      expect(
+          find.byType(_NibMotionTestBox),
+          paints
+            ..transform()
+            ..rect(color: const Color(0xFF112233)));
     });
 
-    testWidgets('a non-null color paints a background rect behind the child', (tester) async {
+    testWidgets('a non-null color paints a background rect behind the child',
+        (tester) async {
       const color = Color(0xFF112233);
       final values = _TestMotionValues(color: color);
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 40, height: 40))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 40, height: 40))),
       );
 
       expect(find.byType(_NibMotionTestBox), paints..rect(color: color));
     });
 
     testWidgets('a non-null borderRadius clips the child', (tester) async {
-      final values = _TestMotionValues(borderRadius: BorderRadius.circular(8.0));
+      final values =
+          _TestMotionValues(borderRadius: BorderRadius.circular(8.0));
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 40, height: 40))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 40, height: 40))),
       );
 
       expect(find.byType(_NibMotionTestBox), paints..clipRRect());
     });
 
-    testWidgets('a non-null borderRadius clips around the child when offset from the origin', (tester) async {
+    testWidgets(
+        'a non-null borderRadius clips around the child when offset from the origin',
+        (tester) async {
       // Regression test: `pushClipRRect` shifts its `bounds`/`clipRRect`
       // arguments by `offset` itself, so passing already-offset rects (as
       // `offset & size`) double-applies the offset and clips the child out
@@ -266,13 +302,16 @@ void main() {
       // so to exercise a non-zero offset we call `paint` directly inside a
       // custom painter function and check the resulting canvas commands.
       const color = Color(0xFF112233);
-      final values = _TestMotionValues(borderRadius: BorderRadius.circular(8.0), color: color);
+      final values = _TestMotionValues(
+          borderRadius: BorderRadius.circular(8.0), color: color);
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 40, height: 40))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 40, height: 40))),
       );
 
-      final renderObject = tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
+      final renderObject =
+          tester.renderObject<RenderNibMotion>(find.byType(_NibMotionTestBox));
       const paintOffset = Offset(100, 50);
       final expectedRRect = RRect.fromRectAndRadius(
         const Rect.fromLTWH(100, 50, 40, 40),
@@ -280,22 +319,26 @@ void main() {
       );
 
       expect(
-        (PaintingContext context, Offset _) => renderObject.paint(context, paintOffset),
+        (PaintingContext context, Offset _) =>
+            renderObject.paint(context, paintOffset),
         paints
           ..rrect(rrect: expectedRRect, color: color)
           ..clipRRect(rrect: expectedRRect),
       );
     });
 
-    testWidgets('a non-null boxShadow paints a shadow behind the child', (tester) async {
+    testWidgets('a non-null boxShadow paints a shadow behind the child',
+        (tester) async {
       const shadow = BoxShadow(color: Color(0xFF000000), blurRadius: 4.0);
       final values = _TestMotionValues(boxShadow: const [shadow]);
 
       await tester.pumpWidget(
-        _wrap(_NibMotionTestBox(values: values, child: const SizedBox(width: 40, height: 40))),
+        _wrap(_NibMotionTestBox(
+            values: values, child: const SizedBox(width: 40, height: 40))),
       );
 
-      expect(find.byType(_NibMotionTestBox), paints..rrect(color: shadow.color));
+      expect(
+          find.byType(_NibMotionTestBox), paints..rrect(color: shadow.color));
     });
   });
 }

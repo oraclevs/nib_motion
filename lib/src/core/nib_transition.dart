@@ -91,6 +91,6 @@ class NibTransition {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(duration, curve, delay, spring, delayChildren, staggerChildren);
+  int get hashCode => Object.hash(
+      duration, curve, delay, spring, delayChildren, staggerChildren);
 }

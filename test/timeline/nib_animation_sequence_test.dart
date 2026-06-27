@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
@@ -22,7 +23,9 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibAnimationSequence', () {
-    testWidgets('animate -> wait -> animate -> call runs in order and completes', (tester) async {
+    testWidgets(
+        'animate -> wait -> animate -> call runs in order and completes',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -78,7 +81,8 @@ void main() {
       expect(doneFired, isTrue);
     });
 
-    testWidgets('loop(2) runs the recorded steps twice then completes', (tester) async {
+    testWidgets('loop(2) runs the recorded steps twice then completes',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 

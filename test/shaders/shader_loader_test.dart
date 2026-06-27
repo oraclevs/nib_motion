@@ -39,7 +39,8 @@ void main() {
     first.ignore();
   });
 
-  test('gradientSweep() returns the same Future instance on repeated calls', () {
+  test('gradientSweep() returns the same Future instance on repeated calls',
+      () {
     final first = NibShaderLoader.gradientSweep();
     final second = NibShaderLoader.gradientSweep();
     expect(first, same(second));
@@ -63,7 +64,9 @@ void main() {
     after.ignore();
   });
 
-  test('preloadAll completes without throwing regardless of shader compilation outcome', () async {
+  test(
+      'preloadAll completes without throwing regardless of shader compilation outcome',
+      () async {
     // preloadAll() swallows individual shader load failures internally, so
     // this resolves cleanly whether or not shader compilation is actually
     // supported in this test environment.
@@ -71,8 +74,10 @@ void main() {
   });
 
   test('asset keys point at this package\'s bundled shader files', () {
-    expect(NibShaderAssets.shimmer, 'packages/nib_motion/lib/shaders/shimmer.frag');
-    expect(NibShaderAssets.dissolve, 'packages/nib_motion/lib/shaders/dissolve.frag');
+    expect(NibShaderAssets.shimmer,
+        'packages/nib_motion/lib/shaders/shimmer.frag');
+    expect(NibShaderAssets.dissolve,
+        'packages/nib_motion/lib/shaders/dissolve.frag');
     expect(
       NibShaderAssets.gradientSweep,
       'packages/nib_motion/lib/shaders/gradient_sweep.frag',

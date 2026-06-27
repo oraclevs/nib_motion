@@ -118,7 +118,8 @@ class NibAnimationSequence {
   /// Must be called at most once, after recording the steps to repeat and
   /// before calling [play].
   NibAnimationSequence loop([int? times]) {
-    assert(times == null || times > 0, 'NibAnimationSequence.loop: times must be positive if provided.');
+    assert(times == null || times > 0,
+        'NibAnimationSequence.loop: times must be positive if provided.');
     _loopCount = times ?? -1;
     return this;
   }

@@ -15,21 +15,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('renders child even if the shimmer shader never resolves', (tester) async {
+  testWidgets('renders child even if the shimmer shader never resolves',
+      (tester) async {
     // In the default `flutter test` harness, shader compilation may not
     // resolve before the widget tree is torn down; `NibShimmer` must still
     // paint `child` either way.
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: NibShimmer(child: Text('content', textDirection: TextDirection.ltr)),
+        child: NibShimmer(
+            child: Text('content', textDirection: TextDirection.ltr)),
       ),
     );
 
     expect(find.text('content'), findsOneWidget);
   });
 
-  testWidgets('enabled: false paints child with no shimmer overlay', (tester) async {
+  testWidgets('enabled: false paints child with no shimmer overlay',
+      (tester) async {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
@@ -56,7 +59,8 @@ void main() {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: NibShimmer(enabled: false, child: SizedBox(width: 100, height: 40)),
+        child:
+            NibShimmer(enabled: false, child: SizedBox(width: 100, height: 40)),
       ),
     );
     await tester.pump(const Duration(milliseconds: 16));
@@ -64,7 +68,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('disposes its Ticker cleanly with no leak failure', (tester) async {
+  testWidgets('disposes its Ticker cleanly with no leak failure',
+      (tester) async {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,

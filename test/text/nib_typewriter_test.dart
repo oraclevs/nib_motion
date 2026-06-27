@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/text/nib_typewriter.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 void main() {
@@ -37,7 +38,8 @@ void main() {
       expect(textWidget.data, 'abc');
     });
 
-    testWidgets('calls onComplete exactly once after the full text is revealed', (tester) async {
+    testWidgets('calls onComplete exactly once after the full text is revealed',
+        (tester) async {
       var completeCount = 0;
       await tester.pumpWidget(
         _wrap(
@@ -61,7 +63,8 @@ void main() {
       expect(completeCount, 1);
     });
 
-    testWidgets('respects an initial delay before typing starts', (tester) async {
+    testWidgets('respects an initial delay before typing starts',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibTypewriter(

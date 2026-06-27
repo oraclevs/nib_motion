@@ -4,7 +4,8 @@ import 'package:nib_motion/nib_motion.dart';
 
 void main() {
   group('NibParallax', () {
-    testWidgets('translates child vertically by scrollDelta * factor', (tester) async {
+    testWidgets('translates child vertically by scrollDelta * factor',
+        (tester) async {
       final controller = ScrollController();
       const factor = 0.5;
 
@@ -28,9 +29,11 @@ void main() {
         ),
       );
 
-      RenderNibMotion render() => tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
+      RenderNibMotion render() =>
+          tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
 
-      expect(render().translateY.value, closeTo(0, 1e-9), reason: 'no parallax offset before any scroll');
+      expect(render().translateY.value, closeTo(0, 1e-9),
+          reason: 'no parallax offset before any scroll');
 
       controller.jumpTo(200);
       await tester.pump();
@@ -44,10 +47,12 @@ void main() {
       controller.jumpTo(50);
       await tester.pump();
 
-      expect(render().translateY.value, closeTo(50 * factor, 1e-9), reason: 'updates again on further scroll');
+      expect(render().translateY.value, closeTo(50 * factor, 1e-9),
+          reason: 'updates again on further scroll');
     });
 
-    testWidgets('factor 0 keeps child stationary regardless of scroll', (tester) async {
+    testWidgets('factor 0 keeps child stationary regardless of scroll',
+        (tester) async {
       final controller = ScrollController();
 
       await tester.pumpWidget(
@@ -70,15 +75,19 @@ void main() {
         ),
       );
 
-      RenderNibMotion render() => tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
+      RenderNibMotion render() =>
+          tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
 
       controller.jumpTo(400);
       await tester.pump();
 
-      expect(render().translateY.value, closeTo(0, 1e-9), reason: 'factor 0 never moves the child');
+      expect(render().translateY.value, closeTo(0, 1e-9),
+          reason: 'factor 0 never moves the child');
     });
 
-    testWidgets('horizontal axis translates child by scrollDelta * factor along x', (tester) async {
+    testWidgets(
+        'horizontal axis translates child by scrollDelta * factor along x',
+        (tester) async {
       final controller = ScrollController();
       const factor = 0.5;
 
@@ -104,7 +113,8 @@ void main() {
         ),
       );
 
-      RenderNibMotion render() => tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
+      RenderNibMotion render() =>
+          tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
 
       controller.jumpTo(300);
       await tester.pump();
@@ -113,7 +123,8 @@ void main() {
       expect(render().translateY.value, closeTo(0, 1e-9));
     });
 
-    testWidgets('disposes its scroll bridge without throwing when removed', (tester) async {
+    testWidgets('disposes its scroll bridge without throwing when removed',
+        (tester) async {
       final controller = ScrollController();
 
       await tester.pumpWidget(

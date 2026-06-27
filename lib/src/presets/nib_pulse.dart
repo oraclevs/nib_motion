@@ -14,7 +14,10 @@ import 'nib_anim_presets.dart';
 /// ```
 class NibPulse extends StatelessWidget {
   /// Creates a `NibPulse`.
-  const NibPulse({super.key, required this.child, this.duration = const Duration(milliseconds: 900)});
+  const NibPulse(
+      {super.key,
+      required this.child,
+      this.duration = const Duration(milliseconds: 900)});
 
   /// The widget to pulse.
   final Widget child;

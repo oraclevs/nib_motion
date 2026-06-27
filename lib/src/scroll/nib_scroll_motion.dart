@@ -18,7 +18,8 @@ import 'scroll_motion_bridge.dart';
 /// ```
 class NibScrollMotion extends StatefulWidget {
   /// Creates a `NibScrollMotion`.
-  const NibScrollMotion({super.key, required this.controller, required this.builder});
+  const NibScrollMotion(
+      {super.key, required this.controller, required this.builder});
 
   /// The scroll controller whose offset is mirrored into the
   /// [ScrollMotionBridge] passed to [builder].
@@ -26,7 +27,8 @@ class NibScrollMotion extends StatefulWidget {
 
   /// Builds the subtree below this widget, given the [ScrollMotionBridge]
   /// created for [controller].
-  final Widget Function(BuildContext context, ScrollMotionBridge bridge) builder;
+  final Widget Function(BuildContext context, ScrollMotionBridge bridge)
+      builder;
 
   @override
   State<NibScrollMotion> createState() => _NibScrollMotionState();

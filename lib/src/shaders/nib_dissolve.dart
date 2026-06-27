@@ -62,7 +62,8 @@ class NibDissolve extends StatefulWidget {
   State<NibDissolve> createState() => _NibDissolveState();
 }
 
-class _NibDissolveState extends State<NibDissolve> with SingleTickerProviderStateMixin {
+class _NibDissolveState extends State<NibDissolve>
+    with SingleTickerProviderStateMixin {
   final MotionValue<double> _progress = MotionValue<double>(0);
   Ticker? _ticker;
   FragmentProgram? _program;
@@ -171,7 +172,8 @@ class _NibDissolveLayer extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderNibDissolve renderObject) {
+  void updateRenderObject(
+      BuildContext context, RenderNibDissolve renderObject) {
     renderObject
       ..progress = progress
       ..program = program
@@ -195,9 +197,9 @@ class RenderNibDissolve extends RenderRepaintBoundary {
     required FragmentProgram program,
     required double noiseScale,
     super.child,
-  }) : _progress = progress,
-       _program = program,
-       _noiseScale = noiseScale {
+  })  : _progress = progress,
+        _program = program,
+        _noiseScale = noiseScale {
     _shader = _program.fragmentShader();
     _progress.addListener(_onProgressChanged);
   }

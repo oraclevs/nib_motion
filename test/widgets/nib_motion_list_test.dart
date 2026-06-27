@@ -5,7 +5,8 @@ import 'package:nib_motion/nib_motion.dart';
 Widget _wrap(Widget child) {
   return NibMotionConfig(
     entranceWarmup: Duration.zero,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 
@@ -22,19 +23,22 @@ List<RenderNibMotion> _findRenderNibMotions(WidgetTester tester) {
 }
 
 List<Widget> _items(int count) => [
-  for (var i = 0; i < count; i++) SizedBox(key: ValueKey('item$i'), width: 10, height: 10),
-];
+      for (var i = 0; i < count; i++)
+        SizedBox(key: ValueKey('item$i'), width: 10, height: 10),
+    ];
 
 void main() {
   group('NibMotionList', () {
-    testWidgets('staggers children so the first starts before the last', (tester) async {
+    testWidgets('staggers children so the first starts before the last',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotionList(
             initial: const NibAnim(opacity: 0),
             animate: const NibAnim(opacity: 1),
             staggerDelay: const Duration(milliseconds: 100),
-            transition: const NibTransition(duration: Duration(milliseconds: 100)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 100)),
             children: _items(5),
           ),
         ),
@@ -48,7 +52,9 @@ void main() {
       expect(motions[4].opacity.value, 0.0);
     });
 
-    testWidgets('staggerDirection reverse starts the last child before the first', (tester) async {
+    testWidgets(
+        'staggerDirection reverse starts the last child before the first',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotionList(
@@ -56,7 +62,8 @@ void main() {
             animate: const NibAnim(opacity: 1),
             staggerDelay: const Duration(milliseconds: 100),
             staggerDirection: NibStaggerDirection.reverse,
-            transition: const NibTransition(duration: Duration(milliseconds: 100)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 100)),
             children: _items(5),
           ),
         ),
@@ -70,14 +77,16 @@ void main() {
       expect(motions[0].opacity.value, 0.0);
     });
 
-    testWidgets('presenceEnabled plays the exit animation for a removed child', (tester) async {
+    testWidgets('presenceEnabled plays the exit animation for a removed child',
+        (tester) async {
       Widget build(List<Widget> children) {
         return _wrap(
           NibMotionList(
             initial: const NibAnim(opacity: 1),
             exit: const NibAnim(opacity: 0),
             presenceEnabled: true,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             children: children,
           ),
         );
@@ -105,7 +114,8 @@ void main() {
           NibMotionList(
             initial: const NibAnim(opacity: 0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             children: _items(3),
           ),
         ),

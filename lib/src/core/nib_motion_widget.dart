@@ -120,18 +120,18 @@ class NibMotion extends StatefulWidget {
     this.controller,
     this.repeatAnimationInLoop = false,
     required this.child,
-  }) : assert(
-         exit == null || key != null,
-         'NibMotion: exit animation requires a non-null key for NibPresence tracking.',
-       ),
-       assert(
-         initial == null || initial is String || initial is NibAnim,
-         'NibMotion.initial must be a String variant name or a NibAnim.',
-       ),
-       assert(
-         animate == null || animate is String || animate is NibAnim,
-         'NibMotion.animate must be a String variant name or a NibAnim.',
-       );
+  })  : assert(
+          exit == null || key != null,
+          'NibMotion: exit animation requires a non-null key for NibPresence tracking.',
+        ),
+        assert(
+          initial == null || initial is String || initial is NibAnim,
+          'NibMotion.initial must be a String variant name or a NibAnim.',
+        ),
+        assert(
+          animate == null || animate is String || animate is NibAnim,
+          'NibMotion.animate must be a String variant name or a NibAnim.',
+        );
 
   /// The animation values applied immediately on first build, before any
   /// transition runs. Defaults to [NibAnim.identity].
@@ -234,7 +234,9 @@ class NibMotion extends StatefulWidget {
   State<NibMotion> createState() => _NibMotionState();
 }
 
-class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin implements NibMotionAnimator {
+class _NibMotionState extends State<NibMotion>
+    with TickerProviderStateMixin
+    implements NibMotionAnimator {
   late final MotionValue<double> _opacity;
   late final MotionValue<double> _translateX;
   late final MotionValue<double> _translateY;
@@ -254,7 +256,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
       'NibMotion#${widget.key ?? identityHashCode(this)}';
 
   final Map<String, SpringSolver> _springSolvers = <String, SpringSolver>{};
-  final Map<String, AnimationController> _tweenControllers = <String, AnimationController>{};
+  final Map<String, AnimationController> _tweenControllers =
+      <String, AnimationController>{};
   final Map<String, VoidCallback> _tweenListeners = <String, VoidCallback>{};
   final Map<String, InertiaSolver> _inertiaSolvers = <String, InertiaSolver>{};
 
@@ -289,17 +292,27 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
         ? computeAnimFromKeyframes(keyframes, 0.0, Curves.linear)
         : (_resolveAnim(widget.initial) ?? NibAnim.identity);
     final external = widget.motionValues;
-    _opacity = external?.opacity ?? MotionValue(start.opacity ?? NibAnim.identity.opacity!);
-    _translateX = external?.translateX ?? MotionValue(start.x ?? NibAnim.identity.x!);
-    _translateY = external?.translateY ?? MotionValue(start.y ?? NibAnim.identity.y!);
-    _scaleX = external?.scaleX ?? MotionValue(_resolveScaleX(start) ?? NibAnim.identity.scaleX!);
-    _scaleY = external?.scaleY ?? MotionValue(_resolveScaleY(start) ?? NibAnim.identity.scaleY!);
-    _rotate = external?.rotate ?? MotionValue(start.rotate ?? NibAnim.identity.rotate!);
-    _skewX = external?.skewX ?? MotionValue(start.skewX ?? NibAnim.identity.skewX!);
-    _skewY = external?.skewY ?? MotionValue(start.skewY ?? NibAnim.identity.skewY!);
+    _opacity = external?.opacity ??
+        MotionValue(start.opacity ?? NibAnim.identity.opacity!);
+    _translateX =
+        external?.translateX ?? MotionValue(start.x ?? NibAnim.identity.x!);
+    _translateY =
+        external?.translateY ?? MotionValue(start.y ?? NibAnim.identity.y!);
+    _scaleX = external?.scaleX ??
+        MotionValue(_resolveScaleX(start) ?? NibAnim.identity.scaleX!);
+    _scaleY = external?.scaleY ??
+        MotionValue(_resolveScaleY(start) ?? NibAnim.identity.scaleY!);
+    _rotate = external?.rotate ??
+        MotionValue(start.rotate ?? NibAnim.identity.rotate!);
+    _skewX =
+        external?.skewX ?? MotionValue(start.skewX ?? NibAnim.identity.skewX!);
+    _skewY =
+        external?.skewY ?? MotionValue(start.skewY ?? NibAnim.identity.skewY!);
     _color = external?.color ?? MotionValue<Color?>(start.color);
-    _borderRadius = external?.borderRadius ?? MotionValue<BorderRadius?>(start.borderRadius);
-    _boxShadow = external?.boxShadow ?? MotionValue<List<BoxShadow>?>(start.boxShadow);
+    _borderRadius = external?.borderRadius ??
+        MotionValue<BorderRadius?>(start.borderRadius);
+    _boxShadow =
+        external?.boxShadow ?? MotionValue<List<BoxShadow>?>(start.boxShadow);
 
     if (kDebugMode) _registerDebugValues();
 
@@ -410,17 +423,21 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   /// tween [AnimationController] going `0.0` → `1.0`, applying
   /// [computeAnimFromKeyframes] at each tick. See [NibMotion.keyframes].
   void _startKeyframeAnimation(List<NibKeyframe> keyframes) {
-    final transition = widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
+    final transition =
+        widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
 
     if (NibMotionConfig.shouldReduceMotion(context)) {
-      setImmediately(computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
+      setImmediately(
+          computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
       return;
     }
 
-    final controller = AnimationController(vsync: this, duration: transition.duration);
+    final controller =
+        AnimationController(vsync: this, duration: transition.duration);
     _keyframeController = controller;
     controller.addListener(() {
-      setImmediately(computeAnimFromKeyframes(keyframes, controller.value, transition.curve));
+      setImmediately(computeAnimFromKeyframes(
+          keyframes, controller.value, transition.curve));
     });
     _afterEntranceGate(() {
       if (!mounted) return;
@@ -439,14 +456,17 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   void _startRepeatLoop() {
     if (widget.motionValues != null) return;
 
-    final transition = widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
+    final transition =
+        widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
     final keyframes = widget.keyframes;
 
     if (NibMotionConfig.shouldReduceMotion(context)) {
       if (keyframes != null) {
-        setImmediately(computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
+        setImmediately(
+            computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
       } else {
-        final from = NibAnim.identity.merge(_resolveAnim(widget.initial) ?? NibAnim.identity);
+        final from = NibAnim.identity
+            .merge(_resolveAnim(widget.initial) ?? NibAnim.identity);
         final to = NibAnim.identity.merge(_resolveAnim(widget.animate) ?? from);
         setImmediately(to);
       }
@@ -454,18 +474,22 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     }
 
     _loopController?.dispose();
-    final controller = AnimationController(vsync: this, duration: transition.duration);
+    final controller =
+        AnimationController(vsync: this, duration: transition.duration);
     _loopController = controller;
 
     if (keyframes != null) {
       controller.addListener(() {
-        setImmediately(computeAnimFromKeyframes(keyframes, controller.value, transition.curve));
+        setImmediately(computeAnimFromKeyframes(
+            keyframes, controller.value, transition.curve));
       });
     } else {
-      final from = NibAnim.identity.merge(_resolveAnim(widget.initial) ?? NibAnim.identity);
+      final from = NibAnim.identity
+          .merge(_resolveAnim(widget.initial) ?? NibAnim.identity);
       final to = NibAnim.identity.merge(_resolveAnim(widget.animate) ?? from);
       controller.addListener(() {
-        setImmediately(from.lerp(to, transition.curve.transform(controller.value)));
+        setImmediately(
+            from.lerp(to, transition.curve.transform(controller.value)));
       });
     }
 
@@ -598,7 +622,9 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
       widget.controller?.attach(this);
     }
     final animate = widget.animate;
-    if (animate != null && animate != oldWidget.animate && _gestureState == NibGestureState.none) {
+    if (animate != null &&
+        animate != oldWidget.animate &&
+        _gestureState == NibGestureState.none) {
       if (animate is String) _lastVariantName = animate;
       final target = _resolveAnim(animate);
       if (target != null) animateTo(target);
@@ -639,7 +665,9 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
       return Future.value();
     }
 
-    final effective = transition ?? widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
+    final effective = transition ??
+        widget.transition ??
+        NibMotionConfig.defaultTransitionOf(context);
 
     final delay = effective.delay;
     if (delay > Duration.zero) {
@@ -675,23 +703,27 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
 
     final color = target.color;
     if (color != null) {
-      futures.add(_animateWithTween<Color?>(_color, 'color', color, effective, Color.lerp));
+      futures.add(_animateWithTween<Color?>(
+          _color, 'color', color, effective, Color.lerp));
     }
 
     final borderRadius = target.borderRadius;
     if (borderRadius != null) {
-      futures.add(_animateWithTween<BorderRadius?>(_borderRadius, 'borderRadius', borderRadius, effective, BorderRadius.lerp));
+      futures.add(_animateWithTween<BorderRadius?>(_borderRadius,
+          'borderRadius', borderRadius, effective, BorderRadius.lerp));
     }
 
     final boxShadow = target.boxShadow;
     if (boxShadow != null) {
-      futures.add(_animateWithTween<List<BoxShadow>?>(_boxShadow, 'boxShadow', boxShadow, effective, BoxShadow.lerpList));
+      futures.add(_animateWithTween<List<BoxShadow>?>(
+          _boxShadow, 'boxShadow', boxShadow, effective, BoxShadow.lerpList));
     }
 
     return Future.wait(futures).then((_) {});
   }
 
-  Future<void>? _animateDouble(MotionValue<double> value, String key, double? target, NibTransition transition) {
+  Future<void>? _animateDouble(MotionValue<double> value, String key,
+      double? target, NibTransition transition) {
     if (target == null) return null;
 
     _inertiaSolvers[key]?.stop();
@@ -699,7 +731,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     final spring = transition.spring;
     if (spring != null) {
       _tweenControllers[key]?.stop();
-      final solver = _springSolvers.putIfAbsent(key, () => SpringSolver(vsync: this, value: value, spring: spring));
+      final solver = _springSolvers.putIfAbsent(
+          key, () => SpringSolver(vsync: this, value: value, spring: spring));
       solver.spring = spring;
       final completer = Completer<void>();
       solver.onComplete = () {
@@ -710,7 +743,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     }
 
     _springSolvers[key]?.stop();
-    return _animateWithTween<double>(value, key, target, transition, (a, b, t) => a + (b - a) * t);
+    return _animateWithTween<double>(
+        value, key, target, transition, (a, b, t) => a + (b - a) * t);
   }
 
   Future<void> _animateWithTween<T>(
@@ -723,7 +757,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     final begin = value.value;
     if (begin == target) return Future.value();
 
-    final controller = _tweenControllers.putIfAbsent(key, () => AnimationController(vsync: this));
+    final controller = _tweenControllers.putIfAbsent(
+        key, () => AnimationController(vsync: this));
     final oldListener = _tweenListeners.remove(key);
     if (oldListener != null) controller.removeListener(oldListener);
 
@@ -803,10 +838,13 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   }
 
   @override
-  Future<void> playKeyframes(List<NibKeyframe> keyframes, {NibTransition? transition}) {
+  Future<void> playKeyframes(List<NibKeyframe> keyframes,
+      {NibTransition? transition}) {
     if (_deactivated || !context.mounted) return Future.value();
 
-    final effective = transition ?? widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
+    final effective = transition ??
+        widget.transition ??
+        NibMotionConfig.defaultTransitionOf(context);
 
     if (NibMotionConfig.shouldReduceMotion(context)) {
       setImmediately(computeAnimFromKeyframes(keyframes, 1.0, effective.curve));
@@ -815,10 +853,12 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
 
     _keyframeController?.dispose();
 
-    final controller = AnimationController(vsync: this, duration: effective.duration);
+    final controller =
+        AnimationController(vsync: this, duration: effective.duration);
     _keyframeController = controller;
     controller.addListener(() {
-      setImmediately(computeAnimFromKeyframes(keyframes, controller.value, effective.curve));
+      setImmediately(computeAnimFromKeyframes(
+          keyframes, controller.value, effective.curve));
     });
 
     return controller.forward(from: 0.0).then((_) {});
@@ -836,7 +876,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   void _onTapDown(TapDownDetails details) {
     _gestureState = NibGestureState.tap;
     final target = widget.whileTap;
-    if (target != null) animateTo(target, transition: NibTransition.springSnappy);
+    if (target != null)
+      animateTo(target, transition: NibTransition.springSnappy);
   }
 
   void _onTapEnd() {
@@ -846,7 +887,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
 
   void _onHoverEnter(PointerEnterEvent event) {
     _isHovering = true;
-    if (_gestureState == NibGestureState.tap || _gestureState == NibGestureState.drag) return;
+    if (_gestureState == NibGestureState.tap ||
+        _gestureState == NibGestureState.drag) return;
     _gestureState = NibGestureState.hover;
     final target = widget.whileHover;
     if (target != null) animateTo(target);
@@ -854,7 +896,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
 
   void _onHoverExit(PointerExitEvent event) {
     _isHovering = false;
-    if (_gestureState == NibGestureState.tap || _gestureState == NibGestureState.drag) return;
+    if (_gestureState == NibGestureState.tap ||
+        _gestureState == NibGestureState.drag) return;
     _gestureState = NibGestureState.none;
     _revertFromGesture();
   }
@@ -879,7 +922,9 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     final hoverTarget = widget.whileHover;
     final target = _gestureState == NibGestureState.hover && hoverTarget != null
         ? hoverTarget
-        : (_resolveAnim(widget.animate) ?? _resolveAnim(widget.initial) ?? NibAnim.identity);
+        : (_resolveAnim(widget.animate) ??
+            _resolveAnim(widget.initial) ??
+            NibAnim.identity);
     animateTo(target);
   }
 
@@ -940,7 +985,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _checkInView();
-      if (framesRemaining > 0) _scheduleInViewCheckRepeatedly(framesRemaining - 1);
+      if (framesRemaining > 0)
+        _scheduleInViewCheckRepeatedly(framesRemaining - 1);
     });
   }
 
@@ -948,13 +994,16 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   /// updates [_isInView] accordingly. See [NibMotion.whileInView].
   void _checkInView() {
     final renderObject = context.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.attached || !renderObject.hasSize) return;
+    if (renderObject is! RenderBox ||
+        !renderObject.attached ||
+        !renderObject.hasSize) return;
 
     final size = renderObject.size;
     if (size.isEmpty) return;
 
     final topLeft = renderObject.localToGlobal(Offset.zero);
-    final bounds = Rect.fromLTWH(topLeft.dx, topLeft.dy, size.width, size.height);
+    final bounds =
+        Rect.fromLTWH(topLeft.dx, topLeft.dy, size.width, size.height);
 
     final config = widget.viewport ?? const NibInViewConfig();
     final screenSize = MediaQuery.sizeOf(context);
@@ -967,7 +1016,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     );
 
     final intersection = bounds.intersect(viewportBounds);
-    final visibleArea = intersection.isEmpty ? 0.0 : intersection.width * intersection.height;
+    final visibleArea =
+        intersection.isEmpty ? 0.0 : intersection.width * intersection.height;
     final totalArea = bounds.width * bounds.height;
     final visibleFraction = totalArea <= 0 ? 0.0 : visibleArea / totalArea;
 
@@ -998,7 +1048,9 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   }
 
   void _revertFromInView() {
-    final target = _resolveAnim(widget.animate) ?? _resolveAnim(widget.initial) ?? NibAnim.identity;
+    final target = _resolveAnim(widget.animate) ??
+        _resolveAnim(widget.initial) ??
+        NibAnim.identity;
     animateTo(target);
   }
 
@@ -1048,7 +1100,9 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     if (snapPoints != null && snapPoints.isNotEmpty) {
       final current = Offset(_translateX.value, _translateY.value);
       final nearest = snapPoints.reduce(
-        (a, b) => (a - current).distanceSquared <= (b - current).distanceSquared ? a : b,
+        (a, b) => (a - current).distanceSquared <= (b - current).distanceSquared
+            ? a
+            : b,
       );
       _springTo(nearest, velocity);
     } else {
@@ -1063,7 +1117,9 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     }
 
     if (widget.whileDrag != null) {
-      final base = _resolveAnim(widget.animate) ?? _resolveAnim(widget.initial) ?? NibAnim.identity;
+      final base = _resolveAnim(widget.animate) ??
+          _resolveAnim(widget.initial) ??
+          NibAnim.identity;
       animateTo(
         NibAnim(
           scale: base.scale,
@@ -1082,7 +1138,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
   }
 
   void _springTo(Offset target, Velocity velocity) {
-    final transition = widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
+    final transition =
+        widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
     final spring = transition.spring ?? NibSpringDescription.gentle;
 
     _tweenControllers['translateX']?.stop();
@@ -1090,13 +1147,17 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     _inertiaSolvers['translateX']?.stop();
     _inertiaSolvers['translateY']?.stop();
 
-    final solverX = _springSolvers.putIfAbsent('translateX', () => SpringSolver(vsync: this, value: _translateX, spring: spring));
+    final solverX = _springSolvers.putIfAbsent('translateX',
+        () => SpringSolver(vsync: this, value: _translateX, spring: spring));
     solverX.spring = spring;
-    solverX.animateTo(target: target.dx, initialVelocity: velocity.pixelsPerSecond.dx);
+    solverX.animateTo(
+        target: target.dx, initialVelocity: velocity.pixelsPerSecond.dx);
 
-    final solverY = _springSolvers.putIfAbsent('translateY', () => SpringSolver(vsync: this, value: _translateY, spring: spring));
+    final solverY = _springSolvers.putIfAbsent('translateY',
+        () => SpringSolver(vsync: this, value: _translateY, spring: spring));
     solverY.spring = spring;
-    solverY.animateTo(target: target.dy, initialVelocity: velocity.pixelsPerSecond.dy);
+    solverY.animateTo(
+        target: target.dy, initialVelocity: velocity.pixelsPerSecond.dy);
   }
 
   /// Resolves this widget's `animate` against the variant name set by its
@@ -1115,10 +1176,13 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
 
     if (animate is String) {
       variantName = animate;
-    } else if (animate == null && widget.variants != null && ancestorScope != null) {
+    } else if (animate == null &&
+        widget.variants != null &&
+        ancestorScope != null) {
       variantName = ancestorScope.variant;
       _staggerIndex ??= ancestorScope.indexCounter.next();
-      delay = ancestorScope.delayChildren + ancestorScope.staggerChildren * _staggerIndex!;
+      delay = ancestorScope.delayChildren +
+          ancestorScope.staggerChildren * _staggerIndex!;
     }
 
     if (variantName == null || variantName == _lastVariantName) return;
@@ -1141,10 +1205,12 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     _springSolvers['translateX']?.stop();
     _springSolvers['translateY']?.stop();
 
-    final solverX = _inertiaSolvers.putIfAbsent('translateX', () => InertiaSolver(vsync: this, value: _translateX));
+    final solverX = _inertiaSolvers.putIfAbsent(
+        'translateX', () => InertiaSolver(vsync: this, value: _translateX));
     solverX.animateTo(velocity: velocity.pixelsPerSecond.dx);
 
-    final solverY = _inertiaSolvers.putIfAbsent('translateY', () => InertiaSolver(vsync: this, value: _translateY));
+    final solverY = _inertiaSolvers.putIfAbsent(
+        'translateY', () => InertiaSolver(vsync: this, value: _translateY));
     solverY.animateTo(velocity: velocity.pixelsPerSecond.dy);
   }
 
@@ -1254,8 +1320,10 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     _maybeSyncVariant(ancestorScope);
 
     final animate = widget.animate;
-    final propagatedVariant = animate is String ? animate : ancestorScope?.variant;
-    final effectiveTransition = widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
+    final propagatedVariant =
+        animate is String ? animate : ancestorScope?.variant;
+    final effectiveTransition =
+        widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
 
     Widget result = _NibMotionBox(
       opacity: _opacity,
@@ -1283,7 +1351,8 @@ class _NibMotionState extends State<NibMotion> with TickerProviderStateMixin imp
     }
 
     if (widget.whileHover != null) {
-      result = MouseRegion(onEnter: _onHoverEnter, onExit: _onHoverExit, child: result);
+      result = MouseRegion(
+          onEnter: _onHoverEnter, onExit: _onHoverExit, child: result);
     }
 
     if (widget.whileTap != null || widget.drag != null) {

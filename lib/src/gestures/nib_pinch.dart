@@ -54,7 +54,8 @@ class _RenderNibPinch extends RenderProxyBox {
     final matrix = Matrix4.translationValues(center.dx, center.dy, 0.0)
       ..multiply(Matrix4.diagonal3Values(scaleValue, scaleValue, 1.0))
       ..multiply(Matrix4.translationValues(-center.dx, -center.dy, 0.0));
-    context.pushTransform(needsCompositing, offset, matrix, (context, offset) => super.paint(context, offset));
+    context.pushTransform(needsCompositing, offset, matrix,
+        (context, offset) => super.paint(context, offset));
   }
 
   @override
@@ -111,7 +112,8 @@ class NibPinch extends StatefulWidget {
 }
 
 class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
-  late final MotionValue<double> _scale = MotionValue<double>(widget.initialScale);
+  late final MotionValue<double> _scale =
+      MotionValue<double>(widget.initialScale);
 
   SpringSolver? _springSolver;
   double _scaleStart = 1.0;
@@ -119,7 +121,8 @@ class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(NibPinch oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialScale != widget.initialScale && _springSolver == null) {
+    if (oldWidget.initialScale != widget.initialScale &&
+        _springSolver == null) {
       _scale.value = widget.initialScale;
     }
   }
@@ -136,7 +139,8 @@ class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
-    final newScale = (_scaleStart * details.scale).clamp(widget.minScale, widget.maxScale);
+    final newScale =
+        (_scaleStart * details.scale).clamp(widget.minScale, widget.maxScale);
     _scale.value = newScale;
     widget.onScaleChanged?.call(newScale);
   }
@@ -144,7 +148,8 @@ class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
   void _handleScaleEnd(ScaleEndDetails details) {
     if (!widget.snapBackOnRelease) return;
 
-    final solver = _springSolver ??= SpringSolver(vsync: this, value: _scale, spring: widget.spring);
+    final solver = _springSolver ??=
+        SpringSolver(vsync: this, value: _scale, spring: widget.spring);
     solver.spring = widget.spring;
     solver.animateTo(target: widget.initialScale);
   }

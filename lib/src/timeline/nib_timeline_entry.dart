@@ -14,7 +14,11 @@ class NibTimelineEntry {
   /// Creates a timeline entry. [controller] is driven toward [target] (via
   /// [NibMotionController.start]) once [at] has elapsed since the owning
   /// [NibTimeline] started playing.
-  const NibTimelineEntry({required this.controller, required this.target, required this.at, this.transition});
+  const NibTimelineEntry(
+      {required this.controller,
+      required this.target,
+      required this.at,
+      this.transition});
 
   /// The controller to drive when this entry fires.
   final NibMotionController controller;

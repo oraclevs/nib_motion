@@ -115,6 +115,6 @@ class NibTextConfig {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(unit, initial, animate, exit, staggerDelay, staggerFrom, transition);
+  int get hashCode => Object.hash(
+      unit, initial, animate, exit, staggerDelay, staggerFrom, transition);
 }

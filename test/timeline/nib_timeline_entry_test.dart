@@ -11,7 +11,11 @@ void main() {
       const at = Duration(milliseconds: 200);
       const transition = NibTransition(duration: Duration(milliseconds: 50));
 
-      final entry = NibTimelineEntry(controller: controller, target: target, at: at, transition: transition);
+      final entry = NibTimelineEntry(
+          controller: controller,
+          target: target,
+          at: at,
+          transition: transition);
 
       expect(entry.controller, same(controller));
       expect(entry.target, target);
@@ -23,7 +27,10 @@ void main() {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
-      final entry = NibTimelineEntry(controller: controller, target: const NibAnim(opacity: 1.0), at: Duration.zero);
+      final entry = NibTimelineEntry(
+          controller: controller,
+          target: const NibAnim(opacity: 1.0),
+          at: Duration.zero);
 
       expect(entry.transition, isNull);
     });
@@ -35,8 +42,10 @@ void main() {
       const target = NibAnim(opacity: 1.0);
       const at = Duration(milliseconds: 100);
 
-      final a = NibTimelineEntry(controller: controller, target: target, at: at);
-      final b = NibTimelineEntry(controller: controller, target: target, at: at);
+      final a =
+          NibTimelineEntry(controller: controller, target: target, at: at);
+      final b =
+          NibTimelineEntry(controller: controller, target: target, at: at);
 
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));

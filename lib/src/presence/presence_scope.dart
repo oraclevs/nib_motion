@@ -9,7 +9,8 @@ import '../core/nib_motion_animator.dart';
 /// the scope changes.
 class NibPresenceRegistration {
   /// Creates a registration with the given callbacks.
-  const NibPresenceRegistration({required this.register, required this.unregister});
+  const NibPresenceRegistration(
+      {required this.register, required this.unregister});
 
   /// Called with the `NibMotion`'s [Key] and its [NibMotionAnimator] when it
   /// mounts under a [NibPresenceScope].
@@ -25,7 +26,8 @@ class NibPresenceRegistration {
 /// `NibPresence`.
 class NibPresenceScope extends InheritedWidget {
   /// Creates a scope exposing [registration] to [child] and its descendants.
-  const NibPresenceScope({super.key, required this.registration, required super.child});
+  const NibPresenceScope(
+      {super.key, required this.registration, required super.child});
 
   /// The register/unregister callbacks for this scope.
   final NibPresenceRegistration registration;
@@ -33,7 +35,9 @@ class NibPresenceScope extends InheritedWidget {
   /// Returns the nearest [NibPresenceScope]'s registration, or `null` if
   /// there is none.
   static NibPresenceRegistration? maybeOf(BuildContext context) {
-    return context.getInheritedWidgetOfExactType<NibPresenceScope>()?.registration;
+    return context
+        .getInheritedWidgetOfExactType<NibPresenceScope>()
+        ?.registration;
   }
 
   @override

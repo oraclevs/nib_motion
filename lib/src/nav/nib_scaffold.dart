@@ -44,9 +44,9 @@ class NibScaffold extends StatefulWidget {
     this.backgroundColor,
     this.useMaterialScaffold = false,
   }) : assert(
-         screens.length == navItems.length,
-         'NibScaffold: screens and navItems must have the same length.',
-       );
+          screens.length == navItems.length,
+          'NibScaffold: screens and navItems must have the same length.',
+        );
 
   /// The screens managed by the underlying [NibScreenStack], one per
   /// [navItems] entry.
@@ -175,7 +175,9 @@ class _NibScaffoldState extends State<NibScaffold> {
     }
 
     final backgroundColor = widget.backgroundColor;
-    final background = backgroundColor == null ? stack : ColoredBox(color: backgroundColor, child: stack);
+    final background = backgroundColor == null
+        ? stack
+        : ColoredBox(color: backgroundColor, child: stack);
 
     final fab = widget.floatingActionButton;
     if (fab == null) return background;

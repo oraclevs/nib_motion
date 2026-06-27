@@ -94,7 +94,8 @@ class NibNavScreenTransition {
       type: type ?? this.type,
       spring: spring ?? this.spring,
       tween: tween ?? this.tween,
-      retriggerPageAnimations: retriggerPageAnimations ?? this.retriggerPageAnimations,
+      retriggerPageAnimations:
+          retriggerPageAnimations ?? this.retriggerPageAnimations,
       retriggerDelay: retriggerDelay ?? this.retriggerDelay,
     );
   }

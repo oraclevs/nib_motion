@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/gestures/nib_pinch.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 /// Locates [NibPinch]'s internal render object (named `_RenderNibPinch`,
@@ -33,7 +34,8 @@ double _readScale(RenderObject renderNibPinch) {
 
 /// Simulates a two-finger pinch by driving two synthetic pointers apart (or
 /// together) so `GestureDetector.onScaleUpdate` receives a non-1.0 `scale`.
-Future<void> _pinch(WidgetTester tester, Finder target, double scaleFactor) async {
+Future<void> _pinch(
+    WidgetTester tester, Finder target, double scaleFactor) async {
   final center = tester.getCenter(target);
   const startSpread = 40.0;
   final endSpread = startSpread * scaleFactor;
@@ -41,16 +43,20 @@ Future<void> _pinch(WidgetTester tester, Finder target, double scaleFactor) asyn
   final pointer1 = TestPointer(1);
   final pointer2 = TestPointer(2);
 
-  await tester.sendEventToBinding(pointer1.down(center + const Offset(-startSpread / 2, 0)));
-  await tester.sendEventToBinding(pointer2.down(center + const Offset(startSpread / 2, 0)));
+  await tester.sendEventToBinding(
+      pointer1.down(center + const Offset(-startSpread / 2, 0)));
+  await tester.sendEventToBinding(
+      pointer2.down(center + const Offset(startSpread / 2, 0)));
   await tester.pump(const Duration(milliseconds: 16));
 
   const steps = 5;
   for (var i = 1; i <= steps; i++) {
     final t = i / steps;
     final spread = startSpread + (endSpread - startSpread) * t;
-    await tester.sendEventToBinding(pointer1.move(center + Offset(-spread / 2, 0)));
-    await tester.sendEventToBinding(pointer2.move(center + Offset(spread / 2, 0)));
+    await tester
+        .sendEventToBinding(pointer1.move(center + Offset(-spread / 2, 0)));
+    await tester
+        .sendEventToBinding(pointer2.move(center + Offset(spread / 2, 0)));
     await tester.pump(const Duration(milliseconds: 16));
   }
 
@@ -66,7 +72,8 @@ void main() {
         _wrap(
           NibPinch(
             onScaleChanged: (scale) => lastScale = scale,
-            child: const SizedBox(width: 100, height: 100, key: ValueKey('box')),
+            child:
+                const SizedBox(width: 100, height: 100, key: ValueKey('box')),
           ),
         ),
       );
@@ -86,7 +93,8 @@ void main() {
           NibPinch(
             maxScale: 1.5,
             onScaleChanged: (scale) => lastScale = scale,
-            child: const SizedBox(width: 100, height: 100, key: ValueKey('box')),
+            child:
+                const SizedBox(width: 100, height: 100, key: ValueKey('box')),
           ),
         ),
       );
@@ -105,7 +113,8 @@ void main() {
           NibPinch(
             minScale: 0.8,
             onScaleChanged: (scale) => lastScale = scale,
-            child: const SizedBox(width: 100, height: 100, key: ValueKey('box')),
+            child:
+                const SizedBox(width: 100, height: 100, key: ValueKey('box')),
           ),
         ),
       );
@@ -123,7 +132,8 @@ void main() {
         _wrap(
           NibPinch(
             onScaleChanged: (scale) => callCount++,
-            child: const SizedBox(width: 100, height: 100, key: ValueKey('box')),
+            child:
+                const SizedBox(width: 100, height: 100, key: ValueKey('box')),
           ),
         ),
       );
@@ -133,7 +143,8 @@ void main() {
       expect(callCount, greaterThan(0));
     });
 
-    testWidgets('snapBackOnRelease returns scale to initialScale', (tester) async {
+    testWidgets('snapBackOnRelease returns scale to initialScale',
+        (tester) async {
       final scaleHistory = <double>[];
       await tester.pumpWidget(
         _wrap(
@@ -141,7 +152,8 @@ void main() {
             initialScale: 1.0,
             snapBackOnRelease: true,
             onScaleChanged: scaleHistory.add,
-            child: const SizedBox(width: 100, height: 100, key: ValueKey('box')),
+            child:
+                const SizedBox(width: 100, height: 100, key: ValueKey('box')),
           ),
         ),
       );

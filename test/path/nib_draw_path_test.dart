@@ -11,7 +11,8 @@ Path _zigZag() {
 
 void main() {
   group('NibDrawPath', () {
-    testWidgets('builds and paints without throwing at various progress values', (
+    testWidgets('builds and paints without throwing at various progress values',
+        (
       tester,
     ) async {
       for (final autoPlay in [false]) {
@@ -70,7 +71,8 @@ void main() {
           child: SizedBox(
             width: 120,
             height: 60,
-            child: NibDrawPath(path: _zigZag(), duration: duration, repeat: true),
+            child:
+                NibDrawPath(path: _zigZag(), duration: duration, repeat: true),
           ),
         ),
       );
@@ -93,7 +95,8 @@ void main() {
           child: SizedBox(
             width: 120,
             height: 60,
-            child: NibDrawPath(path: _zigZag(), duration: const Duration(milliseconds: 200)),
+            child: NibDrawPath(
+                path: _zigZag(), duration: const Duration(milliseconds: 200)),
           ),
         ),
       );

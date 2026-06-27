@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibMotion _findRenderNibMotion(WidgetTester tester, Key key) {
@@ -44,14 +45,16 @@ void main() {
                 key: keyA,
                 initial: const NibAnim(opacity: 0.0),
                 controller: controllerA,
-                transition: const NibTransition(duration: Duration(milliseconds: 10)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 10)),
                 child: const SizedBox(width: 20, height: 20),
               ),
               NibMotion(
                 key: keyB,
                 initial: const NibAnim(opacity: 0.0),
                 controller: controllerB,
-                transition: const NibTransition(duration: Duration(milliseconds: 10)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 10)),
                 child: const SizedBox(width: 20, height: 20),
               ),
             ],
@@ -63,7 +66,10 @@ void main() {
       final renderB = _findRenderNibMotion(tester, keyB);
 
       final timeline = NibTimeline([
-        NibTimelineEntry(controller: controllerA, target: const NibAnim(opacity: 1.0), at: Duration.zero),
+        NibTimelineEntry(
+            controller: controllerA,
+            target: const NibAnim(opacity: 1.0),
+            at: Duration.zero),
         NibTimelineEntry(
           controller: controllerB,
           target: const NibAnim(opacity: 1.0),
@@ -96,7 +102,8 @@ void main() {
       await done;
     });
 
-    testWidgets('pause cancels pending entries before they fire', (tester) async {
+    testWidgets('pause cancels pending entries before they fire',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -108,7 +115,8 @@ void main() {
             key: key,
             initial: const NibAnim(opacity: 0.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 10)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 10)),
             child: const SizedBox(width: 20, height: 20),
           ),
         ),
@@ -136,7 +144,8 @@ void main() {
       expect(render.opacity.value, closeTo(0.0, 0.01));
     });
 
-    testWidgets('stop cancels pending entries before they fire', (tester) async {
+    testWidgets('stop cancels pending entries before they fire',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -148,7 +157,8 @@ void main() {
             key: key,
             initial: const NibAnim(opacity: 0.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 10)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 10)),
             child: const SizedBox(width: 20, height: 20),
           ),
         ),
@@ -174,7 +184,8 @@ void main() {
       expect(render.opacity.value, closeTo(0.0, 0.01));
     });
 
-    testWidgets('dispose cancels pending entries and prevents further play', (tester) async {
+    testWidgets('dispose cancels pending entries and prevents further play',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -186,7 +197,8 @@ void main() {
             key: key,
             initial: const NibAnim(opacity: 0.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 10)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 10)),
             child: const SizedBox(width: 20, height: 20),
           ),
         ),
@@ -220,7 +232,10 @@ void main() {
         target: const NibAnim(opacity: 1.0),
         at: const Duration(milliseconds: 200),
       );
-      final early = NibTimelineEntry(controller: controller, target: const NibAnim(opacity: 0.0), at: Duration.zero);
+      final early = NibTimelineEntry(
+          controller: controller,
+          target: const NibAnim(opacity: 0.0),
+          at: Duration.zero);
 
       final timeline = NibTimeline([late, early]);
 

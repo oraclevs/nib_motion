@@ -15,11 +15,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('falls back to a plain opacity fade while the shader is unresolved', (tester) async {
+  testWidgets(
+      'falls back to a plain opacity fade while the shader is unresolved',
+      (tester) async {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: NibDissolve(child: Text('content', textDirection: TextDirection.ltr)),
+        child: NibDissolve(
+            child: Text('content', textDirection: TextDirection.ltr)),
       ),
     );
 
@@ -27,7 +30,9 @@ void main() {
     expect(find.byType(Opacity), findsWidgets);
   });
 
-  testWidgets('outward direction starts fully visible and animates over its duration', (tester) async {
+  testWidgets(
+      'outward direction starts fully visible and animates over its duration',
+      (tester) async {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
@@ -40,11 +45,13 @@ void main() {
     );
 
     await tester.pump();
-    final initialOpacity = tester.widget<Opacity>(find.byType(Opacity).first).opacity;
+    final initialOpacity =
+        tester.widget<Opacity>(find.byType(Opacity).first).opacity;
     expect(initialOpacity, closeTo(1.0, 0.01));
 
     await tester.pump(const Duration(milliseconds: 100));
-    final finalOpacity = tester.widget<Opacity>(find.byType(Opacity).first).opacity;
+    final finalOpacity =
+        tester.widget<Opacity>(find.byType(Opacity).first).opacity;
     expect(finalOpacity, lessThan(initialOpacity));
   });
 
@@ -65,7 +72,8 @@ void main() {
     expect(completed, isTrue);
   });
 
-  testWidgets('disposes its Ticker cleanly with no leak failure', (tester) async {
+  testWidgets('disposes its Ticker cleanly with no leak failure',
+      (tester) async {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,

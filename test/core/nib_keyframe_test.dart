@@ -28,7 +28,8 @@ void main() {
       ];
 
       final linear = computeAnimFromKeyframes(keyframes, 0.25, Curves.linear);
-      final eased = computeAnimFromKeyframes(curvedKeyframes, 0.25, Curves.linear);
+      final eased =
+          computeAnimFromKeyframes(curvedKeyframes, 0.25, Curves.linear);
 
       expect(eased.opacity, isNot(closeTo(linear.opacity!, 0.001)));
     });
@@ -36,9 +37,12 @@ void main() {
     test('a single keyframe returns its value for any t without crashing', () {
       const single = [NibKeyframe(at: 0.5, value: NibAnim(opacity: 0.7))];
 
-      expect(computeAnimFromKeyframes(single, 0.0, Curves.linear).opacity, closeTo(0.7, 0.001));
-      expect(computeAnimFromKeyframes(single, 0.5, Curves.linear).opacity, closeTo(0.7, 0.001));
-      expect(computeAnimFromKeyframes(single, 1.0, Curves.linear).opacity, closeTo(0.7, 0.001));
+      expect(computeAnimFromKeyframes(single, 0.0, Curves.linear).opacity,
+          closeTo(0.7, 0.001));
+      expect(computeAnimFromKeyframes(single, 0.5, Curves.linear).opacity,
+          closeTo(0.7, 0.001));
+      expect(computeAnimFromKeyframes(single, 1.0, Curves.linear).opacity,
+          closeTo(0.7, 0.001));
     });
 
     test('unsorted keyframes are sorted before computing', () {
@@ -48,8 +52,10 @@ void main() {
         NibKeyframe(at: 0.5, value: NibAnim(opacity: 1)),
       ];
 
-      final fromUnsorted = computeAnimFromKeyframes(unsorted, 0.25, Curves.linear);
-      final fromSorted = computeAnimFromKeyframes(keyframes, 0.25, Curves.linear);
+      final fromUnsorted =
+          computeAnimFromKeyframes(unsorted, 0.25, Curves.linear);
+      final fromSorted =
+          computeAnimFromKeyframes(keyframes, 0.25, Curves.linear);
 
       expect(fromUnsorted.opacity, closeTo(fromSorted.opacity!, 0.001));
     });

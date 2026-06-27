@@ -31,7 +31,8 @@ void main() {
       expect(bridge.scrollY.value, 100.0);
     });
 
-    testWidgets('scrollY.mapRange([0,200],[1.0,0.0]) at scroll=100 gives 0.5', (tester) async {
+    testWidgets('scrollY.mapRange([0,200],[1.0,0.0]) at scroll=100 gives 0.5',
+        (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
       await tester.pumpWidget(_scrollable(controller));
@@ -45,7 +46,8 @@ void main() {
       expect(mapped.value, 0.5);
     });
 
-    testWidgets('dispose removes the listener from the controller', (tester) async {
+    testWidgets('dispose removes the listener from the controller',
+        (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
       await tester.pumpWidget(_scrollable(controller));

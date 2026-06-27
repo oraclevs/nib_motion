@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/presets/nib_flip.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 /// Builds a `NibFlip` whose [front]/[back] are tappable buttons, so the
@@ -37,7 +38,9 @@ Widget _flip({
 
 void main() {
   group('NibFlip', () {
-    testWidgets('shows front initially and back after toggling isFlipped past the midpoint', (tester) async {
+    testWidgets(
+        'shows front initially and back after toggling isFlipped past the midpoint',
+        (tester) async {
       var frontTaps = 0;
       var backTaps = 0;
 
@@ -82,7 +85,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('toggling back to isFlipped: false reveals front again', (tester) async {
+    testWidgets('toggling back to isFlipped: false reveals front again',
+        (tester) async {
       var frontTaps = 0;
       var backTaps = 0;
 

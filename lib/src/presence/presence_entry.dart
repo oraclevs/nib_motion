@@ -5,7 +5,8 @@ import 'package:flutter/widgets.dart';
 /// Tracks a single child managed by `NibPresence`.
 class NibPresenceEntry {
   /// Creates an entry for [key] currently rendering [child].
-  NibPresenceEntry({required this.key, required this.child, this.isExiting = false});
+  NibPresenceEntry(
+      {required this.key, required this.child, this.isExiting = false});
 
   /// The key shared with [child], used to diff `NibPresence.children` across
   /// rebuilds.

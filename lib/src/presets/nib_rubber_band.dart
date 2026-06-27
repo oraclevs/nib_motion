@@ -14,7 +14,10 @@ import 'nib_anim_presets.dart';
 /// ```
 class NibRubberBand extends StatelessWidget {
   /// Creates a `NibRubberBand`.
-  const NibRubberBand({super.key, required this.child, this.duration = const Duration(milliseconds: 1000)});
+  const NibRubberBand(
+      {super.key,
+      required this.child,
+      this.duration = const Duration(milliseconds: 1000)});
 
   /// The widget to animate.
   final Widget child;

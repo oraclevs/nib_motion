@@ -23,7 +23,8 @@ class NibTimeline {
   ///
   /// [entries] is sorted by [NibTimelineEntry.at] (stable sort, so entries
   /// sharing the same offset keep their relative order).
-  NibTimeline(List<NibTimelineEntry> entries) : entries = List.unmodifiable(_sorted(entries));
+  NibTimeline(List<NibTimelineEntry> entries)
+      : entries = List.unmodifiable(_sorted(entries));
 
   static List<NibTimelineEntry> _sorted(List<NibTimelineEntry> entries) {
     final sorted = List<NibTimelineEntry>.of(entries);
@@ -60,7 +61,9 @@ class NibTimeline {
 
     for (final entry in entries) {
       final timer = Timer(entry.at, () {
-        entry.controller.start(target: entry.target, transition: entry.transition).then((_) {
+        entry.controller
+            .start(target: entry.target, transition: entry.transition)
+            .then((_) {
           remaining--;
           if (remaining == 0 && !completer.isCompleted) {
             completer.complete();

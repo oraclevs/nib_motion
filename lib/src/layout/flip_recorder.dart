@@ -20,7 +20,8 @@ class FlipRecorder {
     final box = _boxFor(key);
     if (box == null) return;
     final offset = box.localToGlobal(Offset.zero);
-    _rects[key] = Rect.fromLTWH(offset.dx, offset.dy, box.size.width, box.size.height);
+    _rects[key] =
+        Rect.fromLTWH(offset.dx, offset.dy, box.size.width, box.size.height);
   }
 
   /// The rect most recently recorded for [key] via [record], or `null` if
@@ -47,6 +48,8 @@ class FlipRecorder {
 
   static RenderBox? _boxFor(GlobalKey key) {
     final renderObject = key.currentContext?.findRenderObject();
-    return renderObject is RenderBox && renderObject.attached ? renderObject : null;
+    return renderObject is RenderBox && renderObject.attached
+        ? renderObject
+        : null;
   }
 }

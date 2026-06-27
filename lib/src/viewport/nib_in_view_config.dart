@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 @immutable
 class NibInViewConfig {
   /// Creates a viewport configuration.
-  const NibInViewConfig({this.amount = 0.5, this.once = false, this.margin = EdgeInsets.zero})
-    : assert(amount >= 0.0 && amount <= 1.0, 'amount must be between 0.0 and 1.0.');
+  const NibInViewConfig(
+      {this.amount = 0.5, this.once = false, this.margin = EdgeInsets.zero})
+      : assert(amount >= 0.0 && amount <= 1.0,
+            'amount must be between 0.0 and 1.0.');
 
   /// The fraction of this widget's area that must be visible for it to be
   /// considered in view. `0.0` triggers as soon as any part is visible;

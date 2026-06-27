@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibMotion _findRenderNibMotion(WidgetTester tester, Key key) {
@@ -37,7 +38,8 @@ void main() {
                 key: const ValueKey('a'),
                 initial: const NibAnim(opacity: 0.0),
                 animate: const NibAnim(opacity: 1.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
             ],
@@ -52,7 +54,8 @@ void main() {
       expect(renderObject.opacity.value, 1.0);
     });
 
-    testWidgets('child removed plays its exit animation before disappearing', (tester) async {
+    testWidgets('child removed plays its exit animation before disappearing',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibPresence(
@@ -61,7 +64,8 @@ void main() {
                 key: const ValueKey('a'),
                 initial: const NibAnim(opacity: 1.0),
                 exit: const NibAnim(opacity: 0.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
             ],
@@ -81,12 +85,17 @@ void main() {
       expect(find.byKey(const ValueKey('a')), findsNothing);
     });
 
-    testWidgets('child removed without an exit animation is removed immediately', (tester) async {
+    testWidgets(
+        'child removed without an exit animation is removed immediately',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibPresence(
             children: [
-              NibMotion(key: const ValueKey('a'), initial: const NibAnim(opacity: 1.0), child: const SizedBox(width: 50, height: 50)),
+              NibMotion(
+                  key: const ValueKey('a'),
+                  initial: const NibAnim(opacity: 1.0),
+                  child: const SizedBox(width: 50, height: 50)),
             ],
           ),
         ),
@@ -107,10 +116,14 @@ void main() {
                 key: const ValueKey('a'),
                 initial: const NibAnim(opacity: 1.0),
                 exit: const NibAnim(opacity: 0.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
-              NibMotion(key: const ValueKey('b'), initial: const NibAnim(opacity: 1.0), child: const SizedBox(width: 50, height: 50)),
+              NibMotion(
+                  key: const ValueKey('b'),
+                  initial: const NibAnim(opacity: 1.0),
+                  child: const SizedBox(width: 50, height: 50)),
             ],
           ),
         ),
@@ -120,7 +133,10 @@ void main() {
         _wrap(
           NibPresence(
             children: [
-              NibMotion(key: const ValueKey('b'), initial: const NibAnim(opacity: 1.0), child: const SizedBox(width: 50, height: 50)),
+              NibMotion(
+                  key: const ValueKey('b'),
+                  initial: const NibAnim(opacity: 1.0),
+                  child: const SizedBox(width: 50, height: 50)),
             ],
           ),
         ),
@@ -139,7 +155,9 @@ void main() {
       expect(renderB.opacity.value, 1.0);
     });
 
-    testWidgets('child removed then re-added before exit completes cancels the exit', (tester) async {
+    testWidgets(
+        'child removed then re-added before exit completes cancels the exit',
+        (tester) async {
       Widget buildWithChild() {
         return _wrap(
           NibPresence(
@@ -148,7 +166,8 @@ void main() {
                 key: const ValueKey('a'),
                 initial: const NibAnim(opacity: 1.0),
                 exit: const NibAnim(opacity: 0.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 100)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 100)),
                 child: const SizedBox(width: 50, height: 50),
               ),
             ],
@@ -176,7 +195,8 @@ void main() {
       expect(find.byKey(const ValueKey('a')), findsOneWidget);
     });
 
-    testWidgets('removing all children plays exit animations concurrently', (tester) async {
+    testWidgets('removing all children plays exit animations concurrently',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibPresence(
@@ -185,14 +205,16 @@ void main() {
                 key: const ValueKey('a'),
                 initial: const NibAnim(opacity: 1.0),
                 exit: const NibAnim(opacity: 0.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
               NibMotion(
                 key: const ValueKey('b'),
                 initial: const NibAnim(opacity: 1.0),
                 exit: const NibAnim(opacity: 0.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
             ],
@@ -211,12 +233,17 @@ void main() {
       expect(find.byKey(const ValueKey('b')), findsNothing);
     });
 
-    testWidgets('register/unregister lifecycle has no lingering references after dispose', (tester) async {
+    testWidgets(
+        'register/unregister lifecycle has no lingering references after dispose',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibPresence(
             children: [
-              NibMotion(key: const ValueKey('a'), initial: const NibAnim(opacity: 1.0), child: const SizedBox(width: 50, height: 50)),
+              NibMotion(
+                  key: const ValueKey('a'),
+                  initial: const NibAnim(opacity: 1.0),
+                  child: const SizedBox(width: 50, height: 50)),
             ],
           ),
         ),
@@ -237,7 +264,8 @@ void main() {
                 key: const ValueKey('a'),
                 initial: const NibAnim(opacity: 1.0),
                 exit: const NibAnim(opacity: 0.0),
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
             ],

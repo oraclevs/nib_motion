@@ -165,7 +165,8 @@ Duration computeStaggerDelay({
     case NibTextStaggerFrom.center:
       final center = (total - 1) / 2;
       final distance = (index - center).abs();
-      return Duration(microseconds: (staggerDelay.inMicroseconds * distance).round());
+      return Duration(
+          microseconds: (staggerDelay.inMicroseconds * distance).round());
     case NibTextStaggerFrom.random:
       final rand = random ?? math.Random(index * 7919 + total);
       final maxMicros = staggerDelay.inMicroseconds * total;
@@ -244,8 +245,8 @@ class NibText extends StatelessWidget {
     final initial = config.initial ?? NibAnim.identity;
     final animate = config.animate;
     final exit = config.exit;
-    final transition =
-        config.transition ?? const NibTransition(duration: Duration(milliseconds: 400));
+    final transition = config.transition ??
+        const NibTransition(duration: Duration(milliseconds: 400));
 
     var animatedIndex = 0;
     final children = <Widget>[];

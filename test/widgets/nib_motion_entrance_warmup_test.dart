@@ -2,10 +2,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-Widget _wrap(Widget child, {Duration entranceWarmup = const Duration(milliseconds: 400)}) {
+Widget _wrap(Widget child,
+    {Duration entranceWarmup = const Duration(milliseconds: 400)}) {
   return NibMotionConfig(
     entranceWarmup: entranceWarmup,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 
@@ -30,7 +32,9 @@ void main() {
   });
 
   group('NibMotionConfig.entranceWarmup', () {
-    testWidgets('holds the entrance animation at its initial value until the warm-up window elapses', (
+    testWidgets(
+        'holds the entrance animation at its initial value until the warm-up window elapses',
+        (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -38,7 +42,8 @@ void main() {
           NibMotion(
             initial: const NibAnim(opacity: 0),
             animate: const NibAnim(opacity: 1),
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 10, height: 10),
           ),
         ),
@@ -48,19 +53,23 @@ void main() {
       expect(render.opacity.value, 0.0);
 
       await tester.pump(const Duration(milliseconds: 100));
-      expect(render.opacity.value, 0.0, reason: 'still within the default 400ms warm-up window');
+      expect(render.opacity.value, 0.0,
+          reason: 'still within the default 400ms warm-up window');
 
       await tester.pumpAndSettle();
-      expect(render.opacity.value, 1.0, reason: 'starts once the warm-up window elapses');
+      expect(render.opacity.value, 1.0,
+          reason: 'starts once the warm-up window elapses');
     });
 
-    testWidgets('Duration.zero starts the entrance animation immediately', (tester) async {
+    testWidgets('Duration.zero starts the entrance animation immediately',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: const NibAnim(opacity: 0),
             animate: const NibAnim(opacity: 1),
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 10, height: 10),
           ),
           entranceWarmup: Duration.zero,
@@ -72,12 +81,15 @@ void main() {
 
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
-      expect(render.opacity.value, 1.0, reason: 'no warm-up delay when entranceWarmup is zero');
+      expect(render.opacity.value, 1.0,
+          reason: 'no warm-up delay when entranceWarmup is zero');
     });
   });
 
   group('NibMotionGate', () {
-    testWidgets('hold() keeps the entrance animation at its initial value until release()', (tester) async {
+    testWidgets(
+        'hold() keeps the entrance animation at its initial value until release()',
+        (tester) async {
       NibMotionGate.hold();
       addTearDown(NibMotionGate.reset);
 
@@ -86,7 +98,8 @@ void main() {
           NibMotion(
             initial: const NibAnim(opacity: 0),
             animate: const NibAnim(opacity: 1),
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 10, height: 10),
           ),
           entranceWarmup: Duration.zero,
@@ -97,11 +110,13 @@ void main() {
       expect(render.opacity.value, 0.0);
 
       await tester.pump(const Duration(milliseconds: 500));
-      expect(render.opacity.value, 0.0, reason: 'held entrance animations do not start');
+      expect(render.opacity.value, 0.0,
+          reason: 'held entrance animations do not start');
 
       NibMotionGate.release();
       await tester.pumpAndSettle();
-      expect(render.opacity.value, 1.0, reason: 'releases the held entrance animation');
+      expect(render.opacity.value, 1.0,
+          reason: 'releases the held entrance animation');
     });
   });
 }

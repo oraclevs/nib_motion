@@ -20,7 +20,8 @@ class _NibDraggableBox extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, _RenderNibDraggable renderObject) {
+  void updateRenderObject(
+      BuildContext context, _RenderNibDraggable renderObject) {
     renderObject
       ..x = x
       ..y = y;
@@ -30,9 +31,10 @@ class _NibDraggableBox extends SingleChildRenderObjectWidget {
 /// Paints [child] translated by [x]/[y], reading both directly during
 /// [paint] so dragging never triggers a widget rebuild.
 class _RenderNibDraggable extends RenderProxyBox {
-  _RenderNibDraggable({required MotionValue<double> x, required MotionValue<double> y})
-    : _x = x,
-      _y = y {
+  _RenderNibDraggable(
+      {required MotionValue<double> x, required MotionValue<double> y})
+      : _x = x,
+        _y = y {
     _x.addListener(_onChanged);
     _y.addListener(_onChanged);
   }
@@ -154,7 +156,8 @@ class NibDraggable extends StatefulWidget {
   State<NibDraggable> createState() => _NibDraggableState();
 }
 
-class _NibDraggableState extends State<NibDraggable> with TickerProviderStateMixin {
+class _NibDraggableState extends State<NibDraggable>
+    with TickerProviderStateMixin {
   final MotionValue<double> _x = MotionValue<double>(0.0);
   final MotionValue<double> _y = MotionValue<double>(0.0);
 
@@ -173,12 +176,14 @@ class _NibDraggableState extends State<NibDraggable> with TickerProviderStateMix
   void _handlePanStart(DragStartDetails details) {
     _springX?.stop();
     _springY?.stop();
-    _velocityTracker = VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
+    _velocityTracker =
+        VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
     widget.onDragStart?.call();
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
-    _velocityTracker?.addPosition(details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
+    _velocityTracker?.addPosition(
+        details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
 
     var dx = details.delta.dx;
     var dy = details.delta.dy;
@@ -209,13 +214,17 @@ class _NibDraggableState extends State<NibDraggable> with TickerProviderStateMix
     if (widget.snapBack) {
       final target = widget.snapTarget ?? Offset.zero;
 
-      final solverX = _springX ??= SpringSolver(vsync: this, value: _x, spring: widget.spring);
+      final solverX = _springX ??=
+          SpringSolver(vsync: this, value: _x, spring: widget.spring);
       solverX.spring = widget.spring;
-      solverX.animateTo(target: target.dx, initialVelocity: velocity.pixelsPerSecond.dx);
+      solverX.animateTo(
+          target: target.dx, initialVelocity: velocity.pixelsPerSecond.dx);
 
-      final solverY = _springY ??= SpringSolver(vsync: this, value: _y, spring: widget.spring);
+      final solverY = _springY ??=
+          SpringSolver(vsync: this, value: _y, spring: widget.spring);
       solverY.spring = widget.spring;
-      solverY.animateTo(target: target.dy, initialVelocity: velocity.pixelsPerSecond.dy);
+      solverY.animateTo(
+          target: target.dy, initialVelocity: velocity.pixelsPerSecond.dy);
     }
   }
 

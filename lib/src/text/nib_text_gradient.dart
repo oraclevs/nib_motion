@@ -114,7 +114,8 @@ class _NibGradientTextState extends State<NibGradientText>
 
   @override
   Widget build(BuildContext context) {
-    final effectiveStyle = (widget.style ?? const TextStyle()).copyWith(color: const Color(0xFF000000));
+    final effectiveStyle = (widget.style ?? const TextStyle())
+        .copyWith(color: const Color(0xFF000000));
     return _NibGradientTextBox(
       text: widget.text,
       style: effectiveStyle,
@@ -153,7 +154,8 @@ class _NibGradientTextBox extends LeafRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderNibGradientText renderObject) {
+  void updateRenderObject(
+      BuildContext context, RenderNibGradientText renderObject) {
     renderObject
       ..text = text
       ..style = style
@@ -178,11 +180,11 @@ class RenderNibGradientText extends RenderBox {
     required Gradient gradient,
     required MotionValue<double> offset,
     required TextDirection textDirection,
-  }) : _text = text,
-       _style = style,
-       _gradient = gradient,
-       _offset = offset,
-       _textDirection = textDirection {
+  })  : _text = text,
+        _style = style,
+        _gradient = gradient,
+        _offset = offset,
+        _textDirection = textDirection {
     _offset.addListener(_onOffsetChanged);
     _buildPainter();
   }

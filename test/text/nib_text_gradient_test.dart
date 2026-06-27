@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/text/nib_text_gradient.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
-const _gradient = LinearGradient(colors: [Color(0xFF02569B), Color(0xFF54C5F8)]);
+const _gradient =
+    LinearGradient(colors: [Color(0xFF02569B), Color(0xFF54C5F8)]);
 
 void main() {
   group('NibGradientText', () {
@@ -26,7 +28,8 @@ void main() {
       expect(find.byType(NibGradientText), findsOneWidget);
     });
 
-    testWidgets('advances the sweep over several ticks without throwing', (tester) async {
+    testWidgets('advances the sweep over several ticks without throwing',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibGradientText(
@@ -46,7 +49,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('non-repeating sweep stops after one pass without throwing', (tester) async {
+    testWidgets('non-repeating sweep stops after one pass without throwing',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibGradientText(

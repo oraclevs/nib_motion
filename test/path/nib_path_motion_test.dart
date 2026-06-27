@@ -38,21 +38,25 @@ void main() {
                 path: _straightLine(),
                 duration: duration,
                 curve: Curves.linear,
-                child: const SizedBox(width: 10, height: 10, key: ValueKey('child')),
+                child: const SizedBox(
+                    width: 10, height: 10, key: ValueKey('child')),
               ),
             ),
           ),
         );
 
         await tester.pump();
-        final initialPosition = tester.getTopLeft(find.byKey(const ValueKey('child')));
+        final initialPosition =
+            tester.getTopLeft(find.byKey(const ValueKey('child')));
 
         await tester.pump(const Duration(milliseconds: 500));
-        final midPosition = tester.getTopLeft(find.byKey(const ValueKey('child')));
+        final midPosition =
+            tester.getTopLeft(find.byKey(const ValueKey('child')));
         expect(midPosition, isNot(equals(initialPosition)));
 
         await tester.pumpAndSettle();
-        final finalPosition = tester.getTopLeft(find.byKey(const ValueKey('child')));
+        final finalPosition =
+            tester.getTopLeft(find.byKey(const ValueKey('child')));
         // End of a straight line from (0,0) to (100,0).
         expect(finalPosition.dx, closeTo(initialPosition.dx + 100, 1.0));
       },
@@ -70,7 +74,8 @@ void main() {
               duration: duration,
               curve: Curves.linear,
               repeat: true,
-              child: const SizedBox(width: 10, height: 10, key: ValueKey('child')),
+              child:
+                  const SizedBox(width: 10, height: 10, key: ValueKey('child')),
             ),
           ),
         ),
@@ -105,7 +110,8 @@ void main() {
               child: NibPathMotion(
                 path: _straightLine(),
                 progress: progress,
-                child: const SizedBox(width: 10, height: 10, key: ValueKey('child')),
+                child: const SizedBox(
+                    width: 10, height: 10, key: ValueKey('child')),
               ),
             ),
           ),
@@ -122,7 +128,8 @@ void main() {
         // No internal ticker should be fighting this: holding still after
         // several frames keeps the externally-set value.
         await tester.pump(const Duration(milliseconds: 200));
-        final stillAtOne = tester.getTopLeft(find.byKey(const ValueKey('child')));
+        final stillAtOne =
+            tester.getTopLeft(find.byKey(const ValueKey('child')));
         expect(stillAtOne, equals(atOne));
 
         progress.value = 0.5;
@@ -167,7 +174,8 @@ void main() {
               duration: duration,
               curve: Curves.linear,
               controller: controller,
-              child: const SizedBox(width: 10, height: 10, key: ValueKey('child')),
+              child:
+                  const SizedBox(width: 10, height: 10, key: ValueKey('child')),
             ),
           ),
         ),
@@ -175,11 +183,13 @@ void main() {
 
       await tester.pump();
       await tester.pumpAndSettle();
-      final endPosition = tester.getTopLeft(find.byKey(const ValueKey('child')));
+      final endPosition =
+          tester.getTopLeft(find.byKey(const ValueKey('child')));
 
       controller.restart();
       await tester.pump();
-      final restartedPosition = tester.getTopLeft(find.byKey(const ValueKey('child')));
+      final restartedPosition =
+          tester.getTopLeft(find.byKey(const ValueKey('child')));
       expect(restartedPosition.dx, lessThan(endPosition.dx));
 
       await tester.pumpAndSettle();

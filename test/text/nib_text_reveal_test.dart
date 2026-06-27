@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/text/nib_text_reveal.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibTextReveal _findRenderObject(WidgetTester tester) {
@@ -37,7 +38,8 @@ void main() {
       expect(find.text('Reveal me'), findsOneWidget);
     });
 
-    testWidgets('animates the clip factor from 0 to 1 over duration', (tester) async {
+    testWidgets('animates the clip factor from 0 to 1 over duration',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibTextReveal(
@@ -79,7 +81,8 @@ void main() {
     });
 
     for (final direction in NibTextRevealDirection.values) {
-      testWidgets('supports direction $direction without throwing', (tester) async {
+      testWidgets('supports direction $direction without throwing',
+          (tester) async {
         await tester.pumpWidget(
           _wrap(
             NibTextReveal(

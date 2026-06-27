@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
@@ -35,7 +36,8 @@ List<RenderNibMotion> _findAllRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibMotionController', () {
-    testWidgets('start animates the attached NibMotion to the target', (tester) async {
+    testWidgets('start animates the attached NibMotion to the target',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -44,7 +46,8 @@ void main() {
           NibMotion(
             initial: const NibAnim(opacity: 1.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -59,7 +62,8 @@ void main() {
       expect(renderObject.opacity.value, closeTo(0.0, 0.01));
     });
 
-    testWidgets('start() with no arguments replays the entrance animation', (tester) async {
+    testWidgets('start() with no arguments replays the entrance animation',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -69,7 +73,8 @@ void main() {
             initial: const NibAnim(opacity: 0.0),
             animate: const NibAnim(opacity: 1.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -91,7 +96,8 @@ void main() {
       expect(renderObject.opacity.value, closeTo(1.0, 0.01));
     });
 
-    testWidgets('start(keyframes: ...) plays the keyframe sequence once', (tester) async {
+    testWidgets('start(keyframes: ...) plays the keyframe sequence once',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -100,7 +106,8 @@ void main() {
           NibMotion(
             initial: const NibAnim(opacity: 1.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -145,7 +152,8 @@ void main() {
           NibMotion(
             initial: const NibAnim(opacity: 1.0),
             controller: controller,
-            transition: const NibTransition(duration: Duration(milliseconds: 200)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 200)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -158,11 +166,13 @@ void main() {
       expect(renderObject.opacity.value, 0.0);
     });
 
-    testWidgets('stop freezes MotionValues at their current value', (tester) async {
+    testWidgets('stop freezes MotionValues at their current value',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
-      const spring = NibTransition(spring: NibSpringDescription(stiffness: 50, damping: 4));
+      const spring = NibTransition(
+          spring: NibSpringDescription(stiffness: 50, damping: 4));
 
       await tester.pumpWidget(
         _wrap(
@@ -190,7 +200,8 @@ void main() {
       expect(renderObject.translateX.value, valueAtStop);
     });
 
-    testWidgets('sequence runs steps in order, waiting for each to complete', (tester) async {
+    testWidgets('sequence runs steps in order, waiting for each to complete',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -224,7 +235,8 @@ void main() {
       expect(renderObject.translateX.value, closeTo(100.0, 0.01));
     });
 
-    testWidgets('disposing the NibMotion detaches without error', (tester) async {
+    testWidgets('disposing the NibMotion detaches without error',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -249,7 +261,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('multiple NibMotion instances attached to one controller all respond to start', (tester) async {
+    testWidgets(
+        'multiple NibMotion instances attached to one controller all respond to start',
+        (tester) async {
       final controller = NibMotionController();
       addTearDown(controller.dispose);
 
@@ -261,13 +275,15 @@ void main() {
               NibMotion(
                 initial: const NibAnim(opacity: 1.0),
                 controller: controller,
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
               NibMotion(
                 initial: const NibAnim(opacity: 1.0),
                 controller: controller,
-                transition: const NibTransition(duration: Duration(milliseconds: 50)),
+                transition:
+                    const NibTransition(duration: Duration(milliseconds: 50)),
                 child: const SizedBox(width: 50, height: 50),
               ),
             ],

@@ -43,7 +43,8 @@ class NibMotionReplayScope extends InheritedNotifier<NibMotionReplaySignal> {
   /// Returns the nearest ancestor [NibMotionReplaySignal], or `null` if this
   /// widget is not inside a [NibMotionReplayScope].
   static NibMotionReplaySignal? maybeOf(BuildContext context) {
-    final widget = context.dependOnInheritedWidgetOfExactType<NibMotionReplayScope>();
+    final widget =
+        context.dependOnInheritedWidgetOfExactType<NibMotionReplayScope>();
     return widget?.notifier;
   }
 }

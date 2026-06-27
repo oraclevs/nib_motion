@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 /// Returns every [RenderNibMotion] in the tree, in depth-first build order
@@ -19,22 +20,29 @@ List<RenderNibMotion> _findRenderNibMotions(WidgetTester tester) {
   return found;
 }
 
-const _variants = {'hidden': NibAnim(opacity: 0), 'visible': NibAnim(opacity: 1)};
+const _variants = {
+  'hidden': NibAnim(opacity: 0),
+  'visible': NibAnim(opacity: 1)
+};
 
 void main() {
   group('NibMotion variants', () {
-    testWidgets('parent animate "visible" propagates to descendant with matching variant', (tester) async {
+    testWidgets(
+        'parent animate "visible" propagates to descendant with matching variant',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: 'hidden',
             animate: 'visible',
             variants: _variants,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: NibMotion(
               initial: 'hidden',
               variants: _variants,
-              transition: const NibTransition(duration: Duration(milliseconds: 50)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 50)),
               child: const SizedBox(width: 10, height: 10),
             ),
           ),
@@ -48,18 +56,22 @@ void main() {
       expect(motions[1].opacity.value, closeTo(1.0, 0.001));
     });
 
-    testWidgets('parent animate "hidden" propagates descendant to hidden variant', (tester) async {
+    testWidgets(
+        'parent animate "hidden" propagates descendant to hidden variant',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: 'visible',
             animate: 'hidden',
             variants: _variants,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: NibMotion(
               initial: 'visible',
               variants: _variants,
-              transition: const NibTransition(duration: Duration(milliseconds: 50)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 50)),
               child: const SizedBox(width: 10, height: 10),
             ),
           ),
@@ -73,18 +85,22 @@ void main() {
       expect(motions[1].opacity.value, closeTo(0.0, 0.001));
     });
 
-    testWidgets('child with no variants ignores the parent variant and uses its own animate', (tester) async {
+    testWidgets(
+        'child with no variants ignores the parent variant and uses its own animate',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: 'hidden',
             animate: 'visible',
             variants: _variants,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: NibMotion(
               initial: const NibAnim(scale: 0.5),
               animate: const NibAnim(scale: 2.0),
-              transition: const NibTransition(duration: Duration(milliseconds: 50)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 50)),
               child: const SizedBox(width: 10, height: 10),
             ),
           ),
@@ -117,13 +133,15 @@ void main() {
                 NibMotion(
                   initial: 'hidden',
                   variants: _variants,
-                  transition: const NibTransition(duration: Duration(milliseconds: 100)),
+                  transition: const NibTransition(
+                      duration: Duration(milliseconds: 100)),
                   child: const SizedBox(width: 10, height: 10),
                 ),
                 NibMotion(
                   initial: 'hidden',
                   variants: _variants,
-                  transition: const NibTransition(duration: Duration(milliseconds: 100)),
+                  transition: const NibTransition(
+                      duration: Duration(milliseconds: 100)),
                   child: const SizedBox(width: 10, height: 10),
                 ),
               ],
@@ -140,18 +158,21 @@ void main() {
       expect(motions[2].opacity.value, 0.0);
     });
 
-    testWidgets('unknown variant name on child does nothing (no crash)', (tester) async {
+    testWidgets('unknown variant name on child does nothing (no crash)',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: 'hidden',
             animate: 'visible',
             variants: _variants,
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: NibMotion(
               initial: const NibAnim(scale: 1.0),
               variants: const {'shown': NibAnim(scale: 2.0)},
-              transition: const NibTransition(duration: Duration(milliseconds: 50)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 50)),
               child: const SizedBox(width: 10, height: 10),
             ),
           ),

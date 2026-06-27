@@ -19,8 +19,8 @@ class SpringSolver {
     required MotionValue<double> value,
     required this.spring,
     this.onComplete,
-  }) : _vsync = vsync,
-       _value = value;
+  })  : _vsync = vsync,
+        _value = value;
 
   final TickerProvider _vsync;
   final MotionValue<double> _value;

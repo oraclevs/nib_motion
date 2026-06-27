@@ -5,7 +5,8 @@ import 'package:nib_motion/nib_motion.dart';
 Widget _wrap(Widget child) {
   return NibMotionConfig(
     entranceWarmup: Duration.zero,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 

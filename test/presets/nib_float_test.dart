@@ -5,7 +5,8 @@ import 'package:nib_motion/nib_motion.dart';
 Widget _wrap(Widget child) {
   return NibMotionConfig(
     entranceWarmup: Duration.zero,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 
@@ -25,7 +26,8 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibFloat', () {
-    testWidgets('builds and pumps several frames without throwing', (tester) async {
+    testWidgets('builds and pumps several frames without throwing',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibFloat(
@@ -41,7 +43,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('y offset moves away from 0 and the loop keeps running', (tester) async {
+    testWidgets('y offset moves away from 0 and the loop keeps running',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibFloat(

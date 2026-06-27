@@ -74,7 +74,8 @@ double applyElastic(double value, double min, double max, double factor) {
 class DragHandler {
   /// Creates a handler driven by [config], reporting position updates via
   /// [onUpdate] and the release state via [onRelease].
-  DragHandler({required this.config, required this.onUpdate, required this.onRelease});
+  DragHandler(
+      {required this.config, required this.onUpdate, required this.onRelease});
 
   /// The drag configuration to apply.
   final NibDragConfig config;
@@ -96,13 +97,15 @@ class DragHandler {
   /// Call from `GestureDetector.onPanStart`.
   void handlePanStart(DragStartDetails details) {
     _offset = Offset.zero;
-    _velocityTracker = VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
+    _velocityTracker =
+        VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
     config.onDragStart?.call();
   }
 
   /// Call from `GestureDetector.onPanUpdate`.
   void handlePanUpdate(DragUpdateDetails details) {
-    _velocityTracker?.addPosition(details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
+    _velocityTracker?.addPosition(
+        details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
 
     var dx = details.delta.dx;
     var dy = details.delta.dy;
@@ -115,8 +118,10 @@ class DragHandler {
     final constraints = config.constraints;
     if (constraints != null) {
       if (config.elastic) {
-        newX = applyElastic(newX, constraints.left, constraints.right, config.elasticFactor);
-        newY = applyElastic(newY, constraints.top, constraints.bottom, config.elasticFactor);
+        newX = applyElastic(
+            newX, constraints.left, constraints.right, config.elasticFactor);
+        newY = applyElastic(
+            newY, constraints.top, constraints.bottom, config.elasticFactor);
       } else {
         newX = newX.clamp(constraints.left, constraints.right);
         newY = newY.clamp(constraints.top, constraints.bottom);

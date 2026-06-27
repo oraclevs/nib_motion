@@ -108,7 +108,8 @@ class NibMotionConfig extends InheritedWidget {
   ///
   /// Returns [Duration.zero] once the warm-up window has elapsed.
   static Duration remainingWarmup(BuildContext context) {
-    final warmup = maybeOf(context)?.entranceWarmup ?? const Duration(milliseconds: 400);
+    final warmup =
+        maybeOf(context)?.entranceWarmup ?? const Duration(milliseconds: 400);
     // Read `_appStartedAt` (which lazily initializes to `DateTime.now()` on
     // first access) before calling `DateTime.now()` again here, so `elapsed`
     // can never be negative.
@@ -178,7 +179,8 @@ class NibMotionConfig extends InheritedWidget {
   }) async {
     _globalDefaultTransition = defaultTransition;
     _globalReducedMotion = respectReducedMotion &&
-        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures
+            .disableAnimations;
 
     if (preloadShaders) {
       await NibShaderLoader.preloadAll();

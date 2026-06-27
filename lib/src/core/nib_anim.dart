@@ -179,19 +179,19 @@ class NibAnim {
 
   @override
   int get hashCode => Object.hash(
-    x,
-    y,
-    scale,
-    scaleX,
-    scaleY,
-    rotate,
-    skewX,
-    skewY,
-    opacity,
-    color,
-    borderRadius,
-    boxShadow == null ? null : Object.hashAll(boxShadow!),
-  );
+        x,
+        y,
+        scale,
+        scaleX,
+        scaleY,
+        rotate,
+        skewX,
+        skewY,
+        opacity,
+        color,
+        borderRadius,
+        boxShadow == null ? null : Object.hashAll(boxShadow!),
+      );
 }
 
 double? _lerpProp(double? begin, double? end, double identityValue, double t) {

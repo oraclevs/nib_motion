@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/gestures/nib_swipe_dismiss.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 /// Locates [NibSwipeDismiss]'s internal render object (`_RenderNibSwipeDismiss`,
@@ -30,7 +31,8 @@ double _readOffset(RenderObject renderNibSwipeDismiss) {
 
 void main() {
   group('NibSwipeDismiss', () {
-    testWidgets('swiping past dismissThreshold calls onDismissed', (tester) async {
+    testWidgets('swiping past dismissThreshold calls onDismissed',
+        (tester) async {
       var dismissed = false;
       await tester.pumpWidget(
         _wrap(
@@ -46,13 +48,17 @@ void main() {
         ),
       );
 
-      await tester.fling(find.byKey(const ValueKey('box')), const Offset(150, 0), 1000, warnIfMissed: false);
+      await tester.fling(
+          find.byKey(const ValueKey('box')), const Offset(150, 0), 1000,
+          warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(dismissed, isTrue);
     });
 
-    testWidgets('swiping below dismissThreshold springs back without dismissing', (tester) async {
+    testWidgets(
+        'swiping below dismissThreshold springs back without dismissing',
+        (tester) async {
       var dismissed = false;
       await tester.pumpWidget(
         _wrap(
@@ -70,7 +76,8 @@ void main() {
 
       final renderObject = _findRenderNibSwipeDismiss(tester);
 
-      await tester.drag(find.byKey(const ValueKey('box')), const Offset(40, 0), touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
+      await tester.drag(find.byKey(const ValueKey('box')), const Offset(40, 0),
+          touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
       await tester.pump();
 
       expect(_readOffset(renderObject), greaterThan(0.0));
@@ -82,7 +89,8 @@ void main() {
       expect(_readOffset(renderObject), closeTo(0.0, 0.5));
     });
 
-    testWidgets('background is shown behind the child while swiping', (tester) async {
+    testWidgets('background is shown behind the child while swiping',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           SizedBox(
@@ -90,7 +98,8 @@ void main() {
             height: 80,
             child: NibSwipeDismiss(
               onDismissed: () {},
-              background: Container(key: const ValueKey('bg'), color: Colors.green),
+              background:
+                  Container(key: const ValueKey('bg'), color: Colors.green),
               child: Container(key: const ValueKey('box'), color: Colors.red),
             ),
           ),
@@ -101,7 +110,8 @@ void main() {
       expect(find.byKey(const ValueKey('box')), findsOneWidget);
     });
 
-    testWidgets('vertical dismissDirection moves the offset vertically', (tester) async {
+    testWidgets('vertical dismissDirection moves the offset vertically',
+        (tester) async {
       var dismissed = false;
       await tester.pumpWidget(
         _wrap(
@@ -118,7 +128,9 @@ void main() {
         ),
       );
 
-      await tester.fling(find.byKey(const ValueKey('box')), const Offset(0, 150), 1000, warnIfMissed: false);
+      await tester.fling(
+          find.byKey(const ValueKey('box')), const Offset(0, 150), 1000,
+          warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(dismissed, isTrue);

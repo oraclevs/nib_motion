@@ -62,7 +62,8 @@ class NibShimmer extends StatefulWidget {
   State<NibShimmer> createState() => _NibShimmerState();
 }
 
-class _NibShimmerState extends State<NibShimmer> with SingleTickerProviderStateMixin {
+class _NibShimmerState extends State<NibShimmer>
+    with SingleTickerProviderStateMixin {
   final MotionValue<double> _time = MotionValue<double>(0);
   Ticker? _ticker;
   FragmentProgram? _program;
@@ -191,13 +192,13 @@ class RenderNibShimmer extends RenderProxyBox {
     required double speed,
     required double angle,
     RenderBox? child,
-  }) : _time = time,
-       _program = program,
-       _baseColor = baseColor,
-       _shimmerColor = shimmerColor,
-       _speed = speed,
-       _angle = angle,
-       super(child) {
+  })  : _time = time,
+        _program = program,
+        _baseColor = baseColor,
+        _shimmerColor = shimmerColor,
+        _speed = speed,
+        _angle = angle,
+        super(child) {
     _shader = _program.fragmentShader();
     _time.addListener(_onTimeChanged);
   }

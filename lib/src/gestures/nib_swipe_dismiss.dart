@@ -10,7 +10,8 @@ import '../values/motion_value.dart';
 /// Bridges the [MotionValue] owned by [NibSwipeDismiss] to
 /// [_RenderNibSwipeDismiss].
 class _NibSwipeDismissBox extends SingleChildRenderObjectWidget {
-  const _NibSwipeDismissBox({required this.offset, required this.vertical, super.child});
+  const _NibSwipeDismissBox(
+      {required this.offset, required this.vertical, super.child});
 
   final MotionValue<double> offset;
   final bool vertical;
@@ -21,7 +22,8 @@ class _NibSwipeDismissBox extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, _RenderNibSwipeDismiss renderObject) {
+  void updateRenderObject(
+      BuildContext context, _RenderNibSwipeDismiss renderObject) {
     renderObject
       ..offset = offset
       ..vertical = vertical;
@@ -31,9 +33,10 @@ class _NibSwipeDismissBox extends SingleChildRenderObjectWidget {
 /// Paints [child] translated along a single axis by [offset], reading it
 /// directly during [paint] so swiping never triggers a widget rebuild.
 class _RenderNibSwipeDismiss extends RenderProxyBox {
-  _RenderNibSwipeDismiss({required MotionValue<double> offset, required bool vertical})
-    : _offset = offset,
-      _vertical = vertical {
+  _RenderNibSwipeDismiss(
+      {required MotionValue<double> offset, required bool vertical})
+      : _offset = offset,
+        _vertical = vertical {
     _offset.addListener(_onChanged);
   }
 
@@ -149,7 +152,8 @@ class NibSwipeDismiss extends StatefulWidget {
   State<NibSwipeDismiss> createState() => _NibSwipeDismissState();
 }
 
-class _NibSwipeDismissState extends State<NibSwipeDismiss> with TickerProviderStateMixin {
+class _NibSwipeDismissState extends State<NibSwipeDismiss>
+    with TickerProviderStateMixin {
   final MotionValue<double> _offset = MotionValue<double>(0.0);
 
   SpringSolver? _springSolver;
@@ -172,11 +176,13 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss> with TickerProviderSt
   void _handlePanStart(DragStartDetails details) {
     _springSolver?.stop();
     _flingTicker?.stop();
-    _velocityTracker = VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
+    _velocityTracker =
+        VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
-    _velocityTracker?.addPosition(details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
+    _velocityTracker?.addPosition(
+        details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
 
     var newOffset = _offset.value + _axisDelta(details);
 
@@ -200,7 +206,8 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss> with TickerProviderSt
     final size = context.size;
     final extent = size == null ? 0.0 : (_vertical ? size.height : size.width);
     final threshold = widget.dismissThreshold * extent;
-    final axisVelocity = _vertical ? velocity.pixelsPerSecond.dy : velocity.pixelsPerSecond.dx;
+    final axisVelocity =
+        _vertical ? velocity.pixelsPerSecond.dy : velocity.pixelsPerSecond.dx;
 
     if (extent > 0 && _offset.value.abs() > threshold) {
       _animateOffscreen(extent, axisVelocity);
@@ -210,7 +217,8 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss> with TickerProviderSt
   }
 
   void _springBack(double initialVelocity) {
-    final solver = _springSolver ??= SpringSolver(vsync: this, value: _offset, spring: widget.spring);
+    final solver = _springSolver ??=
+        SpringSolver(vsync: this, value: _offset, spring: widget.spring);
     solver.spring = widget.spring;
     solver.animateTo(target: 0.0, initialVelocity: initialVelocity);
   }
@@ -224,11 +232,15 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss> with TickerProviderSt
     // AnimationController): eases from the release position/velocity to
     // fully off-screen over a fixed duration using an ease-out curve.
     const duration = Duration(milliseconds: 240);
-    final durationSeconds = duration.inMicroseconds / Duration.microsecondsPerSecond;
+    final durationSeconds =
+        duration.inMicroseconds / Duration.microsecondsPerSecond;
 
     _flingTicker?.dispose();
     _flingTicker = createTicker((elapsed) {
-      final t = (elapsed.inMicroseconds / Duration.microsecondsPerSecond / durationSeconds).clamp(0.0, 1.0);
+      final t = (elapsed.inMicroseconds /
+              Duration.microsecondsPerSecond /
+              durationSeconds)
+          .clamp(0.0, 1.0);
       final eased = Curves.easeOut.transform(t);
       _offset.value = start + (target - start) * eased;
       if (t >= 1.0) {
@@ -248,11 +260,13 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss> with TickerProviderSt
       onPanUpdate: _handlePanUpdate,
       onPanEnd: _handlePanEnd,
       child: background == null
-          ? _NibSwipeDismissBox(offset: _offset, vertical: _vertical, child: widget.child)
+          ? _NibSwipeDismissBox(
+              offset: _offset, vertical: _vertical, child: widget.child)
           : Stack(
               children: [
                 Positioned.fill(child: background),
-                _NibSwipeDismissBox(offset: _offset, vertical: _vertical, child: widget.child),
+                _NibSwipeDismissBox(
+                    offset: _offset, vertical: _vertical, child: widget.child),
               ],
             ),
     );

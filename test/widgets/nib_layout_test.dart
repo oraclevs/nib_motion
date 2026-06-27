@@ -4,7 +4,8 @@ import 'package:nib_motion/nib_motion.dart';
 import 'package:nib_motion/src/layout/flip_recorder.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 /// Walks up from the [RenderObject] of the widget with [key] to find its
@@ -19,7 +20,8 @@ RenderNibMotion _findRenderNibMotionFor(WidgetTester tester, Key key) {
 
 void main() {
   group('FlipRecorder', () {
-    testWidgets('computeDelta returns null until a position has been recorded', (tester) async {
+    testWidgets('computeDelta returns null until a position has been recorded',
+        (tester) async {
       final key = GlobalKey();
       final recorder = FlipRecorder();
 
@@ -40,7 +42,9 @@ void main() {
       expect(recorder.computeDelta(key), isNull);
     });
 
-    testWidgets('computeDelta reflects the position shift caused by a size change', (tester) async {
+    testWidgets(
+        'computeDelta reflects the position shift caused by a size change',
+        (tester) async {
       final key = GlobalKey();
       final recorder = FlipRecorder();
 
@@ -49,7 +53,8 @@ void main() {
       expect(recorder.rectFor(key)!.size, const Size(50, 50));
 
       // Growing while centered shifts the top edge up by half the growth.
-      await tester.pumpWidget(_wrap(SizedBox(key: key, width: 50, height: 100)));
+      await tester
+          .pumpWidget(_wrap(SizedBox(key: key, width: 50, height: 100)));
       final delta = recorder.computeDelta(key);
 
       expect(delta, isNotNull);
@@ -58,8 +63,10 @@ void main() {
   });
 
   group('NibLayoutGroup', () {
-    testWidgets('a child that moves to a new position FLIPs back into place', (tester) async {
-      Widget build(List<Widget> children) => _wrap(NibLayoutGroup(children: children));
+    testWidgets('a child that moves to a new position FLIPs back into place',
+        (tester) async {
+      Widget build(List<Widget> children) =>
+          _wrap(NibLayoutGroup(children: children));
 
       await tester.pumpWidget(
         build(const [
@@ -88,7 +95,8 @@ void main() {
     });
 
     testWidgets('a newly added child does not FLIP', (tester) async {
-      Widget build(List<Widget> children) => _wrap(NibLayoutGroup(children: children));
+      Widget build(List<Widget> children) =>
+          _wrap(NibLayoutGroup(children: children));
 
       await tester.pumpWidget(
         build(const [SizedBox(key: ValueKey('a'), width: 50, height: 50)]),
@@ -107,8 +115,10 @@ void main() {
       expect(renderNew.translateY.value, 0.0);
     });
 
-    testWidgets('a removed child is not tracked when re-added later', (tester) async {
-      Widget build(List<Widget> children) => _wrap(NibLayoutGroup(children: children));
+    testWidgets('a removed child is not tracked when re-added later',
+        (tester) async {
+      Widget build(List<Widget> children) =>
+          _wrap(NibLayoutGroup(children: children));
 
       await tester.pumpWidget(
         build(const [

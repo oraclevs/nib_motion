@@ -95,7 +95,9 @@ class _NibFlipState extends State<NibFlip> with SingleTickerProviderStateMixin {
   void _onTick(Duration elapsed) {
     final durationMicros = widget.duration.inMicroseconds;
     final elapsedMicros = elapsed.inMicroseconds;
-    final rawT = durationMicros <= 0 ? 1.0 : (elapsedMicros / durationMicros).clamp(0.0, 1.0);
+    final rawT = durationMicros <= 0
+        ? 1.0
+        : (elapsedMicros / durationMicros).clamp(0.0, 1.0);
     final curvedT = Curves.easeInOut.transform(rawT);
     _progress.value = _from + (_to - _from) * curvedT;
     if (rawT >= 1.0) {
@@ -125,7 +127,11 @@ class _NibFlipState extends State<NibFlip> with SingleTickerProviderStateMixin {
 /// both), and paints only whichever is the current visible face according to
 /// [progress], rotated in 3D around the center of the stack.
 class _NibFlipBox extends StatelessWidget {
-  const _NibFlipBox({required this.progress, required this.flipAxis, required this.front, required this.back});
+  const _NibFlipBox(
+      {required this.progress,
+      required this.flipAxis,
+      required this.front,
+      required this.back});
 
   final MotionValue<double> progress;
   final Axis flipAxis;
@@ -138,8 +144,16 @@ class _NibFlipBox extends StatelessWidget {
       alignment: Alignment.center,
       fit: StackFit.passthrough,
       children: [
-        _NibFlipFace(progress: progress, flipAxis: flipAxis, showBack: false, child: front),
-        _NibFlipFace(progress: progress, flipAxis: flipAxis, showBack: true, child: back),
+        _NibFlipFace(
+            progress: progress,
+            flipAxis: flipAxis,
+            showBack: false,
+            child: front),
+        _NibFlipFace(
+            progress: progress,
+            flipAxis: flipAxis,
+            showBack: true,
+            child: back),
       ],
     );
   }
@@ -150,8 +164,12 @@ class _NibFlipBox extends StatelessWidget {
 /// the currently-visible one — otherwise it paints nothing and does not hit
 /// test, so both faces can be stacked without either blocking the other.
 class _NibFlipFace extends SingleChildRenderObjectWidget {
-  const _NibFlipFace({required this.progress, required this.flipAxis, required this.showBack, required Widget child})
-    : super(child: child);
+  const _NibFlipFace(
+      {required this.progress,
+      required this.flipAxis,
+      required this.showBack,
+      required Widget child})
+      : super(child: child);
 
   final MotionValue<double> progress;
   final Axis flipAxis;
@@ -159,11 +177,13 @@ class _NibFlipFace extends SingleChildRenderObjectWidget {
 
   @override
   _RenderNibFlipFace createRenderObject(BuildContext context) {
-    return _RenderNibFlipFace(progress: progress, flipAxis: flipAxis, showBack: showBack);
+    return _RenderNibFlipFace(
+        progress: progress, flipAxis: flipAxis, showBack: showBack);
   }
 
   @override
-  void updateRenderObject(BuildContext context, _RenderNibFlipFace renderObject) {
+  void updateRenderObject(
+      BuildContext context, _RenderNibFlipFace renderObject) {
     renderObject
       ..progress = progress
       ..flipAxis = flipAxis
@@ -172,10 +192,13 @@ class _NibFlipFace extends SingleChildRenderObjectWidget {
 }
 
 class _RenderNibFlipFace extends RenderProxyBox {
-  _RenderNibFlipFace({required MotionValue<double> progress, required Axis flipAxis, required bool showBack})
-    : _progress = progress,
-      _flipAxis = flipAxis,
-      _showBack = showBack {
+  _RenderNibFlipFace(
+      {required MotionValue<double> progress,
+      required Axis flipAxis,
+      required bool showBack})
+      : _progress = progress,
+        _flipAxis = flipAxis,
+        _showBack = showBack {
     _progress.addListener(_onProgressChanged);
   }
 
@@ -231,7 +254,9 @@ class _RenderNibFlipFace extends RenderProxyBox {
     final center = size.center(Offset.zero);
     final matrix = Matrix4.translationValues(center.dx, center.dy, 0.0)
       ..setEntry(3, 2, 0.001)
-      ..multiply(_flipAxis == Axis.horizontal ? Matrix4.rotationY(angle) : Matrix4.rotationX(angle))
+      ..multiply(_flipAxis == Axis.horizontal
+          ? Matrix4.rotationY(angle)
+          : Matrix4.rotationX(angle))
       ..multiply(Matrix4.translationValues(-center.dx, -center.dy, 0.0));
 
     context.pushTransform(needsCompositing, offset, matrix, super.paint);

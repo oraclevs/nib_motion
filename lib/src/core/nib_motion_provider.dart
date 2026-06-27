@@ -48,7 +48,8 @@ class NibMotionProvider extends StatelessWidget {
 
   /// Returns the nearest ancestor [NibMotionConfig], or `null` if there is
   /// none.
-  static NibMotionConfig? of(BuildContext context) => NibMotionConfig.maybeOf(context);
+  static NibMotionConfig? of(BuildContext context) =>
+      NibMotionConfig.maybeOf(context);
 
   @override
   Widget build(BuildContext context) {

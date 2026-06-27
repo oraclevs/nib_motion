@@ -72,7 +72,8 @@ class NibScreenStack extends StatefulWidget {
   State<NibScreenStack> createState() => _NibScreenStackState();
 }
 
-class _NibScreenStackState extends State<NibScreenStack> with TickerProviderStateMixin {
+class _NibScreenStackState extends State<NibScreenStack>
+    with TickerProviderStateMixin {
   late List<_NibScreenEntry> _entries;
   late List<NibMotionController> _controllers;
   late int _currentIndex;
@@ -159,7 +160,8 @@ class _NibScreenStackState extends State<NibScreenStack> with TickerProviderStat
       });
       _currentIndex = newIndex;
       if (widget.screenTransition.retriggerPageAnimations) {
-        incoming.replaySignal.replay(delay: widget.screenTransition.retriggerDelay);
+        incoming.replaySignal
+            .replay(delay: widget.screenTransition.retriggerDelay);
       }
       return;
     }
@@ -170,8 +172,10 @@ class _NibScreenStackState extends State<NibScreenStack> with TickerProviderStat
     // throws. `MediaQuery.sizeOf` is always safe and close enough for slide
     // distances.
     final screenSize = MediaQuery.sizeOf(context);
-    final (enterFrom, exitTo) = NibNavTransitions.resolve(widget.screenTransition.type, direction, screenSize);
-    final transition = widget.screenTransition.tween ?? NibTransition(spring: widget.screenTransition.spring);
+    final (enterFrom, exitTo) = NibNavTransitions.resolve(
+        widget.screenTransition.type, direction, screenSize);
+    final transition = widget.screenTransition.tween ??
+        NibTransition(spring: widget.screenTransition.spring);
 
     setState(() {
       if (!widget.screens[newIndex].keepAlive) {
@@ -186,15 +190,20 @@ class _NibScreenStackState extends State<NibScreenStack> with TickerProviderStat
     _currentIndex = newIndex;
 
     _controllers[newIndex].set(enterFrom);
-    _controllers[newIndex].start(target: NibAnim.identity, transition: transition).then((_) {
+    _controllers[newIndex]
+        .start(target: NibAnim.identity, transition: transition)
+        .then((_) {
       if (!mounted) return;
       setState(() => incoming.isTransitioning = false);
       if (widget.screenTransition.retriggerPageAnimations) {
-        incoming.replaySignal.replay(delay: widget.screenTransition.retriggerDelay);
+        incoming.replaySignal
+            .replay(delay: widget.screenTransition.retriggerDelay);
       }
     });
 
-    _controllers[oldIndex].start(target: exitTo, transition: transition).then((_) {
+    _controllers[oldIndex]
+        .start(target: exitTo, transition: transition)
+        .then((_) {
       if (!mounted) return;
       setState(() {
         outgoing.isTransitioning = false;

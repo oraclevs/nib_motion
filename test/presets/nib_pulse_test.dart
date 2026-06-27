@@ -5,7 +5,8 @@ import 'package:nib_motion/nib_motion.dart';
 Widget _wrap(Widget child) {
   return NibMotionConfig(
     entranceWarmup: Duration.zero,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 
@@ -25,7 +26,8 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibPulse', () {
-    testWidgets('builds and pumps several frames without throwing', (tester) async {
+    testWidgets('builds and pumps several frames without throwing',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibPulse(
@@ -41,7 +43,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('scale oscillates away from 1.0 then keeps looping', (tester) async {
+    testWidgets('scale oscillates away from 1.0 then keeps looping',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           const NibPulse(

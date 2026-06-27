@@ -6,7 +6,8 @@ import 'package:nib_motion/nib_motion.dart';
 import 'package:nib_motion/src/text/nib_text.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 void main() {
@@ -120,7 +121,9 @@ void main() {
       expect(edgeDelay, greaterThan(centerDelay));
     });
 
-    test('random produces a deterministic value within [0, total*staggerDelay) for a fixed seed', () {
+    test(
+        'random produces a deterministic value within [0, total*staggerDelay) for a fixed seed',
+        () {
       final delay = computeStaggerDelay(
         index: 1,
         total: 5,
@@ -146,7 +149,8 @@ void main() {
   });
 
   group('NibText widget', () {
-    testWidgets('renders one Text widget per character unit by default', (tester) async {
+    testWidgets('renders one Text widget per character unit by default',
+        (tester) async {
       await tester.pumpWidget(_wrap(const NibText('abc')));
       await tester.pumpAndSettle();
 
@@ -155,9 +159,11 @@ void main() {
       expect(find.text('c'), findsOneWidget);
     });
 
-    testWidgets('renders one Text widget per word unit, preserving whitespace', (tester) async {
+    testWidgets('renders one Text widget per word unit, preserving whitespace',
+        (tester) async {
       await tester.pumpWidget(
-        _wrap(const NibText('hello world', config: NibTextConfig(unit: NibTextUnit.word))),
+        _wrap(const NibText('hello world',
+            config: NibTextConfig(unit: NibTextUnit.word))),
       );
       await tester.pumpAndSettle();
 
@@ -167,7 +173,8 @@ void main() {
 
     testWidgets('renders a Column of lines in line mode', (tester) async {
       await tester.pumpWidget(
-        _wrap(const NibText('line1\nline2', config: NibTextConfig(unit: NibTextUnit.line))),
+        _wrap(const NibText('line1\nline2',
+            config: NibTextConfig(unit: NibTextUnit.line))),
       );
       await tester.pumpAndSettle();
 
@@ -184,13 +191,15 @@ void main() {
             config: NibTextConfig(
               initial: const NibAnim(opacity: 0.0),
               animate: const NibAnim(opacity: 1.0),
-              transition: const NibTransition(duration: Duration(milliseconds: 50)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 50)),
             ),
           ),
         ),
       );
 
-      final motions = tester.widgetList<NibMotion>(find.byType(NibMotion)).toList();
+      final motions =
+          tester.widgetList<NibMotion>(find.byType(NibMotion)).toList();
       expect(motions, isNotEmpty);
 
       await tester.pumpAndSettle();

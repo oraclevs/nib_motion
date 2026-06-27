@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 void main() {
-  testWidgets('NibTransition.delay is honored before the initial enter animation starts', (tester) async {
+  testWidgets(
+      'NibTransition.delay is honored before the initial enter animation starts',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: NibMotionConfig(
@@ -21,15 +23,19 @@ void main() {
       ),
     );
 
-    RenderNibMotion render() => tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
+    RenderNibMotion render() =>
+        tester.renderObject<RenderNibMotion>(find.byType(NibMotion));
 
-    expect(render().translateX.value, closeTo(-100, 1e-9), reason: 'starts at initial');
+    expect(render().translateX.value, closeTo(-100, 1e-9),
+        reason: 'starts at initial');
 
     await tester.pump(const Duration(milliseconds: 299));
-    expect(render().translateX.value, closeTo(-100, 1e-9), reason: 'stays at initial until delay elapses');
+    expect(render().translateX.value, closeTo(-100, 1e-9),
+        reason: 'stays at initial until delay elapses');
 
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(render().translateX.value, closeTo(0, 1e-9), reason: 'reaches animate after delay + duration');
+    expect(render().translateX.value, closeTo(0, 1e-9),
+        reason: 'reaches animate after delay + duration');
   });
 }

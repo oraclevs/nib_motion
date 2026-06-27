@@ -134,14 +134,17 @@ void main() {
       expect(find.textContaining('demo.hidden'), findsNothing);
     });
 
-    testWidgets('MotionValues list is height-capped and scrollable when it has many entries', (
+    testWidgets(
+        'MotionValues list is height-capped and scrollable when it has many entries',
+        (
       WidgetTester tester,
     ) async {
       // One NibMotion alone contributes 11 entries; a real app easily
       // registers dozens. Without a height cap + scroll, this list would
       // grow unbounded and run off the bottom of the screen.
       for (var i = 0; i < 40; i++) {
-        NibMotionRegistry.instance.register('demo.value$i', MotionValue<double>(i.toDouble()));
+        NibMotionRegistry.instance
+            .register('demo.value$i', MotionValue<double>(i.toDouble()));
       }
 
       await tester.pumpWidget(
@@ -158,15 +161,22 @@ void main() {
 
       expect(find.byType(SingleChildScrollView), findsOneWidget);
 
-      final scrollView = tester.widget<SingleChildScrollView>(find.byType(SingleChildScrollView));
+      final scrollView = tester
+          .widget<SingleChildScrollView>(find.byType(SingleChildScrollView));
       final constrainedBox = tester.widget<ConstrainedBox>(
-        find.ancestor(of: find.byWidget(scrollView), matching: find.byType(ConstrainedBox)).first,
+        find
+            .ancestor(
+                of: find.byWidget(scrollView),
+                matching: find.byType(ConstrainedBox))
+            .first,
       );
       expect(constrainedBox.constraints.maxHeight, lessThan(300));
 
       // The panel itself must stay within that cap (plus title/FPS/padding)
       // rather than growing with the number of registered values.
-      final panelHeight = tester.getSize(find.byKey(const ValueKey('nib_motion_debugger_panel'))).height;
+      final panelHeight = tester
+          .getSize(find.byKey(const ValueKey('nib_motion_debugger_panel')))
+          .height;
       expect(panelHeight, lessThan(400));
 
       expect(tester.takeException(), isNull);

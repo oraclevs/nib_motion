@@ -18,8 +18,8 @@ class InertiaSolver {
     required MotionValue<double> value,
     this.drag = 0.135,
     this.onComplete,
-  }) : _vsync = vsync,
-       _value = value;
+  })  : _vsync = vsync,
+        _value = value;
 
   final TickerProvider _vsync;
   final MotionValue<double> _value;
@@ -40,7 +40,8 @@ class InertiaSolver {
   /// position with the given initial [velocity], in units per second.
   void animateTo({required double velocity}) {
     _ticker?.stop();
-    _simulation = flutter_physics.FrictionSimulation(drag, _value.value, velocity);
+    _simulation =
+        flutter_physics.FrictionSimulation(drag, _value.value, velocity);
     _elapsedSeconds = 0.0;
     (_ticker ??= _vsync.createTicker(_onTick)).start();
   }

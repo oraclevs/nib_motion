@@ -28,15 +28,15 @@ class NibNavBarPainter extends CustomPainter {
     required this.itemScales,
     required this.itemOpacities,
   }) : super(
-         repaint: Listenable.merge(<Listenable>[
-           indicatorX,
-           indicatorWidth,
-           indicatorHeight,
-           indicatorOpacity,
-           ...itemScales,
-           ...itemOpacities,
-         ]),
-       );
+          repaint: Listenable.merge(<Listenable>[
+            indicatorX,
+            indicatorWidth,
+            indicatorHeight,
+            indicatorOpacity,
+            ...itemScales,
+            ...itemOpacities,
+          ]),
+        );
 
   /// The tabs to draw.
   final List<NibNavItem> items;
@@ -130,7 +130,8 @@ class NibNavBarPainter extends CustomPainter {
         final baseColor =
             indicator.color ?? _withAlpha(style.activeColor, 0.12);
         final paint = Paint()
-          ..color = _scaleAlpha(baseColor, indicatorOpacity.value.clamp(0.0, 1.0));
+          ..color =
+              _scaleAlpha(baseColor, indicatorOpacity.value.clamp(0.0, 1.0));
         final height = indicatorHeight.value;
         final yCenter = size.height / 2;
         final rect = Rect.fromLTWH(
@@ -150,10 +151,10 @@ class NibNavBarPainter extends CustomPainter {
       case NibNavIndicatorType.line:
         final baseColor = indicator.color ?? style.activeColor;
         final paint = Paint()
-          ..color = _scaleAlpha(baseColor, indicatorOpacity.value.clamp(0.0, 1.0));
-        final thickness = indicatorHeight.value > 0
-            ? indicatorHeight.value
-            : 3.0;
+          ..color =
+              _scaleAlpha(baseColor, indicatorOpacity.value.clamp(0.0, 1.0));
+        final thickness =
+            indicatorHeight.value > 0 ? indicatorHeight.value : 3.0;
         canvas.drawRect(
           Rect.fromLTWH(indicatorX.value, 0, indicatorWidth.value, thickness),
           paint,
@@ -162,7 +163,8 @@ class NibNavBarPainter extends CustomPainter {
       case NibNavIndicatorType.dot:
         final baseColor = indicator.color ?? style.activeColor;
         final paint = Paint()
-          ..color = _scaleAlpha(baseColor, indicatorOpacity.value.clamp(0.0, 1.0));
+          ..color =
+              _scaleAlpha(baseColor, indicatorOpacity.value.clamp(0.0, 1.0));
         final radius = indicatorHeight.value > 0 ? indicatorHeight.value : 4.0;
         canvas.drawCircle(
           Offset(
@@ -229,7 +231,8 @@ class NibNavBarPainter extends CustomPainter {
         // clipped by an ancestor.
         final labelY = (contentRect.top + contentRect.height * 0.66).clamp(
           contentRect.top,
-          (contentRect.bottom - textPainter.height).clamp(contentRect.top, contentRect.bottom),
+          (contentRect.bottom - textPainter.height)
+              .clamp(contentRect.top, contentRect.bottom),
         );
 
         textPainter.paint(
@@ -252,7 +255,8 @@ class NibNavBarPainter extends CustomPainter {
     final iconCenterY = hasLabels
         ? contentRect.top + contentRect.height * 0.38
         : contentRect.top + contentRect.height / 2;
-    final itemCenterX = contentRect.left + itemWidth * itemIndex + itemWidth / 2;
+    final itemCenterX =
+        contentRect.left + itemWidth * itemIndex + itemWidth / 2;
     return Rect.fromCenter(
       center: Offset(itemCenterX, iconCenterY),
       width: style.iconSize,
@@ -303,7 +307,8 @@ class NibNavBarPainter extends CustomPainter {
         height: _badgePillHeight,
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(pillRect, Radius.circular(_badgePillHeight / 2)),
+        RRect.fromRectAndRadius(
+            pillRect, Radius.circular(_badgePillHeight / 2)),
         paint,
       );
 

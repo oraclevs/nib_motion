@@ -4,7 +4,8 @@ import 'package:nib_motion/nib_motion.dart';
 
 void main() {
   group('NibMotionProvider', () {
-    testWidgets('exposes its defaultTransition via NibMotionConfig.of', (tester) async {
+    testWidgets('exposes its defaultTransition via NibMotionConfig.of',
+        (tester) async {
       const transition = NibTransition.springSnappy;
       late BuildContext capturedContext;
 
@@ -20,11 +21,14 @@ void main() {
         ),
       );
 
-      expect(NibMotionProvider.of(capturedContext)?.defaultTransition, transition);
+      expect(
+          NibMotionProvider.of(capturedContext)?.defaultTransition, transition);
       expect(NibMotionConfig.defaultTransitionOf(capturedContext), transition);
     });
 
-    testWidgets('respectReducedMotion: false disables reduced-motion regardless of MediaQuery', (tester) async {
+    testWidgets(
+        'respectReducedMotion: false disables reduced-motion regardless of MediaQuery',
+        (tester) async {
       late BuildContext capturedContext;
 
       await tester.pumpWidget(
@@ -45,7 +49,9 @@ void main() {
       expect(NibMotionConfig.shouldReduceMotion(capturedContext), isFalse);
     });
 
-    testWidgets('respectReducedMotion: true (default) defers to MediaQuery.disableAnimations', (tester) async {
+    testWidgets(
+        'respectReducedMotion: true (default) defers to MediaQuery.disableAnimations',
+        (tester) async {
       late BuildContext capturedContext;
 
       await tester.pumpWidget(

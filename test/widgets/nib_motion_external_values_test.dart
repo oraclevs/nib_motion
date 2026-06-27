@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
@@ -22,7 +23,9 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibMotion.motionValues', () {
-    testWidgets('an externally-provided MotionValue drives the render object directly', (tester) async {
+    testWidgets(
+        'an externally-provided MotionValue drives the render object directly',
+        (tester) async {
       final opacity = MotionValue<double>(1.0);
 
       await tester.pumpWidget(
@@ -41,7 +44,9 @@ void main() {
       expect(renderObject.opacity.value, 0.25);
     });
 
-    testWidgets('disposing NibMotion does not dispose an externally-provided MotionValue', (tester) async {
+    testWidgets(
+        'disposing NibMotion does not dispose an externally-provided MotionValue',
+        (tester) async {
       final opacity = MotionValue<double>(1.0);
       addTearDown(opacity.dispose);
 

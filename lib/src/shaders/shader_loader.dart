@@ -10,10 +10,12 @@ class NibShaderAssets {
   static const String shimmer = 'packages/nib_motion/lib/shaders/shimmer.frag';
 
   /// Asset path for the noise-based dissolve transition shader.
-  static const String dissolve = 'packages/nib_motion/lib/shaders/dissolve.frag';
+  static const String dissolve =
+      'packages/nib_motion/lib/shaders/dissolve.frag';
 
   /// Asset path for the animated gradient sweep shader.
-  static const String gradientSweep = 'packages/nib_motion/lib/shaders/gradient_sweep.frag';
+  static const String gradientSweep =
+      'packages/nib_motion/lib/shaders/gradient_sweep.frag';
 }
 
 /// A singleton cache/loader for the [FragmentProgram]s bundled with
@@ -40,10 +42,12 @@ class NibShaderLoader {
 
   /// Returns the cached or newly-started [Future] that resolves to the
   /// compiled [FragmentProgram] for the gradient sweep shader.
-  static Future<FragmentProgram> gradientSweep() => _load(NibShaderAssets.gradientSweep);
+  static Future<FragmentProgram> gradientSweep() =>
+      _load(NibShaderAssets.gradientSweep);
 
   static Future<FragmentProgram> _load(String assetKey) {
-    return _cache.putIfAbsent(assetKey, () => FragmentProgram.fromAsset(assetKey));
+    return _cache.putIfAbsent(
+        assetKey, () => FragmentProgram.fromAsset(assetKey));
   }
 
   /// Kicks off compilation of every bundled shader and waits for all of

@@ -17,7 +17,8 @@ const motionPrimitives = [
     'name': 'exit',
     'displayName': 'Exit',
     'category': 'exit',
-    'description': 'Plays an exit animation before a widget is removed from the tree.',
+    'description':
+        'Plays an exit animation before a widget is removed from the tree.',
     'apiClass': 'NibPresence',
     'apiProps': ['children'],
   },
@@ -25,7 +26,8 @@ const motionPrimitives = [
     'name': 'gesture',
     'displayName': 'Gesture',
     'category': 'gesture',
-    'description': 'Drag-driven motion with elastic constraints and snap points.',
+    'description':
+        'Drag-driven motion with elastic constraints and snap points.',
     'apiClass': 'NibMotion',
     'apiProps': ['drag', 'whileDrag', 'whileTap'],
   },
@@ -33,7 +35,8 @@ const motionPrimitives = [
     'name': 'transition',
     'displayName': 'Transition',
     'category': 'transition',
-    'description': 'Configures duration, curve, delay, and stagger for any animation.',
+    'description':
+        'Configures duration, curve, delay, and stagger for any animation.',
     'apiClass': 'NibTransition',
     'apiProps': ['duration', 'curve', 'delay', 'spring', 'staggerChildren'],
   },
@@ -41,7 +44,8 @@ const motionPrimitives = [
     'name': 'layout',
     'displayName': 'Layout',
     'category': 'layout',
-    'description': 'Animates position and size changes when layout changes (FLIP).',
+    'description':
+        'Animates position and size changes when layout changes (FLIP).',
     'apiClass': 'NibLayoutGroup',
     'apiProps': ['children', 'transition'],
   },
@@ -49,7 +53,8 @@ const motionPrimitives = [
     'name': 'rotate',
     'displayName': 'Rotate',
     'category': 'transform',
-    'description': 'Rotation-based transform animation, driven manually or via gesture.',
+    'description':
+        'Rotation-based transform animation, driven manually or via gesture.',
     'apiClass': 'NibMotion',
     'apiProps': ['initial', 'animate', 'whileTap', 'transition', 'rotate'],
   },
@@ -67,7 +72,13 @@ const motionPrimitives = [
     'category': 'list',
     'description': 'Staggers enter/exit animations across a list of children.',
     'apiClass': 'NibMotionList',
-    'apiProps': ['initial', 'animate', 'exit', 'staggerDelay', 'staggerDirection'],
+    'apiProps': [
+      'initial',
+      'animate',
+      'exit',
+      'staggerDelay',
+      'staggerDirection'
+    ],
   },
   {
     'name': 'in-view',
@@ -81,7 +92,8 @@ const motionPrimitives = [
     'name': 'spring',
     'displayName': 'Spring',
     'category': 'spring',
-    'description': 'Physics-based spring motion driven by mass, stiffness, and damping.',
+    'description':
+        'Physics-based spring motion driven by mass, stiffness, and damping.',
     'apiClass': 'NibSpringDescription',
     'apiProps': ['mass', 'stiffness', 'damping'],
   },
@@ -89,7 +101,8 @@ const motionPrimitives = [
     'name': 'bottom-nav',
     'displayName': 'NibBottomNav',
     'category': 'navigation',
-    'description': 'Animated bottom navigation with spring indicator and screen transitions.',
+    'description':
+        'Animated bottom navigation with spring indicator and screen transitions.',
     'apiClass': 'NibScaffold',
   },
 ];

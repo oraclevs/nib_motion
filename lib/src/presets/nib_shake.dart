@@ -54,7 +54,8 @@ class NibShake extends StatefulWidget {
 class _NibShakeState extends State<NibShake> {
   NibShakeController? _internalController;
 
-  NibShakeController get _controller => widget.controller ?? (_internalController ??= NibShakeController());
+  NibShakeController get _controller =>
+      widget.controller ?? (_internalController ??= NibShakeController());
 
   @override
   void didUpdateWidget(NibShake oldWidget) {

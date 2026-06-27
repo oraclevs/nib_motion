@@ -142,8 +142,8 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
   // ---------------------------------------------------------------------
 
   void _initItemMotion() {
-    final tapSpring =
-        widget.itemAnimation.tapTransition.spring ?? NibSpringDescription.snappy;
+    final tapSpring = widget.itemAnimation.tapTransition.spring ??
+        NibSpringDescription.snappy;
     final activeScale = widget.itemAnimation.whileActive?.scale ?? 1.0;
 
     _itemScales = [
@@ -219,7 +219,8 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
   void _syncIndicatorToCurrentIndex() {
     if (widget.items.isEmpty) return;
     final padding = widget.style.padding;
-    final contentWidth = (_lastWidth - padding.horizontal).clamp(0.0, _lastWidth);
+    final contentWidth =
+        (_lastWidth - padding.horizontal).clamp(0.0, _lastWidth);
     final itemWidth = contentWidth / widget.items.length;
     final targetWidth = _targetIndicatorWidth(itemWidth);
     final targetX = padding.left +
@@ -238,10 +239,12 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
   void _animateIndicatorTo(int index) {
     if (!_hasLaidOut || widget.items.isEmpty) return;
     final padding = widget.style.padding;
-    final contentWidth = (_lastWidth - padding.horizontal).clamp(0.0, _lastWidth);
+    final contentWidth =
+        (_lastWidth - padding.horizontal).clamp(0.0, _lastWidth);
     final itemWidth = contentWidth / widget.items.length;
     final targetWidth = _targetIndicatorWidth(itemWidth);
-    final targetX = padding.left + itemWidth * index + (itemWidth - targetWidth) / 2;
+    final targetX =
+        padding.left + itemWidth * index + (itemWidth - targetWidth) / 2;
     _indicatorXSolver.animateTo(target: targetX);
     _indicatorWidthSolver.animateTo(target: targetWidth);
   }
@@ -320,20 +323,24 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          if (widget.items.isNotEmpty && width.isFinite && width != _lastWidth) {
+          if (widget.items.isNotEmpty &&
+              width.isFinite &&
+              width != _lastWidth) {
             _lastWidth = width;
             _syncIndicatorToCurrentIndex();
           }
 
           final padding = widget.style.padding;
           final contentWidth = (width - padding.horizontal).clamp(0.0, width);
-          final itemWidth = widget.items.isEmpty ? 0.0 : contentWidth / widget.items.length;
+          final itemWidth =
+              widget.items.isEmpty ? 0.0 : contentWidth / widget.items.length;
           final iconSize = widget.style.iconSize;
           final contentRect = Rect.fromLTWH(
             padding.left,
             padding.top,
             contentWidth,
-            (widget.style.height - padding.vertical).clamp(0.0, widget.style.height),
+            (widget.style.height - padding.vertical)
+                .clamp(0.0, widget.style.height),
           );
           final iconCenterY = _iconCenterY(contentRect);
 
@@ -349,7 +356,8 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
                   onTapDown: itemWidth <= 0
                       ? null
                       : (details) {
-                          final localX = details.localPosition.dx - padding.left;
+                          final localX =
+                              details.localPosition.dx - padding.left;
                           final index = (localX / itemWidth)
                               .floor()
                               .clamp(0, widget.items.length - 1);
@@ -378,7 +386,9 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
                 if (itemWidth > 0)
                   for (var i = 0; i < widget.items.length; i++)
                     Positioned(
-                      left: padding.left + itemWidth * i + (itemWidth - iconSize) / 2,
+                      left: padding.left +
+                          itemWidth * i +
+                          (itemWidth - iconSize) / 2,
                       top: iconCenterY - iconSize / 2,
                       width: iconSize,
                       height: iconSize,
@@ -389,7 +399,8 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
                             _itemOpacities[i],
                           ]),
                           builder: (context, _) {
-                            final activeOpacity = _itemOpacities[i].value.clamp(0.0, 1.0);
+                            final activeOpacity =
+                                _itemOpacities[i].value.clamp(0.0, 1.0);
                             return Transform.scale(
                               scale: _itemScales[i].value,
                               child: Stack(
@@ -412,7 +423,8 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
                                         color: widget.style.activeColor,
                                         size: iconSize,
                                       ),
-                                      child: widget.items[i].activeIcon ?? widget.items[i].icon,
+                                      child: widget.items[i].activeIcon ??
+                                          widget.items[i].icon,
                                     ),
                                   ),
                                 ],

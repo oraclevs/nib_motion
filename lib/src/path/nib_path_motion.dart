@@ -185,9 +185,8 @@ class _NibPathMotionState extends State<NibPathMotion>
   void _onTick(Duration elapsed) {
     final durationUs = widget.duration.inMicroseconds;
     final elapsedUs = (elapsed - _startTime).inMicroseconds;
-    final rawT = durationUs <= 0
-        ? 1.0
-        : (elapsedUs / durationUs).clamp(0.0, 1.0);
+    final rawT =
+        durationUs <= 0 ? 1.0 : (elapsedUs / durationUs).clamp(0.0, 1.0);
     final curvedT = widget.curve.transform(rawT);
     _progress.value = curvedT;
 
@@ -242,7 +241,8 @@ class _PathMotionBox extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderNibPathMotion renderObject) {
+  void updateRenderObject(
+      BuildContext context, RenderNibPathMotion renderObject) {
     renderObject
       ..path = path
       ..progress = progress
@@ -262,10 +262,10 @@ class RenderNibPathMotion extends RenderProxyBox {
     required MotionValue<double> progress,
     required bool rotate,
     RenderBox? child,
-  }) : _path = path,
-       _progress = progress,
-       _rotate = rotate,
-       super(child) {
+  })  : _path = path,
+        _progress = progress,
+        _rotate = rotate,
+        super(child) {
     _progress.addListener(_onProgressChanged);
   }
 

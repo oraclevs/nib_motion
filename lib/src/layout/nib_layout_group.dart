@@ -47,11 +47,14 @@ class NibLayoutGroup extends StatefulWidget {
 class _NibLayoutGroupState extends State<NibLayoutGroup> {
   final FlipRecorder _recorder = FlipRecorder();
   final Map<Key, GlobalKey> _globalKeys = <Key, GlobalKey>{};
-  final Map<Key, NibMotionController> _controllers = <Key, NibMotionController>{};
+  final Map<Key, NibMotionController> _controllers =
+      <Key, NibMotionController>{};
 
-  GlobalKey _globalKeyFor(Key key) => _globalKeys.putIfAbsent(key, GlobalKey.new);
+  GlobalKey _globalKeyFor(Key key) =>
+      _globalKeys.putIfAbsent(key, GlobalKey.new);
 
-  NibMotionController _controllerFor(Key key) => _controllers.putIfAbsent(key, NibMotionController.new);
+  NibMotionController _controllerFor(Key key) =>
+      _controllers.putIfAbsent(key, NibMotionController.new);
 
   @override
   void didUpdateWidget(NibLayoutGroup oldWidget) {
@@ -84,7 +87,9 @@ class _NibLayoutGroupState extends State<NibLayoutGroup> {
 
         final controller = _controllerFor(key);
         controller.set(NibAnim(x: delta.dx, y: delta.dy));
-        controller.start(target: const NibAnim(x: 0, y: 0), transition: widget.transition ?? NibTransition.springGentle);
+        controller.start(
+            target: const NibAnim(x: 0, y: 0),
+            transition: widget.transition ?? NibTransition.springGentle);
       }
     });
   }

@@ -11,8 +11,7 @@ import 'motion_value.dart';
 /// chained: `source.transform(...).transform(...)`.
 class DerivedMotionValue<S, T> extends MotionValue<T> {
   /// Creates a value derived from `source` by applying [mapper].
-  DerivedMotionValue(this._source, this.mapper)
-    : super(mapper(_source.value)) {
+  DerivedMotionValue(this._source, this.mapper) : super(mapper(_source.value)) {
     _source.addListener(_recompute);
   }
 

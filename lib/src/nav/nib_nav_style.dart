@@ -109,18 +109,18 @@ class NibNavBarStyle {
 
   @override
   int get hashCode => Object.hash(
-    backgroundColor,
-    activeColor,
-    inactiveColor,
-    height,
-    padding,
-    margin,
-    elevation,
-    borderRadius,
-    border,
-    iconSize,
-    labelStyle,
-  );
+        backgroundColor,
+        activeColor,
+        inactiveColor,
+        height,
+        padding,
+        margin,
+        elevation,
+        borderRadius,
+        border,
+        iconSize,
+        labelStyle,
+      );
 }
 
 /// The visual style of the active-item indicator drawn by a `NibNavBar`.

@@ -5,7 +5,8 @@ import 'package:nib_motion/nib_motion.dart';
 Widget _wrap(Widget child) {
   return NibMotionConfig(
     entranceWarmup: Duration.zero,
-    child: Directionality(textDirection: TextDirection.ltr, child: Center(child: child)),
+    child: Directionality(
+        textDirection: TextDirection.ltr, child: Center(child: child)),
   );
 }
 
@@ -22,7 +23,9 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibMotion keyframes', () {
-    testWidgets('animates opacity through each keyframe over the transition duration', (tester) async {
+    testWidgets(
+        'animates opacity through each keyframe over the transition duration',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
@@ -31,7 +34,8 @@ void main() {
               NibKeyframe(at: 0.5, value: NibAnim(opacity: 1)),
               NibKeyframe(at: 1.0, value: NibAnim(opacity: 0)),
             ],
-            transition: const NibTransition(duration: Duration(milliseconds: 100), curve: Curves.linear),
+            transition: const NibTransition(
+                duration: Duration(milliseconds: 100), curve: Curves.linear),
             child: const SizedBox(width: 10, height: 10),
           ),
         ),

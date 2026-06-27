@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/gestures/nib_draggable.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 void main() {
@@ -19,7 +20,8 @@ void main() {
         ),
       );
 
-      await tester.drag(find.byKey(const ValueKey('box')), const Offset(80, 30), touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
+      await tester.drag(find.byKey(const ValueKey('box')), const Offset(80, 30),
+          touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
       await tester.pump();
 
       expect(lastUpdate, isNotNull);
@@ -27,7 +29,8 @@ void main() {
       expect(lastUpdate!.dy, closeTo(30, 0.5));
     });
 
-    testWidgets('onDragEnd reports the offset at release before snapping back', (tester) async {
+    testWidgets('onDragEnd reports the offset at release before snapping back',
+        (tester) async {
       Offset? finalOffset;
       await tester.pumpWidget(
         _wrap(
@@ -39,7 +42,8 @@ void main() {
         ),
       );
 
-      await tester.drag(find.byKey(const ValueKey('box')), const Offset(100, 0), touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
+      await tester.drag(find.byKey(const ValueKey('box')), const Offset(100, 0),
+          touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
       expect(finalOffset, isNotNull);
       expect(finalOffset!.dx, greaterThan(0));
     });
@@ -54,8 +58,10 @@ void main() {
         ),
       );
 
-      final boxFinderBefore = tester.getTopLeft(find.byKey(const ValueKey('box')));
-      final gesture = await tester.startGesture(tester.getCenter(find.byKey(const ValueKey('box'))));
+      final boxFinderBefore =
+          tester.getTopLeft(find.byKey(const ValueKey('box')));
+      final gesture = await tester
+          .startGesture(tester.getCenter(find.byKey(const ValueKey('box'))));
       await gesture.moveBy(const Offset(100, 50));
       await tester.pump();
 
@@ -82,7 +88,8 @@ void main() {
         ),
       );
 
-      await tester.drag(find.byKey(const ValueKey('box')), const Offset(40, 90), touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
+      await tester.drag(find.byKey(const ValueKey('box')), const Offset(40, 90),
+          touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
       await tester.pump();
 
       expect(lastUpdate, isNotNull);
@@ -102,7 +109,9 @@ void main() {
         ),
       );
 
-      await tester.drag(find.byKey(const ValueKey('box')), const Offset(200, 200), touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
+      await tester.drag(
+          find.byKey(const ValueKey('box')), const Offset(200, 200),
+          touchSlopX: 0, touchSlopY: 0, warnIfMissed: false);
       await tester.pump();
 
       expect(lastUpdate, isNotNull);

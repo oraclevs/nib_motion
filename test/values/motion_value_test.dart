@@ -55,7 +55,8 @@ void main() {
       expect(plusOne.value, 11.0);
     });
 
-    test('disposing a DerivedMotionValue removes its listener from the source', () {
+    test('disposing a DerivedMotionValue removes its listener from the source',
+        () {
       final source = MotionValue<double>(0.0);
       final derived = source.transform((v) => v * 2);
 
@@ -83,7 +84,9 @@ void main() {
       expect(mapped.value, 0.5);
     });
 
-    test('mapRange with 3 stops [0,100,200]->[0.0,1.0,0.0] at input=150 gives 0.5', () {
+    test(
+        'mapRange with 3 stops [0,100,200]->[0.0,1.0,0.0] at input=150 gives 0.5',
+        () {
       final source = MotionValue<double>(150.0);
       final mapped = source.mapRange([0, 100, 200], [0.0, 1.0, 0.0]);
 
@@ -103,7 +106,8 @@ void main() {
 
     test('mapRange result can itself be transformed (chained)', () {
       final source = MotionValue<double>(50.0);
-      final squared = source.mapRange([0, 100], [0.0, 1.0]).transform((v) => v * v);
+      final squared =
+          source.mapRange([0, 100], [0.0, 1.0]).transform((v) => v * v);
 
       expect(squared.value, 0.25);
     });

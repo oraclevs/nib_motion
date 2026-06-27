@@ -46,7 +46,9 @@ class _NibPresenceState extends State<NibPresence> {
   void didUpdateWidget(NibPresence oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final newChildren = <Key, Widget>{for (final child in widget.children) child.key!: child};
+    final newChildren = <Key, Widget>{
+      for (final child in widget.children) child.key!: child
+    };
     final newKeys = newChildren.keys.toSet();
     final oldKeys = _entries.keys.toSet();
 
@@ -83,7 +85,9 @@ class _NibPresenceState extends State<NibPresence> {
       completer.complete();
       if (!mounted) return;
       final current = _entries[key];
-      if (current == null || !current.isExiting || current.exitCompleter != completer) return;
+      if (current == null ||
+          !current.isExiting ||
+          current.exitCompleter != completer) return;
       setState(() => _entries.remove(key));
     });
   }
@@ -94,7 +98,10 @@ class _NibPresenceState extends State<NibPresence> {
       registration: _registration,
       child: Stack(
         children: _entries.values
-            .map((entry) => IgnorePointer(key: ValueKey<Key>(entry.key), ignoring: entry.isExiting, child: entry.child))
+            .map((entry) => IgnorePointer(
+                key: ValueKey<Key>(entry.key),
+                ignoring: entry.isExiting,
+                child: entry.child))
             .toList(growable: false),
       ),
     );

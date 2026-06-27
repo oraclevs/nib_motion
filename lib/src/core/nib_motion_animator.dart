@@ -34,7 +34,8 @@ abstract class NibMotionAnimator {
   /// Plays [keyframes] once, from `0.0` to `1.0`, using [transition] (or the
   /// widget's default transition if `null`). Returns a future that completes
   /// when the keyframe animation settles.
-  Future<void> playKeyframes(List<NibKeyframe> keyframes, {NibTransition? transition});
+  Future<void> playKeyframes(List<NibKeyframe> keyframes,
+      {NibTransition? transition});
 
   /// Enables or disables [NibMotion.repeatAnimationInLoop]'s ping-pong loop at
   /// runtime, regardless of the widget's `repeatAnimationInLoop` value.

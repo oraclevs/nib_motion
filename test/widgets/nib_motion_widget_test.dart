@@ -6,7 +6,8 @@ import 'package:nib_motion/src/core/nib_motion_animator.dart';
 import 'package:nib_motion/src/presence/presence_scope.dart';
 
 Widget _wrap(Widget child) {
-  return Directionality(textDirection: TextDirection.ltr, child: Center(child: child));
+  return Directionality(
+      textDirection: TextDirection.ltr, child: Center(child: child));
 }
 
 RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
@@ -25,13 +26,15 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('NibMotion', () {
-    testWidgets('animate transitions a property from initial to its target', (tester) async {
+    testWidgets('animate transitions a property from initial to its target',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
             initial: const NibAnim(opacity: 0.0),
             animate: const NibAnim(opacity: 1.0),
-            transition: const NibTransition(duration: Duration(milliseconds: 100)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 100)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -59,7 +62,8 @@ void main() {
       final renderObject = _findRenderNibMotion(tester);
       expect(renderObject.opacity.value, 1.0);
 
-      final gesture = await tester.startGesture(tester.getCenter(find.byType(NibMotion)));
+      final gesture =
+          await tester.startGesture(tester.getCenter(find.byType(NibMotion)));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -75,7 +79,8 @@ void main() {
             initial: const NibAnim(opacity: 1.0),
             animate: const NibAnim(opacity: 1.0),
             whileTap: const NibAnim(opacity: 0.5),
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -83,7 +88,8 @@ void main() {
 
       final renderObject = _findRenderNibMotion(tester);
 
-      final gesture = await tester.startGesture(tester.getCenter(find.byType(NibMotion)));
+      final gesture =
+          await tester.startGesture(tester.getCenter(find.byType(NibMotion)));
       await tester.pumpAndSettle();
 
       expect(renderObject.opacity.value, closeTo(0.5, 0.01));
@@ -100,7 +106,8 @@ void main() {
           NibMotion(
             initial: const NibAnim(opacity: 1.0),
             whileHover: const NibAnim(opacity: 0.7),
-            transition: const NibTransition(duration: Duration(milliseconds: 50)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 50)),
             child: const SizedBox(width: 50, height: 50),
           ),
         ),
@@ -109,7 +116,8 @@ void main() {
       final renderObject = _findRenderNibMotion(tester);
 
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await gesture.addPointer(location: tester.getCenter(find.byType(NibMotion)));
+      await gesture.addPointer(
+          location: tester.getCenter(find.byType(NibMotion)));
       addTearDown(gesture.removePointer);
       await tester.pump();
       await tester.pumpAndSettle();
@@ -140,7 +148,8 @@ void main() {
       expect(registered, isNotNull);
     });
 
-    testWidgets('dispose cleans up tickers and motion values without error', (tester) async {
+    testWidgets('dispose cleans up tickers and motion values without error',
+        (tester) async {
       await tester.pumpWidget(
         _wrap(
           NibMotion(
@@ -159,13 +168,16 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('rebuilding with a new animate target reuses the same MotionValue instances', (tester) async {
+    testWidgets(
+        'rebuilding with a new animate target reuses the same MotionValue instances',
+        (tester) async {
       Widget build(double targetX) {
         return _wrap(
           NibMotion(
             initial: const NibAnim(opacity: 1.0, x: 0.0),
             animate: NibAnim(opacity: 1.0, x: targetX),
-            transition: const NibTransition(duration: Duration(milliseconds: 20)),
+            transition:
+                const NibTransition(duration: Duration(milliseconds: 20)),
             child: const SizedBox(width: 50, height: 50),
           ),
         );
@@ -185,8 +197,10 @@ void main() {
       expect(renderObjectAfter.translateX.value, closeTo(100.0, 0.01));
     });
 
-    testWidgets('interrupting a spring animation preserves velocity continuity', (tester) async {
-      const spring = NibTransition(spring: NibSpringDescription(stiffness: 50, damping: 4));
+    testWidgets('interrupting a spring animation preserves velocity continuity',
+        (tester) async {
+      const spring = NibTransition(
+          spring: NibSpringDescription(stiffness: 50, damping: 4));
 
       Widget build(double targetX) {
         return _wrap(
@@ -218,7 +232,8 @@ void main() {
       expect(velocityAfter, greaterThan(velocityBefore * 0.5));
     });
 
-    testWidgets('reduced motion via MediaQuery jumps to target immediately', (tester) async {
+    testWidgets('reduced motion via MediaQuery jumps to target immediately',
+        (tester) async {
       await tester.pumpWidget(
         MediaQuery(
           data: const MediaQueryData(disableAnimations: true),
@@ -226,7 +241,8 @@ void main() {
             NibMotion(
               initial: const NibAnim(opacity: 0.0),
               animate: const NibAnim(opacity: 1.0),
-              transition: const NibTransition(duration: Duration(milliseconds: 300)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 300)),
               child: const SizedBox(width: 50, height: 50),
             ),
           ),
@@ -238,7 +254,8 @@ void main() {
       expect(renderObject.opacity.value, 1.0);
     });
 
-    testWidgets('NibMotionConfig.setReducedMotion overrides MediaQuery', (tester) async {
+    testWidgets('NibMotionConfig.setReducedMotion overrides MediaQuery',
+        (tester) async {
       NibMotionConfig.setReducedMotion(false);
       addTearDown(() => NibMotionConfig.setReducedMotion(null));
 
@@ -249,7 +266,8 @@ void main() {
             NibMotion(
               initial: const NibAnim(opacity: 0.0),
               animate: const NibAnim(opacity: 1.0),
-              transition: const NibTransition(duration: Duration(milliseconds: 100)),
+              transition:
+                  const NibTransition(duration: Duration(milliseconds: 100)),
               child: const SizedBox(width: 50, height: 50),
             ),
           ),

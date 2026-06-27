@@ -42,14 +42,14 @@ class NibMotionList extends StatelessWidget {
     this.transition,
     this.controller,
     this.presenceEnabled = false,
-  }) : assert(
-         initial == null || initial is String || initial is NibAnim,
-         'NibMotionList.initial must be a String variant name or a NibAnim.',
-       ),
-       assert(
-         animate == null || animate is String || animate is NibAnim,
-         'NibMotionList.animate must be a String variant name or a NibAnim.',
-       );
+  })  : assert(
+          initial == null || initial is String || initial is NibAnim,
+          'NibMotionList.initial must be a String variant name or a NibAnim.',
+        ),
+        assert(
+          animate == null || animate is String || animate is NibAnim,
+          'NibMotionList.animate must be a String variant name or a NibAnim.',
+        );
 
   /// The widgets to animate. If [presenceEnabled] is `true`, each must carry
   /// a non-null, unique [Key] (see [NibPresence]).
@@ -101,7 +101,8 @@ class NibMotionList extends StatelessWidget {
     final count = children.length;
 
     final wrapped = <Widget>[
-      for (var index = 0; index < count; index++) _wrapChild(index, count, baseTransition),
+      for (var index = 0; index < count; index++)
+        _wrapChild(index, count, baseTransition),
     ];
 
     if (presenceEnabled) {
@@ -113,7 +114,9 @@ class NibMotionList extends StatelessWidget {
 
   Widget _wrapChild(int index, int count, NibTransition baseTransition) {
     final child = children[index];
-    final staggerIndex = staggerDirection == NibStaggerDirection.forward ? index : count - 1 - index;
+    final staggerIndex = staggerDirection == NibStaggerDirection.forward
+        ? index
+        : count - 1 - index;
 
     return NibMotion(
       key: child.key,

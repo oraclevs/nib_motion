@@ -184,7 +184,8 @@ class _DebugPanelState extends State<_DebugPanel> {
                         for (final entry in registeredValues.entries)
                           Text(
                             '${entry.key}: ${entry.value.value}',
-                            style: const TextStyle(color: Colors.white54, fontSize: 10),
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 10),
                             overflow: TextOverflow.ellipsis,
                           ),
                       ],

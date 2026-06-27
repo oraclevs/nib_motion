@@ -33,9 +33,11 @@ extension NibMotionWidgetExtension on Widget {
   }
 
   /// Wraps this widget in a [NibShimmer].
-  Widget shimmer({bool enabled = true}) => NibShimmer(enabled: enabled, child: this);
+  Widget shimmer({bool enabled = true}) =>
+      NibShimmer(enabled: enabled, child: this);
 
   /// Wraps this widget in a [NibScrollReveal].
   Widget revealOnScroll({NibAnim? initial, bool once = true}) =>
-      NibScrollReveal(initial: initial ?? NibAnimPresets.fadeUp, once: once, child: this);
+      NibScrollReveal(
+          initial: initial ?? NibAnimPresets.fadeUp, once: once, child: this);
 }

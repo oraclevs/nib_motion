@@ -85,7 +85,8 @@ class _NibTextRevealState extends State<NibTextReveal>
 
   void _runReveal() {
     if (!mounted) return;
-    final controller = AnimationController(vsync: this, duration: widget.duration);
+    final controller =
+        AnimationController(vsync: this, duration: widget.duration);
     _tweenController = controller;
 
     void listener() {
@@ -140,7 +141,8 @@ class _NibTextRevealBox extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderNibTextReveal renderObject) {
+  void updateRenderObject(
+      BuildContext context, RenderNibTextReveal renderObject) {
     renderObject
       ..direction = direction
       ..factor = factor;
@@ -159,9 +161,9 @@ class RenderNibTextReveal extends RenderProxyBox {
     required NibTextRevealDirection direction,
     required MotionValue<double> factor,
     RenderBox? child,
-  }) : _direction = direction,
-       _factor = factor,
-       super(child) {
+  })  : _direction = direction,
+        _factor = factor,
+        super(child) {
     _factor.addListener(_onFactorChanged);
   }
 
