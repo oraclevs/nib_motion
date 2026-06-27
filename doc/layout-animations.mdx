@@ -1,0 +1,313 @@
+# Layout Animations
+
+So far, every animation on these pages has been driven explicitly — you set
+`animate`, or a `NibMotionController` changes a `NibAnim`, and a widget moves,
+fades, or scales in response. But sometimes a widget moves for a reason that
+has nothing to do with `NibMotion` at all: a sibling is added or removed, a
+filter changes which items are visible, or an accordion expands and pushes
+everything below it down the screen. Without help, all of that just snaps to
+its new position the instant the layout changes.
+
+`NibLayoutGroup` fixes that. It wraps a list of children and, whenever their
+layout changes between rebuilds, animates each one smoothly from its old
+position to its new one — without you writing any animation code for the
+reflow itself.
+
+## How `NibLayoutGroup` works: FLIP
+
+`NibLayoutGroup` uses a technique called **FLIP** — **F**irst, **L**ast,
+**I**nvert, **P**lay. The name describes the four steps it runs every time its
+`children` change:
+
+- **First** — before the new layout is applied, `NibLayoutGroup` records the
+  current on-screen position of every child that's present in both the old
+  and new `children` lists.
+- **Last** — after the new layout has been applied (on the next frame),
+  `NibLayoutGroup` measures each tracked child's new position and compares it
+  to the position recorded in the First step.
+- **Invert** — if a child moved, `NibLayoutGroup` immediately (with no
+  animation) offsets that child by the delta between its old and new
+  position — so, for a single frame, it's drawn back at its *old* location
+  even though it's now logically in its new spot in the tree.
+- **Play** — that offset is then animated back down to zero using
+  `transition`, so the child visibly travels from where it used to be to
+  where it now belongs.
+
+The net effect: instead of a child teleporting to its new position the moment
+the layout changes, it appears to glide there. Because the Invert step uses no
+animation at all, there's no flash or jump at the start — the animation is
+indistinguishable from the child having been at its old position the whole
+time.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ReorderableTags extends StatefulWidget {
+  const ReorderableTags({super.key});
+
+  @override
+  State<ReorderableTags> createState() => _ReorderableTagsState();
+}
+
+class _ReorderableTagsState extends State<ReorderableTags> {
+  List<String> _tags = ['Design', 'Engineering', 'Marketing', 'Sales'];
+
+  void _shuffle() {
+    setState(() {
+      _tags = List.of(_tags.reversed);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ElevatedButton(onPressed: _shuffle, child: const Text('Reverse order')),
+        const SizedBox(height: 12),
+        NibLayoutGroup(
+          children: [
+            for (final tag in _tags)
+              Padding(
+                key: ValueKey(tag),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Chip(label: Text(tag)),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+```
+
+Tapping "Reverse order" rebuilds `_tags` in the opposite order. Without
+`NibLayoutGroup`, the four chips would simply repaint in their new order
+instantly. With it, each chip animates from its previous position to its new
+one, so you can visually follow each tag as it moves.
+
+## `transition`: how a moved child animates back into place
+
+`transition` is the `NibTransition` used during the Play step — it controls
+the duration, curve, and (if you use a spring-based transition) the spring
+parameters of the animation that carries a moved child from its old position
+back to zero offset at its new position. See [Transitions](/docs/transitions)
+for the full set of options `NibTransition` supports.
+
+If you don't set `transition`, `NibLayoutGroup` falls back to
+`NibTransition.springGentle` — a soft, slightly bouncy spring that works well
+for most reflow animations. You can override it with any other
+`NibTransition`, including a fixed-duration curve:
+
+```dart
+NibLayoutGroup(
+  transition: const NibTransition(
+    duration: Duration(milliseconds: 300),
+    curve: Curves.easeInOut,
+  ),
+  children: [
+    // ...
+  ],
+)
+```
+
+A snappier spring (or a short, linear duration) suits dense UI like tag lists
+or toolbars, while a gentler spring tends to feel better for larger elements
+like cards or panels that are reflowing a lot of surrounding content.
+
+## Example: a filterable grid of cards
+
+A common case for `NibLayoutGroup` is a grid of cards that can be filtered —
+when the filter changes, some cards disappear, the remaining cards reflow into
+a tighter grid, and (depending on your layout) some may also resize. Wrapping
+the grid in `NibLayoutGroup` turns that reflow from an instant jump into a
+smooth rearrangement.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class FilterableCardGrid extends StatefulWidget {
+  const FilterableCardGrid({super.key});
+
+  @override
+  State<FilterableCardGrid> createState() => _FilterableCardGridState();
+}
+
+class _FilterableCardGridState extends State<FilterableCardGrid> {
+  String _filter = 'all';
+
+  static const _items = [
+    (id: 1, category: 'design', title: 'Design system audit'),
+    (id: 2, category: 'engineering', title: 'API rate limiting'),
+    (id: 3, category: 'design', title: 'Onboarding flow redesign'),
+    (id: 4, category: 'engineering', title: 'Database migration'),
+    (id: 5, category: 'marketing', title: 'Q3 campaign brief'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = _items.where(
+      (item) => _filter == 'all' || item.category == _filter,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final category in ['all', 'design', 'engineering', 'marketing'])
+              ChoiceChip(
+                label: Text(category),
+                selected: _filter == category,
+                onSelected: (_) => setState(() => _filter = category),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        NibLayoutGroup(
+          children: [
+            for (final item in visible)
+              Padding(
+                key: ValueKey(item.id),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  child: ListTile(title: Text(item.title)),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+```
+
+When the user picks "design", the "API rate limiting" and "Database
+migration" cards disappear and the remaining "design" cards close the gap
+they leave behind. `NibLayoutGroup` animates that closing motion, so the
+remaining cards slide smoothly up into their new positions rather than
+snapping there the instant the filter changes.
+
+> **Note:** `NibLayoutGroup` only animates children that are present both
+> before and after a rebuild. A card that's removed by the filter (its key
+> disappears from `children`) is unmounted immediately with no exit
+> animation — pairing `NibLayoutGroup` with [Presence](/docs/presence) is the
+> way to animate removals themselves.
+
+## Example: an expanding card
+
+`NibLayoutGroup` isn't limited to lists — it also smooths out *size* changes,
+not just position changes. An accordion-style card that expands to reveal more
+content pushes everything below it down the screen; wrapping the surrounding
+column in `NibLayoutGroup` animates that push instead of letting it happen
+instantly.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ExpandableFaqList extends StatefulWidget {
+  const ExpandableFaqList({super.key});
+
+  @override
+  State<ExpandableFaqList> createState() => _ExpandableFaqListState();
+}
+
+class _ExpandableFaqListState extends State<ExpandableFaqList> {
+  int? _expandedIndex;
+
+  static const _faqs = [
+    (
+      question: 'How does billing work?',
+      answer: 'You are billed monthly based on your plan tier.',
+    ),
+    (
+      question: 'Can I change plans later?',
+      answer: 'Yes, you can upgrade or downgrade at any time.',
+    ),
+    (
+      question: 'Is there a free trial?',
+      answer: 'Every plan includes a 14-day free trial, no card required.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return NibLayoutGroup(
+      children: [
+        for (var i = 0; i < _faqs.length; i++)
+          Card(
+            key: ValueKey(_faqs[i].question),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    onTap: () => setState(() {
+                      _expandedIndex = _expandedIndex == i ? null : i;
+                    }),
+                    child: Text(
+                      _faqs[i].question,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  if (_expandedIndex == i) ...[
+                    const SizedBox(height: 8),
+                    Text(_faqs[i].answer),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+```
+
+Tapping a question toggles `_expandedIndex`, which changes that card's height
+by adding or removing its answer `Text`. That height change shifts every card
+below it. Because the whole list is wrapped in `NibLayoutGroup`, each of those
+cards animates to its new position using `transition` instead of jumping
+there the moment `setState` rebuilds the tree.
+
+## Requirement: every child needs a stable `Key`
+
+`NibLayoutGroup` identifies children the same way [Presence](/docs/presence)
+does: by `Key`, not by position in the `children` list. Every widget passed to
+`NibLayoutGroup.children` **must carry a non-null, unique `Key`** — typically a
+`ValueKey` wrapping a stable identifier from your data, as in the examples
+above.
+
+This is what lets `NibLayoutGroup` tell "this card moved from position 2 to
+position 0" apart from "this card was removed and a different card was
+inserted." If a child's key is new — it wasn't present in the previous
+`children` list — it mounts normally with no FLIP animation, since there's no
+previous position to animate from. If a key that was previously present is now
+missing, `NibLayoutGroup` simply stops tracking it; if a child with that same
+key reappears later, it's treated as a brand-new child rather than one
+"returning" to its old position.
+
+## API reference
+
+### `NibLayoutGroup`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `children` | `List<Widget>` | required | The widgets to lay out and track. Each must carry a non-null, unique `Key` so `NibLayoutGroup` can identify it across rebuilds. |
+| `transition` | `NibTransition?` | `NibTransition.springGentle` | The transition used to animate a moved child from its old position back to its new one (the FLIP "Play" step). |
+
+## Next steps
+
+- **[Lists & Stagger](/docs/lists-and-stagger)** — `NibMotionList` covers
+  entrance, exit, and staggered timing for a list's children. Combine it with
+  `NibLayoutGroup` when a list's items both animate in/out *and* need to
+  reflow smoothly as they do.
+- **[Viewport & Scroll](/docs/viewport-and-scroll)** — layout changes aren't
+  the only thing that can trigger an animation outside of direct user
+  interaction. The next page covers animating widgets in response to
+  scrolling and visibility.

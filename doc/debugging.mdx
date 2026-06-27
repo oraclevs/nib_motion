@@ -1,0 +1,172 @@
+# Debugging
+
+Animations are easy to write and hard to eyeball. Is that spring actually
+critically damped, or just close enough to look right? Is a `MotionValue`
+still alive after the widget that created it unmounted? Is the frame rate
+actually holding 60fps during a stagger, or just feeling smooth?
+
+`nib_motion` ships a small debug-overlay toolkit for answering exactly these
+questions during development: `NibMotionDebugger`, a wrapper widget that
+shows a live FPS counter and a live readout of every registered
+`MotionValue`, right on screen, with zero setup beyond wrapping your app.
+
+## Wrapping your app in `NibMotionDebugger`
+
+`NibMotionDebugger` wraps a `child` and, when enabled, overlays a small
+floating panel in the top-right corner showing an FPS counter and a list of
+every `MotionValue` currently alive in the app:
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: NibMotionDebugger(
+        enabled: kDebugMode,
+        child: const HomeScreen(),
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: NibMotion(
+          animate: NibAnim(
+            scaleX: _expanded ? 1.5 : 1,
+            scaleY: _expanded ? 1.5 : 1,
+            rotate: _expanded ? 0.1 : 0,
+          ),
+          transition: const NibTransition(spring: NibSpringDescription.wobbly),
+          child: GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.indigo,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+Tapping the box plays a wobbly spring animation, and the overlay panel
+updates in real time — the FPS counter ticks roughly once a second, and the
+`MotionValues` list shows the live `scaleX`/`scaleY`/`rotate` values as the
+spring settles.
+
+Passing `enabled: kDebugMode` (the default if you omit `enabled` entirely)
+means the overlay only ever appears in debug builds — profile and release
+builds get the zero-overhead passthrough described below.
+
+## Zero overhead when disabled
+
+`NibMotionDebugger.enabled` defaults to `kDebugMode`, so the overlay turns
+itself off automatically outside of debug builds. When `enabled` is `false`,
+`NibMotionDebugger` is a **complete no-op passthrough**: its `build` method
+returns `child` directly, with no `Stack`, no panel, and no extra widgets
+inserted into the tree at all. There's no need to conditionally remove
+`NibMotionDebugger` before shipping — leaving it wrapped around your app
+root is safe, because in profile and release builds it costs nothing.
+
+## The MotionValues list is scrollable
+
+Every `NibMotion` widget contributes a handful of `MotionValue`s — one each
+for opacity, x/y, scaleX/scaleY, rotate, skewX/skewY, color, borderRadius,
+and boxShadow. A real app with even a modest number of animated widgets on
+screen can easily register dozens of these at once.
+
+To keep the overlay panel from growing taller than the screen, the
+`MotionValues` section is height-capped and wrapped in its own scroll view
+(with a visible scrollbar) once its content exceeds that cap. You can scroll
+through the full list of registered values without the rest of the panel —
+or the FPS counter above it — moving or scrolling along with it.
+
+## What you're looking at: `NibPerfOverlay` and `NibMotionRegistry`
+
+`NibMotionDebugger`'s panel is composed from two smaller, independently
+usable pieces:
+
+- **`NibPerfOverlay`** is the live FPS counter itself. It samples Flutter's
+  frame timing data (via `SchedulerBinding.addTimingsCallback`) rather than
+  re-deriving FPS from build timestamps, so the number you see reflects
+  actual build-to-raster frame time, updating about once a second. You can
+  drop `NibPerfOverlay` into your own debug UI directly if you only want the
+  counter.
+- **`NibMotionRegistry`** is the process-wide singleton that the
+  `MotionValues` list reads from. Every `NibMotion` widget registers its
+  `MotionValue`s with `NibMotionRegistry.instance` automatically on mount and
+  unregisters them automatically on dispose — you don't need to call
+  `NibMotionRegistry` yourself in normal usage. It only exists so debug
+  tooling like `NibMotionDebugger` can list every animatable value currently
+  alive, without the core animation pipeline needing any knowledge of the
+  debugger. Like `NibMotionDebugger`, every method on `NibMotionRegistry` is
+  a no-op outside of debug mode — `register`/`unregister` do nothing and
+  `values` always returns an empty map in profile/release builds, so no
+  `MotionValue` references are retained in production.
+
+## API reference
+
+### `NibMotionDebugger`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `key` | `Key?` | `null` | Standard widget key for `NibMotionDebugger` itself. |
+| `child` | `Widget` | required | The widget subtree being debugged. Always rendered, regardless of `enabled`. |
+| `enabled` | `bool` | `kDebugMode` | Whether the debug overlay is active at all. When `false`, this widget is a complete no-op passthrough that returns `child` directly — no extra widgets are added to the tree. |
+| `showBoundingBoxes` | `bool` | `true` | Whether to show a bounding-box-mode indicator on the overlay panel (a dashed border and header marker). This is a simplified visual marker rather than a full per-`NibMotion` bounding-box tracer. |
+| `showMotionValues` | `bool` | `true` | Whether to show the live, scrollable list of `NibMotionRegistry.instance.values`. |
+| `showFps` | `bool` | `true` | Whether to show the `NibPerfOverlay` FPS counter. |
+
+### `NibPerfOverlay`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `key` | `Key?` | `null` | Standard widget key for `NibPerfOverlay` itself. |
+| `textStyle` | `TextStyle?` | `null` (falls back to a small white monospace-ish style) | Optional text style override for the FPS readout. |
+
+### `NibMotionRegistry`
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `instance` | `NibMotionRegistry` | The single global instance — always accessed as `NibMotionRegistry.instance`. |
+| `register(id, value)` | `void Function(String, MotionValue<dynamic>)` | Registers a `MotionValue` under a stable string id. No-op outside debug mode. Called automatically by `NibMotion` on mount. |
+| `unregister(id)` | `void Function(String)` | Removes the entry previously registered under `id`. No-op outside debug mode. Called automatically by `NibMotion` on dispose. |
+| `values` | `Map<String, MotionValue<dynamic>>` | An unmodifiable snapshot of every currently-registered `MotionValue`, keyed by id. Always empty outside debug mode. |
+
+## Next steps
+
+- **[Introduction](/docs)** — back to the overview of `NibMotion` and its
+  full set of animatable properties.
+- **[Physics & Motion Values](/docs/physics)** — a deeper look at
+  `MotionValue<T>`, the reactive container that `NibMotionDebugger` lists
+  live values from, including how to create, read, write, and derive your
+  own.

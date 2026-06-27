@@ -1,0 +1,432 @@
+import 'package:flutter/widgets.dart';
+
+import '../physics/spring_description.dart';
+import '../physics/spring_solver.dart';
+import '../values/motion_value.dart';
+import 'nib_nav_bar_painter.dart';
+import 'nib_nav_item.dart';
+import 'nib_nav_style.dart';
+
+/// An animated navigation bar that renders [items] as evenly spaced tabs.
+///
+/// The active-item indicator and the bar's background/labels are driven by
+/// [SpringSolver]s writing to [MotionValue]s consumed by [NibNavBarPainter]
+/// via `CustomPainter`'s `repaint` listenable — no `setState` occurs on
+/// those animation ticks.
+///
+/// Icons are the one exception: they're real `Icon` widgets positioned over
+/// the painter (via [AnimatedBuilder], scoped tightly to just the icon
+/// subtree) rather than canvas-painted bitmaps. An earlier version
+/// pre-rendered each icon to a [Widget]-rasterized image so it could be
+/// scaled crisply for `whileActive`, capturing it from an off-screen
+/// `RepaintBoundary` built into this same tree. That capture sat fully
+/// occluded behind the painter's `CustomPaint` every frame, and in
+/// release/AOT builds the engine can skip rasterizing a layer it determines
+/// is fully covered — `toImage()` then intermittently returned blank, most
+/// visibly for the first item. Real `Icon` widgets scaled via
+/// [Transform.scale] don't need a rasterized-bitmap workaround at all:
+/// Skia rasterizes the glyph at the final transformed size, so they stay
+/// crisp at any scale with no bitmap, no off-screen capture, and no race.
+class NibNavBar extends StatefulWidget {
+  /// Creates a navigation bar.
+  const NibNavBar({
+    super.key,
+    required this.items,
+    required this.currentIndex,
+    required this.onIndexChanged,
+    this.style = NibNavBarStyle.standard,
+    this.indicator = const NibNavIndicatorStyle(),
+    this.itemAnimation = const NibNavItemAnimation(),
+  });
+
+  /// The tabs to render.
+  final List<NibNavItem> items;
+
+  /// The index of the currently active tab.
+  final int currentIndex;
+
+  /// Called with the tapped item's index whenever the user taps a tab.
+  final ValueChanged<int> onIndexChanged;
+
+  /// The visual style of the bar's container.
+  final NibNavBarStyle style;
+
+  /// The visual style of the active-item indicator.
+  final NibNavIndicatorStyle indicator;
+
+  /// Per-item tap/active animation configuration.
+  final NibNavItemAnimation itemAnimation;
+
+  @override
+  State<NibNavBar> createState() => _NibNavBarState();
+}
+
+class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
+  late MotionValue<double> _indicatorX;
+  late MotionValue<double> _indicatorWidth;
+  late MotionValue<double> _indicatorHeight;
+  late MotionValue<double> _indicatorOpacity;
+
+  late List<MotionValue<double>> _itemScales;
+  late List<MotionValue<double>> _itemOpacities;
+
+  late SpringSolver _indicatorXSolver;
+  late SpringSolver _indicatorWidthSolver;
+  late List<SpringSolver> _itemScaleSolvers;
+  late List<SpringSolver> _itemOpacitySolvers;
+
+  double _lastWidth = 0;
+  bool _hasLaidOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _indicatorX = motionValue(0);
+    _indicatorWidth = motionValue(0);
+    _indicatorHeight = motionValue(_indicatorHeightValue);
+    _indicatorOpacity = motionValue(_indicatorOpacityValue);
+
+    _indicatorXSolver = SpringSolver(
+      vsync: this,
+      value: _indicatorX,
+      spring: widget.indicator.spring,
+    );
+    _indicatorWidthSolver = SpringSolver(
+      vsync: this,
+      value: _indicatorWidth,
+      spring: widget.indicator.spring,
+    );
+
+    _initItemMotion();
+  }
+
+  @override
+  void didUpdateWidget(covariant NibNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.items.length != oldWidget.items.length) {
+      _disposeItemMotion();
+      _initItemMotion();
+    }
+
+    if (widget.indicator != oldWidget.indicator ||
+        widget.style != oldWidget.style) {
+      _indicatorHeight.value = _indicatorHeightValue;
+      _indicatorOpacity.value = _indicatorOpacityValue;
+      _indicatorXSolver.spring = widget.indicator.spring;
+      _indicatorWidthSolver.spring = widget.indicator.spring;
+      if (_hasLaidOut) _syncIndicatorToCurrentIndex();
+    }
+
+    if (widget.currentIndex != oldWidget.currentIndex) {
+      _animateIndicatorTo(widget.currentIndex);
+      _animateActiveItem(oldWidget.currentIndex, widget.currentIndex);
+    }
+  }
+
+  @override
+  void dispose() {
+    _indicatorXSolver.dispose();
+    _indicatorWidthSolver.dispose();
+    _disposeItemMotion();
+    _indicatorX.dispose();
+    _indicatorWidth.dispose();
+    _indicatorHeight.dispose();
+    _indicatorOpacity.dispose();
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------
+  // Motion value setup
+  // ---------------------------------------------------------------------
+
+  void _initItemMotion() {
+    final tapSpring =
+        widget.itemAnimation.tapTransition.spring ?? NibSpringDescription.snappy;
+    final activeScale = widget.itemAnimation.whileActive?.scale ?? 1.0;
+
+    _itemScales = [
+      for (var i = 0; i < widget.items.length; i++)
+        motionValue(i == widget.currentIndex ? activeScale : 1.0),
+    ];
+    _itemOpacities = [
+      for (var i = 0; i < widget.items.length; i++)
+        motionValue(i == widget.currentIndex ? 1.0 : 0.0),
+    ];
+    _itemScaleSolvers = [
+      for (final value in _itemScales)
+        SpringSolver(vsync: this, value: value, spring: tapSpring),
+    ];
+    _itemOpacitySolvers = [
+      for (final value in _itemOpacities)
+        SpringSolver(vsync: this, value: value, spring: tapSpring),
+    ];
+  }
+
+  void _disposeItemMotion() {
+    for (final solver in _itemScaleSolvers) {
+      solver.dispose();
+    }
+    for (final solver in _itemOpacitySolvers) {
+      solver.dispose();
+    }
+    for (final value in _itemScales) {
+      value.dispose();
+    }
+    for (final value in _itemOpacities) {
+      value.dispose();
+    }
+  }
+
+  double get _indicatorHeightValue {
+    if (widget.indicator.height != null) return widget.indicator.height!;
+    switch (widget.indicator.type) {
+      case NibNavIndicatorType.pill:
+        return (widget.style.height - 16).clamp(0, widget.style.height);
+      case NibNavIndicatorType.highlight:
+        return widget.style.height;
+      case NibNavIndicatorType.line:
+        return 3;
+      case NibNavIndicatorType.dot:
+        return 4;
+      case NibNavIndicatorType.none:
+        return 0;
+    }
+  }
+
+  double get _indicatorOpacityValue =>
+      widget.indicator.type == NibNavIndicatorType.none ? 0.0 : 1.0;
+
+  double _targetIndicatorWidth(double itemWidth) {
+    if (widget.indicator.width != null) return widget.indicator.width!;
+    switch (widget.indicator.type) {
+      case NibNavIndicatorType.pill:
+      case NibNavIndicatorType.dot:
+        return itemWidth * 0.6;
+      case NibNavIndicatorType.highlight:
+      case NibNavIndicatorType.line:
+        return itemWidth;
+      case NibNavIndicatorType.none:
+        return 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Layout-dependent indicator placement
+  // ---------------------------------------------------------------------
+
+  void _syncIndicatorToCurrentIndex() {
+    if (widget.items.isEmpty) return;
+    final padding = widget.style.padding;
+    final contentWidth = (_lastWidth - padding.horizontal).clamp(0.0, _lastWidth);
+    final itemWidth = contentWidth / widget.items.length;
+    final targetWidth = _targetIndicatorWidth(itemWidth);
+    final targetX = padding.left +
+        itemWidth * widget.currentIndex +
+        (itemWidth - targetWidth) / 2;
+    if (!_hasLaidOut) {
+      _indicatorX.value = targetX;
+      _indicatorWidth.value = targetWidth;
+      _hasLaidOut = true;
+    } else {
+      _indicatorXSolver.animateTo(target: targetX);
+      _indicatorWidthSolver.animateTo(target: targetWidth);
+    }
+  }
+
+  void _animateIndicatorTo(int index) {
+    if (!_hasLaidOut || widget.items.isEmpty) return;
+    final padding = widget.style.padding;
+    final contentWidth = (_lastWidth - padding.horizontal).clamp(0.0, _lastWidth);
+    final itemWidth = contentWidth / widget.items.length;
+    final targetWidth = _targetIndicatorWidth(itemWidth);
+    final targetX = padding.left + itemWidth * index + (itemWidth - targetWidth) / 2;
+    _indicatorXSolver.animateTo(target: targetX);
+    _indicatorWidthSolver.animateTo(target: targetWidth);
+  }
+
+  /// Springs the outgoing item's icon back to resting scale and fades out its
+  /// active tint, while springing the incoming item's icon up to
+  /// [NibNavItemAnimation.whileActive]'s scale and fading in its active tint.
+  ///
+  /// Both solvers default to `initialVelocity: 0`, so the outgoing item
+  /// settles smoothly from whatever scale it was at (normally
+  /// [NibNavItemAnimation.whileActive]'s scale) back to `1.0`.
+  void _animateActiveItem(int fromIndex, int toIndex) {
+    final restingScale = 1.0;
+    final activeScale = widget.itemAnimation.whileActive?.scale ?? 1.0;
+
+    if (fromIndex >= 0 && fromIndex < _itemScaleSolvers.length) {
+      _itemScaleSolvers[fromIndex].animateTo(target: restingScale);
+      _itemOpacitySolvers[fromIndex].animateTo(target: 0.0);
+    }
+    if (toIndex >= 0 && toIndex < _itemScaleSolvers.length) {
+      _itemScaleSolvers[toIndex].animateTo(target: activeScale);
+      _itemOpacitySolvers[toIndex].animateTo(target: 1.0);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Gestures
+  // ---------------------------------------------------------------------
+
+  /// Springs the tapped item's icon down to [NibNavItemAnimation.whileTap]'s
+  /// scale, then notifies [NibNavBar.onIndexChanged].
+  ///
+  /// [NibNavItemAnimation]'s default constructor sets `whileTap` to
+  /// `NibAnim(scale: 0.85)`; if [NibNavItemAnimation.whileTap] is `null`
+  /// (as in [NibNavItemAnimation.none]), no tap animation is played.
+  void _onItemTapped(int index) {
+    final tapScale = widget.itemAnimation.whileTap?.scale;
+    if (tapScale != null && index < _itemScaleSolvers.length) {
+      _itemScaleSolvers[index].animateTo(target: tapScale);
+    }
+    widget.onIndexChanged(index);
+  }
+
+  /// Springs every item's icon back to its resting scale after a tap ends —
+  /// [NibNavItemAnimation.whileActive]'s scale for the active item, `1.0`
+  /// for all others.
+  void _onTapReleased() {
+    for (var i = 0; i < _itemScaleSolvers.length; i++) {
+      final resting = i == widget.currentIndex
+          ? (widget.itemAnimation.whileActive?.scale ?? 1.0)
+          : 1.0;
+      _itemScaleSolvers[i].animateTo(target: resting);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Icon geometry — kept in sync with `NibNavBarPainter._iconRect` so the
+  // real icon widgets land exactly where the painter's badges anchor to.
+  // ---------------------------------------------------------------------
+
+  double _iconCenterY(Rect contentRect) {
+    final hasLabels = widget.items.any((item) => item.label != null);
+    return hasLabels
+        ? contentRect.top + contentRect.height * 0.38
+        : contentRect.top + contentRect.height / 2;
+  }
+
+  // ---------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: widget.style.margin,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          if (widget.items.isNotEmpty && width.isFinite && width != _lastWidth) {
+            _lastWidth = width;
+            _syncIndicatorToCurrentIndex();
+          }
+
+          final padding = widget.style.padding;
+          final contentWidth = (width - padding.horizontal).clamp(0.0, width);
+          final itemWidth = widget.items.isEmpty ? 0.0 : contentWidth / widget.items.length;
+          final iconSize = widget.style.iconSize;
+          final contentRect = Rect.fromLTWH(
+            padding.left,
+            padding.top,
+            contentWidth,
+            (widget.style.height - padding.vertical).clamp(0.0, widget.style.height),
+          );
+          final iconCenterY = _iconCenterY(contentRect);
+
+          return SizedBox(
+            width: width,
+            height: widget.style.height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // The bar's background, indicator, and labels.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: itemWidth <= 0
+                      ? null
+                      : (details) {
+                          final localX = details.localPosition.dx - padding.left;
+                          final index = (localX / itemWidth)
+                              .floor()
+                              .clamp(0, widget.items.length - 1);
+                          _onItemTapped(index);
+                        },
+                  onTapUp: (_) => _onTapReleased(),
+                  onTapCancel: _onTapReleased,
+                  child: CustomPaint(
+                    size: Size(width, widget.style.height),
+                    painter: NibNavBarPainter(
+                      items: widget.items,
+                      currentIndex: widget.currentIndex,
+                      style: widget.style,
+                      indicator: widget.indicator,
+                      indicatorX: _indicatorX,
+                      indicatorWidth: _indicatorWidth,
+                      indicatorHeight: _indicatorHeight,
+                      indicatorOpacity: _indicatorOpacity,
+                      itemScales: _itemScales,
+                      itemOpacities: _itemOpacities,
+                    ),
+                  ),
+                ),
+                // Icons — real widgets layered on top of the painter, one
+                // per item, scaled/crossfaded by that item's MotionValues.
+                if (itemWidth > 0)
+                  for (var i = 0; i < widget.items.length; i++)
+                    Positioned(
+                      left: padding.left + itemWidth * i + (itemWidth - iconSize) / 2,
+                      top: iconCenterY - iconSize / 2,
+                      width: iconSize,
+                      height: iconSize,
+                      child: IgnorePointer(
+                        child: AnimatedBuilder(
+                          animation: Listenable.merge(<Listenable>[
+                            _itemScales[i],
+                            _itemOpacities[i],
+                          ]),
+                          builder: (context, _) {
+                            final activeOpacity = _itemOpacities[i].value.clamp(0.0, 1.0);
+                            return Transform.scale(
+                              scale: _itemScales[i].value,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Opacity(
+                                    opacity: 1 - activeOpacity,
+                                    child: IconTheme(
+                                      data: IconThemeData(
+                                        color: widget.style.inactiveColor,
+                                        size: iconSize,
+                                      ),
+                                      child: widget.items[i].icon,
+                                    ),
+                                  ),
+                                  Opacity(
+                                    opacity: activeOpacity,
+                                    child: IconTheme(
+                                      data: IconThemeData(
+                                        color: widget.style.activeColor,
+                                        size: iconSize,
+                                      ),
+                                      child: widget.items[i].activeIcon ?? widget.items[i].icon,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

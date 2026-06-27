@@ -1,0 +1,264 @@
+# Shaders
+
+`NibMotion`'s core values — opacity, position, scale, color — cover most
+transitions, but some effects are easiest to describe as a per-pixel
+operation rather than an interpolated property. `nib_motion`'s shader-based
+widgets, `NibDissolve` and `NibShimmer`, fill that gap: a textured dissolve
+transition and a skeleton-loading sweep, both painted directly over your
+widget's rasterized content.
+
+Despite the name, neither widget requires you to write or bundle a GLSL
+fragment shader yourself — both ship with a bundled, precompiled shader
+program that `nib_motion` loads internally. If that shader program hasn't
+finished compiling yet (or fails to compile in the host environment), each
+widget falls back to a plain, correct-looking alternative — an opacity fade
+for `NibDissolve`, no overlay at all for `NibShimmer` — so a slow or failed
+shader load never leaves the UI broken.
+
+## `NibDissolve`: a textured dissolve transition
+
+`NibDissolve` dissolves its `child` in or out using a noise pattern instead
+of a uniform opacity fade — a drop-in look-upgrade for `FadeTransition` in
+page or element transitions that want a more textured, "burning away" feel.
+
+Internally, the running widget needs a real, currently-visible `child` to
+animate: on the frame the dissolve starts, `NibDissolve` snapshots `child`'s
+painted output into a `ui.Image` (via the same machinery as
+`RenderRepaintBoundary.toImage()`) and reuses that single snapshot for the
+rest of the dissolve cycle, shading it with the dissolve shader as
+`progress` advances. This means the dissolving content is expected to be
+static for the duration of one dissolve — `NibDissolve` isn't meant to wrap
+something that's simultaneously animating its own layout or content.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class DissolveCard extends StatefulWidget {
+  const DissolveCard({super.key});
+
+  @override
+  State<DissolveCard> createState() => _DissolveCardState();
+}
+
+class _DissolveCardState extends State<DissolveCard> {
+  bool _visible = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_visible)
+          NibDissolve(
+            direction: NibDissolveDirection.outward,
+            duration: const Duration(milliseconds: 600),
+            onComplete: () => setState(() => _visible = false),
+            child: Container(
+              width: 220,
+              height: 140,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'Tap to dissolve',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: () => setState(() => _visible = true),
+          child: const Text('Reset'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+Wrapping the card in `NibDissolve` with `direction: NibDissolveDirection.outward`
+starts it fully visible and dissolves it away over `600ms`; `onComplete` fires
+once the dissolve finishes, here used to actually remove the widget from the
+tree (since `NibDissolve` only paints the dissolve — it doesn't unmount
+anything on its own).
+
+### `direction`: which way the dissolve runs
+
+`direction` is a `NibDissolveDirection` that picks which end of the dissolve
+the animation starts from:
+
+```dart
+NibDissolve(
+  direction: NibDissolveDirection.inward,
+  duration: const Duration(milliseconds: 800),
+  child: const RevealedImage(),
+)
+```
+
+| Value | Behavior |
+| --- | --- |
+| `NibDissolveDirection.inward` | Starts fully dissolved (invisible) and animates to fully visible. |
+| `NibDissolveDirection.outward` | Starts fully visible and animates to fully dissolved (invisible). The default. |
+
+Changing `direction` on a live `NibDissolve` (e.g. toggling between revealing
+and hiding the same widget) restarts the dissolve from the new direction's
+starting point.
+
+### `noiseScale`: grain size
+
+`noiseScale` controls the size of the noise grain the dissolve pattern uses —
+smaller values produce finer, sandier grain; larger values produce coarser,
+blotchier patches.
+
+```dart
+NibDissolve(
+  noiseScale: 0.05,
+  direction: NibDissolveDirection.outward,
+  child: const TextureTile(),
+)
+```
+
+## `NibShimmer`: a skeleton-loading sweep
+
+`NibShimmer` paints a diagonal shimmer band sweeping across its `child` —
+the loading-skeleton effect most apps build out of an `AnimatedContainer` and
+a moving gradient, but driven by a fragment shader instead, so the sweep
+never triggers a widget rebuild.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class SkeletonRow extends StatelessWidget {
+  const SkeletonRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibShimmer(
+      baseColor: const Color(0xFFE3E3E3),
+      shimmerColor: const Color(0xFFF7F7F7),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: double.infinity, height: 14, color: Colors.white),
+                const SizedBox(height: 8),
+                Container(width: 140, height: 14, color: Colors.white),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+Give the underlying placeholder shapes a plain, light fill (white works
+well) — `NibShimmer` composites the sweep over whatever `child` paints, so
+the band reads best against a flat, neutral base rather than content with
+its own strong colors.
+
+### `baseColor` and `shimmerColor`
+
+`baseColor` is the background tone the shimmer band is mixed over; `shimmerColor`
+is the highlight color of the sweeping band itself. Both default to a neutral
+light grey pairing when left `null`, since `NibShimmer` has no Material
+dependency to pull a theme color from automatically.
+
+```dart
+NibShimmer(
+  baseColor: Colors.grey.shade300,
+  shimmerColor: Colors.grey.shade100,
+  child: const PlaceholderBlock(),
+)
+```
+
+### `speed` and `angle`
+
+`speed` controls how many sweeps per second the band completes — higher
+values feel more energetic, lower values feel calmer and more deliberate.
+`angle` is the sweep angle in radians; the default of `-0.3` gives the
+band a slight diagonal tilt rather than a perfectly horizontal or vertical
+sweep.
+
+```dart
+NibShimmer(
+  speed: 2.0,
+  angle: -0.5,
+  child: const PlaceholderBlock(),
+)
+```
+
+### `enabled`: pausing the sweep
+
+Set `enabled: false` to stop the shimmer animation and paint `child` as-is —
+useful once real content has loaded and the skeleton is no longer needed,
+without having to unmount and remount `NibShimmer` itself.
+
+```dart
+NibShimmer(
+  enabled: isLoading,
+  child: isLoading ? const SkeletonBlock() : const RealContent(),
+)
+```
+
+## API reference
+
+### `NibDissolve`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget being dissolved in or out. |
+| `duration` | `Duration` | `Duration(milliseconds: 500)` | How long the dissolve animation takes. |
+| `direction` | `NibDissolveDirection` | `NibDissolveDirection.outward` | Whether the dissolve animates from invisible to visible (`inward`) or visible to invisible (`outward`). |
+| `noiseScale` | `double` | `0.02` | The grain size of the dissolve noise pattern. Smaller values produce finer grain. |
+| `onComplete` | `VoidCallback?` | `null` | Called once the dissolve animation finishes. |
+
+### `NibDissolveDirection`
+
+| Value | Description |
+| --- | --- |
+| `inward` | Animates from fully dissolved to fully visible. |
+| `outward` | Animates from fully visible to fully dissolved. |
+
+### `NibShimmer`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget the shimmer sweep is painted over. |
+| `baseColor` | `Color?` | `null` (resolves to a neutral light grey) | The background color the shimmer band is mixed over. |
+| `shimmerColor` | `Color?` | `null` (resolves to a lighter tint of `baseColor`) | The highlight color of the sweeping band. |
+| `speed` | `double` | `1.5` | How fast the shimmer band sweeps across `child`, in sweeps per second. |
+| `angle` | `double` | `-0.3` | The sweep angle, in radians. |
+| `enabled` | `bool` | `true` | Whether the shimmer animation is active. When `false`, `child` is painted with no shimmer overlay. |
+
+## Next steps
+
+- **[Animate](/docs/animate)** — `NibDissolve` and `NibShimmer` are
+  standalone widgets, not `NibAnim` properties, but they compose naturally
+  around any `NibMotion` subtree that itself animates with `initial`/`animate`.
+- **[Transitions](/docs/transitions)** — for the curve- and spring-based
+  timing that drives every other `NibMotion` animation, complementing the
+  fixed-duration sweeps and dissolves covered here.
+- **[Presence](/docs/presence)** — `NibDissolve` pairs naturally with
+  `NibPresence`'s exit animations: trigger a dissolve `outward` as a
+  widget's `exit` effect so it textures away before `NibPresence` removes it
+  from the tree.

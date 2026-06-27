@@ -1,0 +1,217 @@
+# Drag, Pinch & Swipe
+
+[Gestures](/docs/gestures) covers `NibMotion`'s `while*` props and `drag`
+prop — gesture-reactive behavior layered onto an animation you're already
+declaring with `NibMotion`. This page covers a different set of tools:
+**`NibDraggable`, `NibPinch`, and `NibSwipeDismiss`** are standalone, drop-in
+widgets that handle a single gesture interaction end-to-end. None of them
+require wrapping anything in `NibMotion` — each one owns its own
+`GestureDetector` and its own internal `MotionValue`, and you just wrap your
+child widget directly. Reach for these when you want "make this draggable" /
+"make this pinch-to-zoom" / "make this swipe-to-dismiss" as a single,
+self-contained widget, rather than as one of several props on a larger
+`NibMotion` animation.
+
+All three follow the same internal pattern as the rest of `nib_motion`: a
+`MotionValue` is written directly from gesture callbacks and read directly by
+a `RenderProxyBox` during `paint`, so dragging, pinching, and swiping never
+trigger a widget rebuild.
+
+## `NibDraggable`
+
+`NibDraggable` wraps a child in free or axis-locked dragging, with optional
+bounds and an optional spring-back to its origin (or a custom `snapTarget`)
+on release.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class DraggableChip extends StatelessWidget {
+  const DraggableChip({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibDraggable(
+      bounds: const Rect.fromLTRB(-100, -100, 100, 100),
+      snapBack: true,
+      onDragEnd: (finalOffset, velocity) {
+        debugPrint('released at $finalOffset, velocity $velocity');
+      },
+      child: Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+}
+```
+
+With `snapBack: true`, releasing the chip animates it back to `Offset.zero`
+(or `snapTarget`, if set) using `spring` — the default is
+`NibSpringDescription.gentle`, the same spring presets used throughout
+`nib_motion`. Set `axis` to lock dragging to `Axis.horizontal` or
+`Axis.vertical`, just like `NibDragConfig.axis` in the `NibMotion.drag`
+system — `NibDraggable` is a simpler, focused alternative for the common
+case, not a replacement for it.
+
+## `NibPinch`
+
+`NibPinch` wraps a child in pinch-to-zoom: a uniform scale driven by
+`GestureDetector.onScaleUpdate`, clamped to `minScale`/`maxScale`, with an
+optional spring snap-back to `initialScale` on release.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ZoomableImage extends StatelessWidget {
+  const ZoomableImage({super.key, required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibPinch(
+      minScale: 1.0,
+      maxScale: 3.0,
+      snapBackOnRelease: true,
+      onScaleChanged: (scale) => debugPrint('scale: $scale'),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(imageUrl, fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+```
+
+`snapBackOnRelease: true` is what makes this feel like a typical
+photo-viewer pinch — release at any zoom level and the image eases back to
+`initialScale` (default `1.0`) rather than staying zoomed in. Leave it
+`false` if you want the zoom level to persist across gestures.
+
+## `NibSwipeDismiss`
+
+`NibSwipeDismiss` wraps a child in swipe-to-dismiss: drag it past
+`dismissThreshold` and releasing animates it the rest of the way off-screen
+before calling `onDismissed`; release before the threshold and it springs
+back to its resting position.
+
+Because `package:flutter/material.dart` already exports its own
+`DismissDirection` (used by Flutter's own `Dismissible` widget),
+`NibSwipeDismiss`'s `DismissDirection` enum collides with it on import. Hide
+Flutter's version when importing Material alongside `nib_motion`:
+
+```dart
+import 'package:flutter/material.dart' hide DismissDirection;
+import 'package:nib_motion/nib_motion.dart';
+
+class DismissibleListItem extends StatelessWidget {
+  const DismissibleListItem({
+    super.key,
+    required this.title,
+    required this.onDismissed,
+  });
+
+  final String title;
+  final VoidCallback onDismissed;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibSwipeDismiss(
+      dismissDirection: DismissDirection.endToStart,
+      dismissThreshold: 0.4,
+      onDismissed: onDismissed,
+      background: Container(
+        color: Theme.of(context).colorScheme.errorContainer,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+      ),
+      child: Container(
+        color: Theme.of(context).colorScheme.surface,
+        padding: const EdgeInsets.all(16),
+        child: Text(title),
+      ),
+    );
+  }
+}
+```
+
+`background` is shown behind `child` in a `Stack` only while the swipe is in
+progress — the classic "reveal a delete icon as you swipe" pattern.
+`dismissDirection: DismissDirection.endToStart` means only a right-to-left
+swipe counts toward dismissal; a swipe the other way just springs back
+regardless of how far it travels. Use `DismissDirection.horizontal` or
+`.vertical` to accept either direction along that axis, or `.startToEnd` for
+the mirror image of `.endToStart`.
+
+## API reference
+
+### `NibDraggable`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to make draggable. |
+| `axis` | `Axis?` | `null` | Locks dragging to a single axis. `null` allows free dragging. |
+| `bounds` | `Rect?` | `null` | The bounding box the drag offset is confined to, relative to the widget's resting position. `null` means unconstrained. |
+| `snapBack` | `bool` | `false` | Whether to spring back to the origin (or `snapTarget`) when the drag gesture ends. |
+| `snapTarget` | `Offset?` | `null` | If set, the offset `snapBack` animates to on release instead of `Offset.zero`. |
+| `onDragStart` | `VoidCallback?` | `null` | Called when a drag gesture begins. |
+| `onDragUpdate` | `ValueChanged<Offset>?` | `null` | Called with the current drag offset on every pan update. |
+| `onDragEnd` | `void Function(Offset finalOffset, Offset velocity)?` | `null` | Called when a drag gesture ends, with the final offset and the release velocity. |
+| `spring` | `NibSpringDescription` | `NibSpringDescription.gentle` | The spring physics used to animate back to the origin or `snapTarget` when `snapBack` is `true`. |
+
+### `NibPinch`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to make pinchable. |
+| `minScale` | `double` | `0.5` | The smallest scale factor the gesture can reach. |
+| `maxScale` | `double` | `4.0` | The largest scale factor the gesture can reach. |
+| `initialScale` | `double` | `1.0` | The scale `child` starts at, and the target `snapBackOnRelease` springs back to. |
+| `snapBackOnRelease` | `bool` | `false` | Whether to spring back to `initialScale` when the gesture ends. |
+| `onScaleChanged` | `ValueChanged<double>?` | `null` | Called with the current scale on every scale update. |
+| `spring` | `NibSpringDescription` | `NibSpringDescription.gentle` | The spring physics used to animate back to `initialScale` when `snapBackOnRelease` is `true`. |
+
+### `NibSwipeDismiss`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to make dismissible. |
+| `onDismissed` | `VoidCallback` | required | Called once the widget has finished animating off-screen past `dismissThreshold`. |
+| `dismissThreshold` | `double` | `0.5` | The fraction of the widget's extent (width for horizontal directions, height for vertical) the swipe must cross before release triggers a dismissal instead of a spring-back. |
+| `dismissDirection` | `DismissDirection` | `DismissDirection.horizontal` | Which direction(s) of swipe are recognized. |
+| `background` | `Widget?` | `null` | A widget shown behind `child` (via a `Stack`) while swiping. |
+| `spring` | `NibSpringDescription` | `NibSpringDescription.gentle` | The spring physics used to animate back to `0` when the swipe doesn't cross `dismissThreshold`. |
+
+### `DismissDirection`
+
+| Value | Description |
+| --- | --- |
+| `horizontal` | Swiping left or right both trigger dismissal. |
+| `vertical` | Swiping up or down both trigger dismissal. |
+| `startToEnd` | Only swiping left-to-right (i.e. a positive horizontal offset) triggers dismissal. |
+| `endToStart` | Only swiping right-to-left (i.e. a negative horizontal offset) triggers dismissal. |
+
+Note that this `DismissDirection` is exported by `nib_motion`, not
+`package:flutter/material.dart` — if you import both, hide Material's version
+with `import 'package:flutter/material.dart' hide DismissDirection;` as shown
+above.
+
+## Next steps
+
+- **[Gestures](/docs/gestures)** — for gesture-reactive behavior layered onto
+  a `NibMotion` you're already animating with `while*` props or the `drag`
+  prop, rather than a standalone widget.
+- **[Animate](/docs/animate)** — combine these gesture widgets with
+  `NibMotion` by wrapping one around the other, e.g. animating opacity or
+  color changes in response to `onDragUpdate`/`onScaleChanged`.
+- **[Presence](/docs/presence)** — `NibSwipeDismiss`'s `onDismissed` pairs
+  naturally with removing an item from a list inside a `NibPresence`, so the
+  rest of the list animates smoothly into the gap.

@@ -1,0 +1,95 @@
+/// Source of truth for the `nib_motion` entry in the motion registry,
+/// consumed by `dart run devtools generate motion`
+/// (`ComponetsNib/devtools/lib/src/generate.dart`).
+///
+/// Entries with an `apiProps` key become `primitives` entries; entries
+/// without one (e.g. `bottom-nav`) become `components` entries.
+const motionPrimitives = [
+  {
+    'name': 'fade',
+    'displayName': 'Fade',
+    'category': 'entrance',
+    'description': 'Opacity-based enter and exit animation.',
+    'apiClass': 'NibMotion',
+    'apiProps': ['initial', 'animate', 'exit', 'transition'],
+  },
+  {
+    'name': 'exit',
+    'displayName': 'Exit',
+    'category': 'exit',
+    'description': 'Plays an exit animation before a widget is removed from the tree.',
+    'apiClass': 'NibPresence',
+    'apiProps': ['children'],
+  },
+  {
+    'name': 'gesture',
+    'displayName': 'Gesture',
+    'category': 'gesture',
+    'description': 'Drag-driven motion with elastic constraints and snap points.',
+    'apiClass': 'NibMotion',
+    'apiProps': ['drag', 'whileDrag', 'whileTap'],
+  },
+  {
+    'name': 'transition',
+    'displayName': 'Transition',
+    'category': 'transition',
+    'description': 'Configures duration, curve, delay, and stagger for any animation.',
+    'apiClass': 'NibTransition',
+    'apiProps': ['duration', 'curve', 'delay', 'spring', 'staggerChildren'],
+  },
+  {
+    'name': 'layout',
+    'displayName': 'Layout',
+    'category': 'layout',
+    'description': 'Animates position and size changes when layout changes (FLIP).',
+    'apiClass': 'NibLayoutGroup',
+    'apiProps': ['children', 'transition'],
+  },
+  {
+    'name': 'rotate',
+    'displayName': 'Rotate',
+    'category': 'transform',
+    'description': 'Rotation-based transform animation, driven manually or via gesture.',
+    'apiClass': 'NibMotion',
+    'apiProps': ['initial', 'animate', 'whileTap', 'transition', 'rotate'],
+  },
+  {
+    'name': 'scroll',
+    'displayName': 'Scroll',
+    'category': 'scroll',
+    'description': 'Drives motion values from scroll position.',
+    'apiClass': 'NibScrollMotion',
+    'apiProps': ['controller', 'offset'],
+  },
+  {
+    'name': 'stagger',
+    'displayName': 'Stagger',
+    'category': 'list',
+    'description': 'Staggers enter/exit animations across a list of children.',
+    'apiClass': 'NibMotionList',
+    'apiProps': ['initial', 'animate', 'exit', 'staggerDelay', 'staggerDirection'],
+  },
+  {
+    'name': 'in-view',
+    'displayName': 'In View',
+    'category': 'viewport',
+    'description': 'Triggers an animation when a widget enters the viewport.',
+    'apiClass': 'NibInViewConfig',
+    'apiProps': ['threshold', 'once'],
+  },
+  {
+    'name': 'spring',
+    'displayName': 'Spring',
+    'category': 'spring',
+    'description': 'Physics-based spring motion driven by mass, stiffness, and damping.',
+    'apiClass': 'NibSpringDescription',
+    'apiProps': ['mass', 'stiffness', 'damping'],
+  },
+  {
+    'name': 'bottom-nav',
+    'displayName': 'NibBottomNav',
+    'category': 'navigation',
+    'description': 'Animated bottom navigation with spring indicator and screen transitions.',
+    'apiClass': 'NibScaffold',
+  },
+];

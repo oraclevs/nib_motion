@@ -1,0 +1,442 @@
+# Navigation
+
+`NibScaffold` is NibMotion's animated app shell for tab-based navigation. It
+pairs a `NibNavBar` — a spring-driven bottom (or top) navigation bar — with a
+`NibScreenStack` that cross-fades, slides, or scales between screens as the
+user switches tabs. Every visual detail in the bar (the active-item indicator,
+per-item icon scale, badge overlays) is animated by `MotionValue`s and
+`SpringSolver`s, so no `setState` occurs on animation ticks and repaints are
+scoped to the `CustomPainter` that draws the bar.
+
+Reach for `NibScaffold` when you need a tab shell that handles all the
+plumbing — index state, indicator animation, screen transitions, safe-area
+insets — and you want to tweak the visual style or physics through a plain Dart
+configuration object rather than subclassing or wrapping Flutter's own scaffold.
+
+## Basic Setup
+
+The minimum `NibScaffold` requires a list of `NibNavScreen` widgets and a
+matching list of `NibNavItem` tab descriptors. `NibScaffold` owns the active
+index internally; `onIndexChanged` is an optional callback if you need to react
+to tab changes outside the scaffold.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: NibScaffold(
+        screens: const [
+          NibNavScreen(child: HomeScreen()),
+          NibNavScreen(child: SearchScreen()),
+          NibNavScreen(child: ProfileScreen()),
+        ],
+        navItems: const [
+          NibNavItem(icon: Icon(Icons.home_outlined), label: 'Home'),
+          NibNavItem(icon: Icon(Icons.search_outlined), label: 'Search'),
+          NibNavItem(icon: Icon(Icons.person_outlined), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Center(child: Text('Home'));
+}
+
+class SearchScreen extends StatelessWidget {
+  const SearchScreen({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Center(child: Text('Search'));
+}
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Center(child: Text('Profile'));
+}
+```
+
+`screens` and `navItems` must have the same length — `NibScaffold` asserts
+this at construction time. All screens are kept alive in the widget tree by
+default (`NibNavScreen.keepAlive = true`), so scroll positions and form state
+are preserved across tab switches.
+
+## Nav Items
+
+`NibNavItem` describes one tab in the navigation bar.
+
+```dart
+const NibNavItem(
+  icon: Icon(Icons.notifications_outlined),
+  activeIcon: Icon(Icons.notifications),  // shown only when active
+  label: 'Alerts',
+  badge: NibNavBadge(count: 3),           // numeric badge
+  tooltip: 'Notifications',              // accessibility tooltip
+)
+```
+
+### Badges via `NibNavBadge`
+
+`NibNavBadge` renders a small overlay on the icon's top-right corner.
+
+```dart
+// Dot badge — draws a small circle, no number
+const NibNavItem(
+  icon: Icon(Icons.mail_outlined),
+  badge: NibNavBadge(),               // count: null → dot
+)
+
+// Numeric badge — shows "5", capped at "99+"
+const NibNavItem(
+  icon: Icon(Icons.chat_bubble_outlined),
+  badge: NibNavBadge(count: 5),
+)
+
+// Hidden badge — count: 0 hides the badge entirely
+const NibNavItem(
+  icon: Icon(Icons.inbox_outlined),
+  badge: NibNavBadge(count: 0),
+)
+
+// Custom colors
+const NibNavItem(
+  icon: Icon(Icons.error_outlined),
+  badge: NibNavBadge(
+    count: 2,
+    color: Color(0xFFFF6B35),
+    textColor: Color(0xFFFFFFFF),
+  ),
+)
+```
+
+## Nav Bar Style
+
+`NibNavBarStyle` controls the visual appearance of the bar's container. Pass it
+as `NibScaffold.navBarStyle` (or directly to `NibNavBar.style` if you use the
+bar standalone).
+
+```dart
+NibScaffold(
+  navBarStyle: NibNavBarStyle(
+    backgroundColor: const Color(0xFF1C1C1E),   // dark background
+    activeColor: const Color(0xFF54C5F8),        // active icon/label
+    inactiveColor: const Color(0xFF636366),      // inactive icon/label
+    height: 72,
+    iconSize: 26,
+    borderRadius: BorderRadius.circular(20),
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+    elevation: 8,
+    labelStyle: const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+    ),
+  ),
+  screens: [ /* ... */ ],
+  navItems: [ /* ... */ ],
+)
+```
+
+`NibNavBarStyle.standard` is the default when `navBarStyle` is omitted — a
+white bar with Flutter-blue active color, 64 px tall, no border radius, no
+margin, and no elevation.
+
+To produce a floating pill bar, combine `borderRadius` with `margin` and a
+semi-transparent `backgroundColor`:
+
+```dart
+navBarStyle: NibNavBarStyle(
+  backgroundColor: const Color(0xF0FFFFFF),  // slightly translucent
+  borderRadius: BorderRadius.circular(32),
+  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+  elevation: 4,
+),
+extendBodyBehindNavBar: true,  // content scrolls under the floating bar
+```
+
+## Indicator Style
+
+The active-item indicator is the animated shape that moves between tabs as the
+user switches. Configure it via `NibScaffold.navIndicator`.
+
+```dart
+NibScaffold(
+  navIndicator: const NibNavIndicatorStyle(
+    type: NibNavIndicatorType.pill,
+    color: Color(0x2002569B),   // explicit tint; defaults to activeColor at 12% opacity
+    spring: NibSpringDescription.bouncy,
+  ),
+  // ...
+)
+```
+
+### `NibNavIndicatorType` values
+
+| Value | Appearance |
+| --- | --- |
+| `pill` | A rounded-rect drawn behind the active icon and label. Default. |
+| `dot` | A small circle below the active item. |
+| `line` | A thin bar along the top edge of the active item. |
+| `highlight` | A full-height rect spanning the entire item column. |
+| `none` | No indicator is drawn. |
+
+Use `NibNavIndicatorStyle.none` as a shorthand for `type: NibNavIndicatorType.none`:
+
+```dart
+navIndicator: NibNavIndicatorStyle.none,
+```
+
+The `spring` field controls the physics of the indicator's lateral movement.
+Any `NibSpringDescription` works here — see the [Physics & Motion Values](/docs/physics)
+page for the built-in presets (`snappy`, `gentle`, `bouncy`, `stiff`).
+
+## Item Animations
+
+`NibNavItemAnimation` configures the per-icon spring animations played on tap
+and while a tab is active. Pass it as `NibScaffold.itemAnimation`.
+
+```dart
+NibScaffold(
+  itemAnimation: const NibNavItemAnimation(
+    whileTap: NibAnim(scale: 0.80),       // compress on press
+    whileActive: NibAnim(scale: 1.15),    // enlarge the active icon
+    tapTransition: NibTransition.springSnappy,
+  ),
+  // ...
+)
+```
+
+- **`whileTap`** — the `NibAnim` the icon springs *to* while the user holds the
+  tap. Defaults to `NibAnim(scale: 0.85)`.
+- **`whileActive`** — the `NibAnim` the active icon is held at between tab
+  changes. Defaults to `NibAnim(scale: 1.1)`.
+- **`tapTransition`** — the `NibTransition` (spring or tween) used to drive
+  both of the above. Defaults to `NibTransition.springSnappy`.
+
+To disable all item animations:
+
+```dart
+itemAnimation: NibNavItemAnimation.none,
+```
+
+## Screen Transitions
+
+`NibScaffold.screenTransition` (a `NibNavScreenTransition`) controls the
+animation played on `NibScreenStack` when the active tab changes.
+
+```dart
+NibScaffold(
+  screenTransition: const NibNavScreenTransition(
+    type: NibNavTransitionType.slideHorizontal,
+    spring: NibSpringDescription.gentle,
+    retriggerPageAnimations: true,
+    retriggerDelay: Duration(milliseconds: 80),
+  ),
+  // ...
+)
+```
+
+### `NibNavTransitionType` values
+
+| Value | Behavior |
+| --- | --- |
+| `fade` | Cross-fade between screens. Default. |
+| `slideHorizontal` | Slide left/right based on index-change direction. |
+| `slideVertical` | Slide up/down based on index-change direction. |
+| `scale` | Scale + fade zoom. |
+| `sharedAxis` | Material-style slide + fade (fixed 30 px offset). |
+| `none` | Instant switch with no animation. |
+
+The convenience constants `NibNavScreenTransition.fade`,
+`NibNavScreenTransition.slide`, and `NibNavScreenTransition.none` cover the
+most common cases:
+
+```dart
+screenTransition: NibNavScreenTransition.slide,  // slideHorizontal + gentle spring
+```
+
+### Tween-based transitions
+
+By default the transition is spring-driven. Pass `tween` to override with a
+curve-based `NibTransition`:
+
+```dart
+screenTransition: NibNavScreenTransition(
+  type: NibNavTransitionType.fade,
+  tween: NibTransition(
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeInOut,
+  ),
+),
+```
+
+### `NibNavTransitions.resolve`
+
+If you build a custom screen stack, `NibNavTransitions.resolve` returns the
+`(enterFrom, exitTo)` `NibAnim` pair for any `NibNavTransitionType`:
+
+```dart
+final (enterFrom, exitTo) = NibNavTransitions.resolve(
+  NibNavTransitionType.scale,
+  direction,   // 1 = forward, -1 = backward
+  MediaQuery.sizeOf(context),
+);
+```
+
+## Screen Stack
+
+`NibScreenStack` is the widget behind `NibScaffold`'s screen management. Use
+it directly when you want to manage the active index yourself while keeping
+NibMotion's screen transitions.
+
+```dart
+class MyShell extends StatefulWidget {
+  const MyShell({super.key});
+  @override
+  State<MyShell> createState() => _MyShellState();
+}
+
+class _MyShellState extends State<MyShell> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: NibScreenStack(
+            currentIndex: _index,
+            screenTransition: NibNavScreenTransition.slide,
+            screens: const [
+              NibNavScreen(child: HomeScreen()),
+              NibNavScreen(child: SettingsScreen()),
+            ],
+          ),
+        ),
+        // your own bottom bar here
+      ],
+    );
+  }
+}
+```
+
+### `NibNavScreen`
+
+`NibNavScreen` wraps a screen widget with one extra option:
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | *(required)* | The screen's content. |
+| `keepAlive` | `bool` | `true` | When `false`, the screen's subtree is replaced with an empty placeholder while inactive and rebuilt on re-activation. Saves memory for heavy screens you rarely revisit. |
+
+```dart
+// Keep the home feed alive (default), but let the settings page rebuild
+// from scratch every time — it never has scroll state worth preserving.
+const NibNavScreen(child: HomeFeed()),
+const NibNavScreen(child: SettingsPage(), keepAlive: false),
+```
+
+## Custom Painter
+
+`NibNavBarPainter` is the `CustomPainter` that `NibNavBar` uses to draw its
+background, indicator, icons, labels, and badges. It is repainted by
+`MotionValue`s merged into a single `Listenable` — no widget rebuilds occur on
+animation ticks; only `markNeedsPaint` is called.
+
+You won't normally instantiate `NibNavBarPainter` directly, but it's available
+if you need to render a fully custom nav bar shape while re-using NibMotion's
+spring-driven indicator and icon animation machinery. Extend or wrap it exactly
+as you would any `CustomPainter`, passing in the same `MotionValue` references
+that `NibNavBar` creates.
+
+## API Reference
+
+### `NibScaffold`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `screens` | `List<NibNavScreen>` | *(required)* | One screen per nav item. |
+| `navItems` | `List<NibNavItem>` | *(required)* | Tabs shown in the nav bar. Must match `screens` length. |
+| `initialIndex` | `int` | `0` | The active tab index on first build. |
+| `onIndexChanged` | `ValueChanged<int>?` | `null` | Called when the active tab changes. |
+| `navBarStyle` | `NibNavBarStyle?` | `NibNavBarStyle.standard` | Visual style of the nav bar container. |
+| `navIndicator` | `NibNavIndicatorStyle?` | `const NibNavIndicatorStyle()` | Visual style of the active-item indicator. |
+| `itemAnimation` | `NibNavItemAnimation?` | `const NibNavItemAnimation()` | Per-icon tap/active animations. |
+| `screenTransition` | `NibNavScreenTransition` | `const NibNavScreenTransition()` | Transition played between screens. |
+| `floatingActionButton` | `Widget?` | `null` | FAB overlaid above the screens. |
+| `navBarPosition` | `NibNavBarPosition` | `NibNavBarPosition.bottom` | Edge the nav bar is docked to (`bottom` or `top`). |
+| `extendBodyBehindNavBar` | `bool` | `false` | When `true`, screen content extends full-bleed behind the nav bar. |
+| `backgroundColor` | `Color?` | `null` | Background color behind the screens. |
+| `useMaterialScaffold` | `bool` | `false` | Wrap in a Material `Scaffold` for keyboard avoidance and FAB placement. |
+
+### `NibNavItem`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `icon` | `Widget` | *(required)* | Icon shown when this item is inactive. |
+| `activeIcon` | `Widget?` | `null` | Icon shown when this item is active. Falls back to `icon`. |
+| `label` | `String?` | `null` | Label shown below the icon. |
+| `badge` | `NibNavBadge?` | `null` | Optional badge overlay on the icon. |
+| `tooltip` | `String?` | `null` | Accessibility tooltip for this item. |
+
+### `NibNavBarStyle`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `backgroundColor` | `Color` | `Color(0xFFFFFFFF)` | Background color of the bar. |
+| `activeColor` | `Color` | `Color(0xFF02569B)` | Icon and label color for the active item. |
+| `inactiveColor` | `Color` | `Color(0xFF64748B)` | Icon and label color for inactive items. |
+| `height` | `double` | `64` | Total bar height including padding. |
+| `padding` | `EdgeInsets` | `EdgeInsets.zero` | Padding around the bar's content. |
+| `margin` | `EdgeInsets` | `EdgeInsets.zero` | Space outside the bar (e.g. to float it above the edge). |
+| `elevation` | `double` | `0` | Shadow elevation drawn above the bar. |
+| `borderRadius` | `BorderRadius?` | `null` | Corner radius applied to the bar. |
+| `border` | `Border?` | `null` | Border drawn around the bar (typically a top edge line). |
+| `iconSize` | `double` | `24` | Size of each item's icon. |
+| `labelStyle` | `TextStyle?` | `null` | Text style applied to each item's label. |
+
+### `NibNavIndicatorStyle`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | `NibNavIndicatorType` | `NibNavIndicatorType.pill` | Shape of the indicator. |
+| `color` | `Color?` | `null` | Indicator color. Defaults to `activeColor` at 12% opacity. |
+| `height` | `double?` | `null` | Indicator height override. |
+| `width` | `double?` | `null` | Indicator width override. Proportional to item width when null. |
+| `borderRadius` | `BorderRadius?` | `null` | Corner radius applied to the indicator shape. |
+| `spring` | `NibSpringDescription` | `NibSpringDescription.snappy` | Spring physics for the lateral movement animation. |
+
+### `NibNavScreenTransition`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | `NibNavTransitionType` | `NibNavTransitionType.fade` | The style of screen transition. |
+| `spring` | `NibSpringDescription` | `NibSpringDescription.gentle` | Spring physics for the transition (when `tween` is null). |
+| `tween` | `NibTransition?` | `null` | Curve-based tween; overrides `spring` when set. |
+| `retriggerPageAnimations` | `bool` | `false` | Replay `NibMotion` entrance animations in the incoming screen after the transition finishes. |
+| `retriggerDelay` | `Duration` | `Duration.zero` | Delay before replaying entrance animations when `retriggerPageAnimations` is true. |
+
+## Next Steps
+
+- **[Animate](/docs/animate)** — `NibAnim` is the same value type used for
+  `whileTap` and `whileActive` in `NibNavItemAnimation`. Understanding its
+  nullable-field composability explains why layering tap and active animations
+  on the same icon never produces unexpected side effects.
+- **[Transitions](/docs/transitions)** — `NibTransition` controls whether
+  screen and indicator animations run on spring physics or curve-based tweens,
+  and how duration, delay, and easing interact with each other.

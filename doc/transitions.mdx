@@ -1,0 +1,346 @@
+# Transitions
+
+If `NibAnim` describes *what* a widget should look like — its destination —
+then `NibTransition` describes *how* `NibMotion` gets it there. The same pair
+of `initial`/`animate` values can settle in with a quick linear snap, ease in
+and out over half a second, or bounce into place like a real spring — and
+`transition` is the single knob that controls all of that.
+
+Every `NibMotion` accepts an optional `transition: NibTransition(...)`. If you
+omit it, NibMotion uses the default: a 300ms tween with `Curves.easeInOut`.
+
+## Tween vs. spring
+
+`NibTransition` supports two fundamentally different ways of animating between
+two `NibAnim` values:
+
+- **Tween** — interpolates over a fixed `duration` using an easing `curve`.
+  This is the familiar Flutter animation model: you know exactly how long the
+  animation takes, and the curve shapes its velocity over that fixed window.
+- **Spring** — interpolates using real spring physics (mass, stiffness,
+  damping) instead of a fixed duration and curve. The animation's length
+  emerges from the physics simulation itself, which is what gives spring
+  transitions their organic, responsive feel — especially useful when the
+  starting point changes mid-animation (e.g. interrupting an animation with a
+  new gesture).
+
+A `NibTransition` is one or the other, never both: if you provide `spring`,
+NibMotion ignores `duration` and `curve` entirely and drives the animation with
+the spring simulation instead.
+
+### Tween example
+
+The most common case — animate `opacity` and `y` over 400ms with an
+ease-out curve:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class FadeUpCard extends StatelessWidget {
+  const FadeUpCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(opacity: 0, y: 24),
+      animate: const NibAnim(opacity: 1, y: 0),
+      transition: const NibTransition(
+        duration: Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('This card eases in over 400ms.'),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Spring example
+
+For a livelier, physics-driven feel, pass a `spring` instead of `duration`/
+`curve`. Here a button pops to its hovered scale using a spring rather than a
+fixed-duration tween:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class SpringyButton extends StatelessWidget {
+  const SpringyButton({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      whileHover: const NibAnim(scale: 1.08),
+      whileTap: const NibAnim(scale: 0.95),
+      transition: const NibTransition(
+        spring: NibSpringDescription(mass: 1, stiffness: 260, damping: 18),
+      ),
+      child: FilledButton(
+        onPressed: () {},
+        child: Text(label),
+      ),
+    );
+  }
+}
+```
+
+Tuning `mass`, `stiffness`, and `damping` by hand is covered in full on
+[Physics & Motion Values](/docs/physics). For everyday use, `NibTransition`
+ships three named presets built on `NibSpringDescription`'s own presets, so
+you rarely need to hand-tune values yourself:
+
+- **`NibTransition.springGentle`** — a soft, slow-settling spring with
+  minimal overshoot. Good for subtle entrances.
+- **`NibTransition.springSnappy`** — a tight, fast spring with very little
+  overshoot. Good for taps and toggles that should feel immediate.
+- **`NibTransition.springWobbly`** — a loose spring that oscillates
+  noticeably before settling. Good for playful, attention-grabbing motion.
+
+```dart
+NibMotion(
+  initial: const NibAnim(scale: 0.8, opacity: 0),
+  animate: const NibAnim(scale: 1, opacity: 1),
+  transition: NibTransition.springWobbly,
+  child: const Icon(Icons.celebration, size: 48),
+)
+```
+
+## Delaying an animation with `delay`
+
+`delay` holds the animation at its starting state for the given `Duration`
+before it begins running — useful for sequencing several independent
+`NibMotion` widgets without a parent `NibMotionList` (see
+[Lists & Stagger](/docs/lists-and-stagger)).
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class DelayedBadge extends StatelessWidget {
+  const DelayedBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(opacity: 0, y: -8),
+      animate: const NibAnim(opacity: 1, y: 0),
+      transition: const NibTransition(
+        duration: Duration(milliseconds: 300),
+        delay: Duration(milliseconds: 500),
+      ),
+      child: const Chip(label: Text('New')),
+    );
+  }
+}
+```
+
+The badge above sits invisible for 500ms after first build, then fades and
+slides in over 300ms. `delay` applies to tween and spring transitions alike.
+
+## Staggering descendants with `staggerChildren` and `delayChildren`
+
+`staggerChildren` and `delayChildren` don't affect the `NibMotion` widget they
+are set on directly — instead, they configure how *descendant* widgets that
+resolve their `animate` from this widget's propagated variant should be
+delayed relative to it:
+
+- **`delayChildren`** — a flat extra delay applied to every such descendant,
+  on top of whatever `delay` that descendant's own transition specifies.
+- **`staggerChildren`** — an *additional* delay applied per descendant, based
+  on its build order, so the first descendant animates at `delayChildren`, the
+  second at `delayChildren + staggerChildren`, the third at `delayChildren +
+  staggerChildren * 2`, and so on.
+
+These two fields are most useful when set on the `transition` of a
+[`NibMotionList`](/docs/lists-and-stagger), which propagates a shared variant
+to each of its children — that page covers the full pattern in depth. As a
+preview, a list whose items fade in one after another might look like:
+
+```dart
+NibMotionList(
+  transition: const NibTransition(
+    staggerChildren: Duration(milliseconds: 60),
+  ),
+  children: [
+    for (final item in items)
+      NibMotion(
+        initial: const NibAnim(opacity: 0, y: 12),
+        animate: const NibAnim(opacity: 1, y: 0),
+        child: ListTile(title: Text(item)),
+      ),
+  ],
+)
+```
+
+Each `ListTile` above fades and slides in 60ms after the one before it,
+without any manual index-based delay math.
+
+## `NibTransitionType` and the `type` getter
+
+Every `NibTransition` exposes a `type` getter of type `NibTransitionType`,
+which tells you — and NibMotion internally — whether the transition is
+tween-based or spring-based:
+
+```dart
+const tween = NibTransition(duration: Duration(milliseconds: 250));
+const spring = NibTransition.springSnappy;
+
+print(tween.type);  // NibTransitionType.tween
+print(spring.type); // NibTransitionType.spring
+```
+
+`type` is derived, not stored: it simply checks whether `spring` is non-null.
+If `spring` is set, `type` is `NibTransitionType.spring` and `duration`/
+`curve` are ignored; otherwise `type` is `NibTransitionType.tween` and `spring`
+is ignored. You won't usually need to read `type` yourself, but it's useful
+when writing reusable widgets that need to branch on which kind of transition
+they were given.
+
+## Replaying animations with `NibMotionReplayScope`
+
+By default, a `NibMotion`'s entrance animation (`initial`/`animate`/
+`keyframes`) runs once, the first time the widget is built. `NibMotionReplayScope`
+lets you broadcast a signal to every descendant `NibMotion` telling it to
+replay that entrance animation from scratch, as if it had just appeared for
+the first time.
+
+This is built from two pieces:
+
+- **`NibMotionReplaySignal`** — a `ChangeNotifier` you create and hold (for
+  example in a `State`). Calling `signal.replay()` notifies every listening
+  descendant. You can optionally pass `delay:` to have listeners wait before
+  replaying.
+- **`NibMotionReplayScope`** — an `InheritedNotifier` that provides a
+  `NibMotionReplaySignal` to a subtree. Any `NibMotion` with an entrance
+  animation inside the scope listens for `replay()` calls automatically.
+
+### Example: a "Replay animation" button
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ReplayDemo extends StatefulWidget {
+  const ReplayDemo({super.key});
+
+  @override
+  State<ReplayDemo> createState() => _ReplayDemoState();
+}
+
+class _ReplayDemoState extends State<ReplayDemo> {
+  final _replaySignal = NibMotionReplaySignal();
+
+  @override
+  void dispose() {
+    _replaySignal.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotionReplayScope(
+      signal: _replaySignal,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NibMotion(
+            initial: const NibAnim(opacity: 0, scale: 0.8),
+            animate: const NibAnim(opacity: 1, scale: 1),
+            transition: NibTransition.springGentle,
+            child: const Icon(Icons.star, size: 64, color: Colors.amber),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => _replaySignal.replay(),
+            child: const Text('Replay animation'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+Tapping "Replay animation" calls `replay()`, which notifies the `NibMotion`
+wrapping the star icon and causes it to run its `initial` → `animate`
+animation again from the beginning — the star shrinks back to `scale: 0.8` and
+transparent, then springs back in.
+
+### Reading the scope with `maybeOf`
+
+If you're writing a widget that needs to react to replay signals itself —
+rather than relying on `NibMotion`'s built-in listening — you can look up the
+nearest scope with `NibMotionReplayScope.maybeOf(context)`, which returns the
+`NibMotionReplaySignal?` provided by the nearest ancestor scope, or `null` if
+there isn't one:
+
+```dart
+final signal = NibMotionReplayScope.maybeOf(context);
+if (signal != null) {
+  signal.replay(delay: const Duration(milliseconds: 100));
+}
+```
+
+`maybeOf` also establishes a dependency on the scope via
+`dependOnInheritedWidgetOfExactType`, so a widget that calls it will rebuild
+whenever `replay()` is called on the signal it found.
+
+> **Note:** `NibMotionReplayScope` is an `InheritedNotifier`, so wrapping a
+> subtree in one and calling `replay()` only affects `NibMotion` widgets
+> *inside* that subtree — it has no effect on widgets elsewhere in the tree.
+
+## API reference
+
+### `NibTransition`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `duration` | `Duration` | `Duration(milliseconds: 300)` | How long a tween-based transition takes. Ignored if `spring` is set. |
+| `curve` | `Curve` | `Curves.easeInOut` | The easing curve for a tween-based transition. Ignored if `spring` is set. |
+| `delay` | `Duration` | `Duration.zero` | How long to wait before starting the animation. |
+| `spring` | `NibSpringDescription?` | `null` | If non-null, the transition runs as `NibTransitionType.spring` using this spring's physics, and `duration`/`curve` are ignored. |
+| `staggerChildren` | `Duration` | `Duration.zero` | Extra delay applied per descendant index (in build order), on top of `delayChildren`, for descendants that resolve their `animate` from this widget's propagated variant. |
+| `delayChildren` | `Duration` | `Duration.zero` | Extra delay before the first descendant that resolves its `animate` from this widget's propagated variant starts animating. |
+| `NibTransition.springGentle` | `NibTransition` (static) | `NibTransition(spring: NibSpringDescription.gentle)` | A soft, slow-settling spring preset with minimal overshoot. |
+| `NibTransition.springSnappy` | `NibTransition` (static) | `NibTransition(spring: NibSpringDescription.snappy)` | A tight, fast spring preset with very little overshoot. |
+| `NibTransition.springWobbly` | `NibTransition` (static) | `NibTransition(spring: NibSpringDescription.wobbly)` | A loose spring preset that oscillates noticeably before settling. |
+| `type` | `NibTransitionType` (getter) | — | `NibTransitionType.spring` if `spring` is non-null, otherwise `NibTransitionType.tween`. |
+
+### `NibTransitionType`
+
+| Value | Description |
+| --- | --- |
+| `tween` | Animated over a fixed `duration` using `curve`. |
+| `spring` | Animated by `spring` physics. `duration` and `curve` are ignored. |
+
+### `NibMotionReplaySignal`
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `replay({Duration delay = Duration.zero})` | method | Notifies every listening descendant `NibMotion` that a replay was requested. Notification happens immediately; `delay` is recorded in `lastReplayDelay` for listeners to apply before replaying. |
+| `lastReplayDelay` | `Duration` | The `delay` passed to the most recent `replay()` call. Listeners read this to decide how long to wait before replaying their entrance animation. |
+
+### `NibMotionReplayScope`
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `NibMotionReplayScope({Key? key, required NibMotionReplaySignal signal, required Widget child})` | constructor | Provides `signal` to `child` and its descendants. |
+| `maybeOf(BuildContext context)` | static method | Returns the nearest ancestor `NibMotionReplaySignal`, or `null` if not inside a `NibMotionReplayScope`. |
+
+## Next steps
+
+- **[Motion Controller](/docs/motion-controller)** — for animations you start,
+  stop, or reverse imperatively rather than purely in response to
+  `initial`/`animate` state changes, see how `NibMotionController` gives you
+  direct control over playback.
+- **[Physics & Motion Values](/docs/physics)** — for a deeper look at
+  `NibSpringDescription`'s `mass`, `stiffness`, and `damping` parameters and
+  how `MotionValue`s use them beyond the `transition` field covered here.

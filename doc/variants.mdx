@@ -1,0 +1,262 @@
+# Variants
+
+Every example so far has written `NibAnim` values inline — `initial: const
+NibAnim(opacity: 0, y: 20)`, `animate: const NibAnim(opacity: 1, y: 0)`, and
+so on. That works fine for a single widget, but once several `NibMotion`s in
+a screen share the same "hidden"/"visible" or "resting"/"selected" states,
+repeating the same `NibAnim` literals everywhere becomes both repetitive and
+fragile — change one and you have to remember to change all the others.
+
+`NibVariants` solves this by giving those states **names**. Instead of a
+`NibAnim` literal, `initial`/`animate`/`exit`/`whileTap`/etc. can take a
+`String` naming an entry in a shared map — and that map can be defined once
+and reused across as many `NibMotion` widgets as you like.
+
+## What `NibVariants` is
+
+`NibVariants` is a typedef for `Map<String, NibAnim>` — nothing more than a
+named lookup table from a `String` key to a `NibAnim` value:
+
+```dart
+typedef NibVariants = Map<String, NibAnim>;
+```
+
+A `NibVariants` map is just data. You can define it as a top-level `const`,
+a `static const` on a class, or build it however suits your app — `NibMotion`
+doesn't care where it comes from, only that it's a `Map<String, NibAnim>`
+passed to its `variants` prop.
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+const fadeInVariants = NibVariants({
+  'hidden': NibAnim(opacity: 0, y: 20),
+  'visible': NibAnim(opacity: 1, y: 0),
+});
+```
+
+## Referencing variants by name
+
+Once you have a `NibVariants` map, pass it to `NibMotion.variants`, and use
+its keys — as plain `String`s — wherever the widget would normally take a
+`NibAnim`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+const fadeInVariants = NibVariants({
+  'hidden': NibAnim(opacity: 0, y: 20),
+  'visible': NibAnim(opacity: 1, y: 0),
+});
+
+class WelcomeBanner extends StatelessWidget {
+  const WelcomeBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      variants: fadeInVariants,
+      initial: 'hidden',
+      animate: 'visible',
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: const Text('Welcome back!'),
+      ),
+    );
+  }
+}
+```
+
+`initial: 'hidden'` and `animate: 'visible'` are resolved against
+`fadeInVariants` at build time — `NibMotion` looks up `'hidden'` and
+`'visible'` in the map and uses the matching `NibAnim`s exactly as if you'd
+written them inline. The visible behavior is identical to:
+
+```dart
+NibMotion(
+  initial: const NibAnim(opacity: 0, y: 20),
+  animate: const NibAnim(opacity: 1, y: 0),
+  child: /* ... */,
+)
+```
+
+The difference is that now `'hidden'` and `'visible'` are names you can reuse
+on any number of other `NibMotion` widgets — each one resolves the same two
+strings against its own `variants` map (which can be the very same shared
+`const`), so a single edit to `fadeInVariants` updates every widget that
+references it.
+
+### Reusing the same names across multiple widgets
+
+Because each `NibMotion` resolves its own `initial`/`animate` strings against
+its own `variants` map, several widgets can share one `const NibVariants` and
+all reference `'hidden'`/`'visible'` (or whatever names you choose)
+independently:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+const fadeInVariants = NibVariants({
+  'hidden': NibAnim(opacity: 0, y: 20),
+  'visible': NibAnim(opacity: 1, y: 0),
+});
+
+class OnboardingStep extends StatelessWidget {
+  const OnboardingStep({
+    super.key,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NibMotion(
+          variants: fadeInVariants,
+          initial: 'hidden',
+          animate: 'visible',
+          child: Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        ),
+        const SizedBox(height: 8),
+        NibMotion(
+          variants: fadeInVariants,
+          initial: 'hidden',
+          animate: 'visible',
+          transition: const NibTransition(delay: Duration(milliseconds: 100)),
+          child: Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+      ],
+    );
+  }
+}
+```
+
+Both `Text` widgets fade and slide in using the exact same `'hidden'` ->
+`'visible'` definitions, with the subtitle staggered slightly behind the
+title via `transition.delay`. If the "fade in from below" look ever needs to
+change — say, a larger `y` offset — editing `fadeInVariants` once updates
+both.
+
+## A "theme-like" set of variants for a whole screen
+
+The real payoff of `NibVariants` shows up once a screen has several
+interactive elements that should all share the same vocabulary of states.
+Think of a `NibVariants` map as a small motion "theme" for a screen: define
+the states once — `'rest'`, `'hover'`, `'pressed'`, whatever applies — and
+apply that same theme to every card, button, or tile on the screen.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+const cardVariants = NibVariants({
+  'rest': NibAnim(scale: 1, y: 0),
+  'hover': NibAnim(scale: 1.02, y: -4),
+  'pressed': NibAnim(scale: 0.98, y: 0),
+});
+
+class DashboardGrid extends StatelessWidget {
+  const DashboardGrid({super.key, required this.items});
+
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      children: [
+        for (final item in items)
+          NibMotion(
+            variants: cardVariants,
+            initial: 'rest',
+            whileHover: cardVariants['hover'],
+            whileTap: cardVariants['pressed'],
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(item, style: Theme.of(context).textTheme.titleMedium),
+            ),
+          ),
+      ],
+    );
+  }
+}
+```
+
+Every card in the grid starts at `'rest'`, lifts slightly on hover, and
+compresses on tap — all driven from the same three `NibAnim` definitions in
+`cardVariants`. Note that `whileHover` and `whileTap` still take a `NibAnim`
+directly (not a `String`), so looking values up from the shared map by key
+(`cardVariants['hover']`) is how the same named states feed gesture-reactive
+props too — `cardVariants` stays the single place these "themes" are defined,
+even where a prop doesn't accept a variant name directly.
+
+### Propagating a variant name to descendants
+
+`animate` accepting a `String` does more than resolve this widget's own
+`NibAnim` — when `animate` is a `String`, that name is also propagated down
+to any descendant `NibMotion` that has its own `variants` map containing a
+matching key and no explicit `animate` of its own. This lets a single state
+change on a parent — like switching `animate` from `'rest'` to `'selected'`
+— cascade into coordinated animations on several children at once, without
+each child needing to be told individually.
+
+## Combining a variant with an override: `NibAnim.merge`
+
+Sometimes a widget mostly wants a named variant's animation, but with one or
+two properties overridden for its specific context — say, every card uses
+`cardVariants['hover']` for its lift, but one particular card should also
+shift color on hover. Rather than duplicating the whole `NibAnim`, look up the
+variant and layer an override on top with
+[`NibAnim.merge`](/docs/animate#nibanimmerge):
+
+```dart
+whileHover: cardVariants['hover']!.merge(
+  const NibAnim(color: Color(0xFFEFF6FF)),
+),
+```
+
+`merge` returns a copy where every non-`null` field of the argument
+(`color` here) overrides the corresponding field of the receiver
+(`cardVariants['hover']`), while every other field — `scale`, `y`, and so on
+— passes through from the shared variant untouched. See
+[Animate](/docs/animate) for the full rules `merge` follows when combining
+two `NibAnim`s.
+
+## API reference
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `NibVariants` | `typedef Map<String, NibAnim>` | — | A named set of `NibAnim` states. Define as a `const` map and pass to `NibMotion.variants`. |
+| `NibMotion.variants` | `NibVariants?` | `null` | The map that `initial`/`animate`/`exit`-as-`String` and propagated ancestor variant names are resolved against. |
+| `initial` | `NibAnim \| String?` | `null` | A `NibAnim`, or a `String` naming an entry in `variants`, applied immediately on first build. |
+| `animate` | `NibAnim \| String?` | `null` | A `NibAnim`, or a `String` naming an entry in `variants`, to transition toward. When a `String`, the name is also propagated to descendant `NibMotion`s with a matching `variants` entry and no explicit `animate`. |
+
+> **Note:** `exit`, `whileTap`, `whileHover`, `whileFocus`, `whileDrag`, and
+> `whileInView` always take a `NibAnim` directly — they don't accept a variant
+> name `String`. To reuse a named variant's animation for one of these props,
+> look it up from the map (`cardVariants['hover']`) and optionally layer an
+> override with `NibAnim.merge`, as shown above.
+
+## Next steps
+
+- **[Animate](/docs/animate)** — `NibVariants` entries are just `NibAnim`
+  values, so everything covered there about combining and interpolating
+  properties applies equally to the states inside a `NibVariants` map.
+- **[Lists & Stagger](/docs/lists-and-stagger)** — variant propagation from a
+  parent to its children, combined with `transition.staggerChildren`, is the
+  foundation for animating a list of items into view one after another from a
+  single state change on their shared ancestor.

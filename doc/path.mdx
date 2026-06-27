@@ -1,0 +1,262 @@
+# Path
+
+Not every motion fits the "animate between two states" model `NibMotion`
+covers so well. Sometimes you know the exact route a widget should travel —
+a curved arc across the screen, a delivery icon following a road, a marker
+sliding around a chart — or you want to reveal a shape stroke-by-stroke, the
+way a signature or an SVG logo draws itself in. Both are about *following a
+`Path`*, not animating a property, so `nib_motion` covers them with two
+dedicated widgets instead of `NibAnim`/`NibTransition`: `NibPathMotion` and
+`NibDrawPath`.
+
+Neither widget integrates with `NibMotionController`/`NibMotionAnimator` —
+that interface is shaped around property targets, keyframes, and exit/replay
+semantics that don't map cleanly onto "where along this path am I." Instead,
+each has its own small imperative controller (`NibPathMotionController` and
+`NibDrawPathController`) with `play`, `pause`, and `restart`.
+
+## `NibPathMotion`: move a widget along a path
+
+`NibPathMotion` translates (and optionally rotates) its `child` to a point
+along an arbitrary `Path`, driven by progress from `0.0` to `1.0`. It reads
+the path's `PathMetrics` directly during paint and writes the resulting
+transform straight onto the render object — animating never triggers a
+widget rebuild, the same load-bearing property every other primitive in this
+package relies on.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class FlightPathDemo extends StatelessWidget {
+  const FlightPathDemo({super.key});
+
+  static Path _buildPath() {
+    final path = Path()..moveTo(20, 200);
+    path.quadraticBezierTo(160, 20, 300, 200);
+    return path;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NibPathMotion(
+      path: _buildPath(),
+      duration: const Duration(seconds: 2),
+      curve: Curves.easeInOut,
+      repeat: true,
+      rotate: true,
+      child: const Icon(Icons.flight, size: 32),
+    );
+  }
+}
+```
+
+`quadraticBezierTo` gives the path a single control point, bowing it upward
+into a visible arc between its start and end — `NibPathMotion` doesn't care
+how the path was constructed, only that it has measurable contours. With
+`rotate: true`, the icon is rotated to match the path's tangent direction at
+each point along the curve, so it banks into the arc rather than staying
+fixed upright. `repeat: true` restarts the traversal from `0.0` every time it
+completes.
+
+### Driving progress yourself
+
+If you'd rather tie the traversal to something other than a fixed
+duration/curve — a scroll offset, a drag gesture, a `MotionValue` shared with
+another widget — pass your own `MotionValue<double>` as `progress`. When
+`progress` is supplied, `duration`, `curve`, `repeat`, and `autoPlay` are all
+ignored; you're fully responsible for writing into that value.
+
+```dart
+final progress = MotionValue<double>(0.0);
+
+NibPathMotion(
+  path: myPath,
+  progress: progress,
+  rotate: true,
+  child: const Icon(Icons.flight),
+);
+
+// elsewhere, e.g. driven by a scroll listener:
+progress.value = 0.4;
+```
+
+### Controlling playback imperatively
+
+For start/stop/restart control from outside the widget — a button that
+replays the traversal, or pausing it when a screen loses focus — attach a
+`NibPathMotionController`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ControlledPathDemo extends StatefulWidget {
+  const ControlledPathDemo({super.key});
+
+  @override
+  State<ControlledPathDemo> createState() => _ControlledPathDemoState();
+}
+
+class _ControlledPathDemoState extends State<ControlledPathDemo> {
+  final _controller = NibPathMotionController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        NibPathMotion(
+          controller: _controller,
+          path: FlightPathDemo._buildPath(),
+          rotate: true,
+          child: const Icon(Icons.flight, size: 32),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(onPressed: _controller.pause, child: const Text('Pause')),
+            TextButton(onPressed: _controller.play, child: const Text('Play')),
+            TextButton(onPressed: _controller.restart, child: const Text('Restart')),
+          ],
+        ),
+      ],
+    );
+  }
+}
+```
+
+`restart()` resets progress to `0.0` and starts the traversal again, as if
+the widget had just been built — useful for replaying an entrance-style
+path animation on demand. `play()`/`pause()` only affect the widget's own
+internal ticker; they're no-ops when an external `progress` value is
+supplied, since the caller owns that value entirely.
+
+## `NibDrawPath`: a stroke draw-on effect
+
+`NibDrawPath` paints only the portion of a `Path` revealed by its current
+progress — the signature/SVG-style effect where a line appears to draw
+itself onto the screen. Internally it calls `extractPath(0, length *
+progress)` on the path's `PathMetrics` during paint, so like
+`NibPathMotion`, animating never triggers a rebuild.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class CheckmarkReveal extends StatelessWidget {
+  const CheckmarkReveal({super.key});
+
+  static Path _buildCheckmark() {
+    final path = Path()..moveTo(10, 50);
+    path.lineTo(40, 80);
+    path.lineTo(90, 20);
+    return path;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: NibDrawPath(
+        path: _buildCheckmark(),
+        strokeWidth: 6,
+        color: Colors.green,
+        strokeCap: StrokeCap.round,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+}
+```
+
+The two `lineTo` calls form a simple checkmark outline; `NibDrawPath` draws
+it stroke-first from the `moveTo` origin, lengthening as `progress` advances
+from `0.0` to `1.0`. `strokeCap: StrokeCap.round` rounds off the leading edge
+of the reveal so it doesn't look clipped mid-stroke while animating.
+
+### Controlling playback imperatively
+
+`NibDrawPath` exposes the same `controller` pattern as `NibPathMotion`, via
+`NibDrawPathController`:
+
+```dart
+final controller = NibDrawPathController();
+
+NibDrawPath(
+  controller: controller,
+  path: myPath,
+  autoPlay: false,
+  child: null, // NibDrawPath has no child — it paints the stroke itself.
+);
+
+controller.play();    // starts the reveal
+controller.pause();   // freezes it mid-stroke
+controller.restart(); // resets to 0.0 and plays again
+```
+
+Set `autoPlay: false` if you want the reveal to wait for an explicit
+`controller.play()` call — for example, only drawing a signature once it
+scrolls into view.
+
+## API reference
+
+### `NibPathMotion`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget moved along `path`. |
+| `path` | `Path` | required | The path `child` travels along, in this widget's local coordinate space. |
+| `progress` | `MotionValue<double>?` | `null` | An external progress value to read instead of driving an internal ticker. When set, `duration`, `curve`, `repeat`, and `autoPlay` are ignored. |
+| `duration` | `Duration` | `Duration(milliseconds: 1000)` | How long a single traversal of `path` takes, when `progress` is not supplied. |
+| `curve` | `Curve` | `Curves.easeInOut` | The easing curve applied to traversal, when `progress` is not supplied. |
+| `repeat` | `bool` | `false` | Whether traversal restarts from `0.0` after completing, when `progress` is not supplied. |
+| `autoPlay` | `bool` | `true` | Whether traversal starts automatically on first build, when `progress` is not supplied. |
+| `rotate` | `bool` | `false` | Whether `child` is rotated to align with `path`'s tangent direction at the current progress. |
+| `controller` | `NibPathMotionController?` | `null` | Imperative handle for `play`/`pause`/`restart`. |
+
+### `NibPathMotionController`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `play` | `void play()` | Starts (or resumes) the path traversal from its current progress. |
+| `pause` | `void pause()` | Pauses the path traversal, freezing progress at its current value. |
+| `restart` | `void restart()` | Restarts the path traversal from progress `0.0`, as if the widget had just been built. |
+
+### `NibDrawPath`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `path` | `Path` | required | The path progressively revealed as the animation plays. |
+| `strokeWidth` | `double` | `2.0` | The width of the stroke used to draw `path`. |
+| `color` | `Color` | `Color(0xFF000000)` | The color of the stroke used to draw `path`. |
+| `strokeCap` | `StrokeCap` | `StrokeCap.round` | The cap style of the stroke used to draw `path`. |
+| `duration` | `Duration` | `Duration(milliseconds: 1000)` | How long a full reveal of `path` takes. |
+| `curve` | `Curve` | `Curves.easeOut` | The easing curve applied to the reveal. |
+| `autoPlay` | `bool` | `true` | Whether the reveal starts automatically on first build. |
+| `repeat` | `bool` | `false` | Whether the reveal restarts from `0.0` after completing. |
+| `controller` | `NibDrawPathController?` | `null` | Imperative handle for `play`/`pause`/`restart`. |
+
+### `NibDrawPathController`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `play` | `void play()` | Starts (or resumes) the reveal animation from its current progress. |
+| `pause` | `void pause()` | Pauses the reveal animation, freezing progress at its current value. |
+| `restart` | `void restart()` | Restarts the reveal animation from progress `0.0`. |
+
+## Next steps
+
+- **[Animate](/docs/animate)** — for property-based animation (opacity,
+  position, scale, color) driven by your own state, rather than a fixed
+  geometric path.
+- **[Transitions](/docs/transitions)** — `NibPathMotion` and `NibDrawPath`
+  use the same `duration`/`curve` vocabulary as `NibTransition`, just applied
+  to path progress instead of an `NibAnim` target.

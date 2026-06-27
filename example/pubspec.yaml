@@ -1,0 +1,13 @@
+name: nib_motion_example
+description: Example app for nib_motion.
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  nib_motion:
+    path: ../

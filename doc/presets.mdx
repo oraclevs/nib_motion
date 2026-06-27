@@ -1,0 +1,340 @@
+# Presets
+
+`NibMotion`'s `initial`/`animate`/`exit`/`keyframes` props are general-purpose
+enough to build almost any animation, but some motions show up so often —
+a button that bounces in, an input that shakes on a failed validation, a
+loading spinner that pulses — that it's worth not re-deriving them every
+time. The presets in this page are small, ready-made widgets that wrap
+`NibMotion` with sensible defaults for exactly those cases.
+
+Every preset here is a thin convenience layer: under the hood, each one is
+just a `NibMotion` configured with a particular `NibAnim`/`keyframes` value
+from `NibAnimPresets` and a `NibTransition`. Reach for a preset when its
+default look is close enough to what you need; reach for `NibMotion` directly
+(see [Animate](/docs/animate) and [Transitions](/docs/transitions)) when you
+want full control over the same motion.
+
+## Trigger-once presets: `NibBounce` and `NibRubberBand`
+
+`NibBounce` and `NibRubberBand` both play a single animation once when they
+first mount — they're built for entrance moments, like a card appearing or a
+success state showing up.
+
+`NibBounce` drops `child` in from above and settles with a small bounce.
+`NibRubberBand` overshoots non-uniformly on the X and Y scale axes and
+settles, like a rubber band snapping back into shape. Both accept a
+`duration` to stretch or compress the whole sequence.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class PresetShowcase extends StatefulWidget {
+  const PresetShowcase({super.key});
+
+  @override
+  State<PresetShowcase> createState() => _PresetShowcaseState();
+}
+
+class _PresetShowcaseState extends State<PresetShowcase> {
+  bool _showBounce = false;
+  bool _showRubberBand = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton(
+          onPressed: () => setState(() => _showBounce = !_showBounce),
+          child: const Text('Bounce'),
+        ),
+        if (_showBounce)
+          NibBounce(
+            duration: const Duration(milliseconds: 700),
+            child: const Icon(Icons.celebration, size: 48),
+          ),
+        ElevatedButton(
+          onPressed: () => setState(() => _showRubberBand = !_showRubberBand),
+          child: const Text('Rubber band'),
+        ),
+        if (_showRubberBand)
+          NibRubberBand(
+            child: Container(
+              width: 48,
+              height: 48,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+      ],
+    );
+  }
+}
+```
+
+Because each plays once on mount, the usual way to trigger one on demand —
+like in the example above — is to mount it conditionally (`if (_showBounce)
+NibBounce(...)`) rather than toggling a prop on an already-mounted widget.
+
+## Triggering on demand: `NibShake` and `NibShakeController`
+
+`NibShake` is different from `NibBounce`/`NibRubberBand` in one important
+way: it doesn't play automatically on mount. It's built for feedback that
+happens in response to an event that occurs *after* the widget is already on
+screen — the classic example being a form field shaking when validation
+fails.
+
+To trigger it, create a `NibShakeController` and pass it to `NibShake`'s
+`controller` prop, then call `shake()` on it whenever you want the animation
+to play:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ValidatedField extends StatefulWidget {
+  const ValidatedField({super.key});
+
+  @override
+  State<ValidatedField> createState() => _ValidatedFieldState();
+}
+
+class _ValidatedFieldState extends State<ValidatedField> {
+  final _shakeController = NibShakeController();
+  final _textController = TextEditingController();
+  String? _error;
+
+  void _validate() {
+    if (_textController.text.isEmpty) {
+      setState(() => _error = 'This field is required');
+      _shakeController.shake();
+    } else {
+      setState(() => _error = null);
+    }
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NibShake(
+          controller: _shakeController,
+          child: TextField(
+            controller: _textController,
+            decoration: InputDecoration(
+              labelText: 'Email',
+              errorText: _error,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton(onPressed: _validate, child: const Text('Submit')),
+      ],
+    );
+  }
+}
+```
+
+If you omit `controller`, `NibShake` creates and owns one internally — but
+then there's no way to call `shake()` from outside the widget, so in
+practice you'll almost always want to supply your own `NibShakeController`
+the way the example above does. Remember to `dispose()` a controller you
+created yourself once it's no longer needed.
+
+## Ambient, looping presets: `NibFloat` and `NibPulse`
+
+`NibFloat` and `NibPulse` are built for animations that run continuously in
+the background to draw a little attention to something — an icon that
+drifts up and down, or a "live" indicator that pulses like a heartbeat. Both
+loop forever once mounted.
+
+`NibFloat` moves `child` up by `distance` logical pixels and back, easing
+in and out, repeating indefinitely. `NibPulse` scales `child` up slightly and
+back down in a repeating "heartbeat" rhythm. Both accept a `duration` for one
+cycle.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class AmbientIcons extends StatelessWidget {
+  const AmbientIcons({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        const NibFloat(
+          distance: 12,
+          duration: Duration(milliseconds: 1800),
+          child: Icon(Icons.cloud, size: 40),
+        ),
+        NibPulse(
+          duration: const Duration(milliseconds: 900),
+          child: Icon(
+            Icons.favorite,
+            size: 40,
+            color: Theme.of(context).colorScheme.error,
+          ),
+        ),
+      ],
+    );
+  }
+}
+```
+
+Because both loop forever, make sure they're only mounted where that's the
+intent — wrap them in a conditional if the ambient motion should stop once
+some state changes (for example, once data finishes loading).
+
+## `NibFlip`: a front/back card flip
+
+`NibFlip` is shaped differently from the rest — instead of animating one
+child, it renders two faces (`front` and `back`) and rotates between them in
+3D as `isFlipped` toggles. It's the building block for flashcards, flip
+reveals, and "more info on the back" cards.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class Flashcard extends StatefulWidget {
+  const Flashcard({super.key});
+
+  @override
+  State<Flashcard> createState() => _FlashcardState();
+}
+
+class _FlashcardState extends State<Flashcard> {
+  bool _isFlipped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() => _isFlipped = !_isFlipped),
+      child: SizedBox(
+        width: 240,
+        height: 160,
+        child: NibFlip(
+          isFlipped: _isFlipped,
+          duration: const Duration(milliseconds: 500),
+          front: Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: const Center(child: Text('What is NibMotion?')),
+          ),
+          back: Card(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            child: const Center(child: Text('A motion framework for Flutter.')),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+`flipAxis` controls which way the card rotates: `Axis.horizontal` (the
+default) rotates around the vertical axis, like a card flipping left-to-right;
+`Axis.vertical` rotates around the horizontal axis instead, like flipping
+top-to-bottom. Unlike the other presets on this page, `NibFlip` isn't built
+on `NibMotion` internally — it drives its own raw `Ticker` and paints a 3D
+transform directly, but the externally-facing shape (toggle a prop, get an
+animation) will feel familiar.
+
+## API reference
+
+### `NibBounce`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to animate in. |
+| `duration` | `Duration` | `Duration(milliseconds: 800)` | How long the bounce-in entrance takes to play out. |
+
+### `NibRubberBand`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to animate. |
+| `duration` | `Duration` | `Duration(milliseconds: 1000)` | How long the overshoot-and-settle animation takes to play out. |
+
+### `NibShake`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to shake. |
+| `controller` | `NibShakeController?` | `null` | Triggers the shake via `shake()`. If `null`, `NibShake` creates and owns its own controller internally. |
+| `duration` | `Duration` | `Duration(milliseconds: 600)` | How long one shake animation takes to play out. |
+
+### `NibShakeController`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `shake` | `Future<void> shake()` | Plays the shake keyframe animation once on every attached `NibShake`. |
+| `dispose` | `void dispose()` | Releases this controller's resources. Safe to call once. |
+
+### `NibFloat`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to float. |
+| `distance` | `double` | `10` | How far, in logical pixels, `child` travels above its resting position at the peak of each cycle. |
+| `duration` | `Duration` | `Duration(milliseconds: 1600)` | How long one direction of the float (down-to-up, or up-to-down) takes to play out. |
+
+### `NibPulse`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to pulse. |
+| `duration` | `Duration` | `Duration(milliseconds: 900)` | How long one pulse cycle (scale up, then back down) takes to play out. |
+
+### `NibFlip`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `front` | `Widget` | required | The widget shown while the flip progress is below `0.5`. |
+| `back` | `Widget` | required | The widget shown while the flip progress is at or above `0.5`. |
+| `isFlipped` | `bool` | `false` | Which face should be facing forward. Toggling this animates the flip. |
+| `duration` | `Duration` | `Duration(milliseconds: 600)` | How long the flip animation takes to play out. |
+| `flipAxis` | `Axis` | `Axis.horizontal` | Which axis the card rotates around: `Axis.horizontal` rotates around the vertical (Y) axis, `Axis.vertical` rotates around the horizontal (X) axis. |
+
+### `NibAnimPresets`
+
+The keyframe and snapshot constants these widgets are built on, for use
+directly with `NibMotion.keyframes`/`initial`/`animate` when you need the same
+motion with a different transition or trigger than the preset widget offers.
+
+| Constant | Type | Description |
+| --- | --- | --- |
+| `shake` | `List<NibKeyframe>` | Rapid left-right oscillation, used by `NibShake`. |
+| `bounceIn` | `List<NibKeyframe>` | Drops in from above and settles with a small bounce, used by `NibBounce`. |
+| `pulse` | `List<NibKeyframe>` | Scales up and back down, used by `NibPulse`. |
+| `rubberBand` | `List<NibKeyframe>` | Non-uniform scale overshoot-and-settle, used by `NibRubberBand`. |
+| `wiggle` | `List<NibKeyframe>` | Gentle rotation oscillation. |
+| `fadeUp` | `NibAnim` | Fade in from below (`opacity: 0, y: 24`). |
+| `fadeDown` | `NibAnim` | Fade in from above (`opacity: 0, y: -24`). |
+| `fadeLeft` | `NibAnim` | Fade in from the left (`opacity: 0, x: -24`). |
+| `fadeRight` | `NibAnim` | Fade in from the right (`opacity: 0, x: 24`). |
+| `zoomIn` | `NibAnim` | Zoom in from slightly smaller than identity (`opacity: 0, scale: 0.85`). |
+| `zoomOut` | `NibAnim` | Zoom out from slightly larger than identity (`opacity: 0, scale: 1.15`). |
+
+## Next steps
+
+- **[Animate](/docs/animate)** — the `initial`/`animate`/`exit` props every
+  preset is built on, for when you need a one-off look these presets don't
+  cover.
+- **[Transitions](/docs/transitions)** — presets accept a `duration`, but the
+  underlying `NibTransition` system also supports curves and spring physics
+  if you reach for `NibMotion` directly.
+- **[Gestures](/docs/gestures)** — pair a preset with `whileTap`/`whileHover`
+  on the same `NibMotion` (or wrap a preset's child in one) for motion that
+  responds to both an event and the pointer.

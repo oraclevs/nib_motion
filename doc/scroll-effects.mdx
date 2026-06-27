@@ -1,0 +1,212 @@
+# Scroll Effects
+
+This page covers additional scroll-driven effects beyond what's in
+[Viewport & Scroll](/docs/viewport-and-scroll) — `whileInView`/`viewport` for
+discrete reveal triggers, and `ScrollMotionBridge`/`NibScrollMotion` for
+wiring scroll offset into your own derived `MotionValue`s. Here, two
+ready-made widgets build on those same primitives so you don't have to wire
+up a `ScrollMotionBridge` or a `whileInView` config by hand for two of the
+most common scroll patterns: a **parallax** layer that moves at a different
+rate than the content around it, and a **scroll reveal** wrapper for the
+"fade and slide up" entrance you'd otherwise write out every time.
+
+## `NibParallax`: depth via differential scroll speed
+
+`NibParallax` moves its `child` at a fraction of the surrounding scroll
+view's rate, creating the classic depth illusion — a background image that
+drifts more slowly than the foreground content scrolling over it.
+Internally it creates its own `ScrollMotionBridge` for the
+`scrollController` you pass it, derives `offset = scrollOffset * factor` via
+`MotionValue.transform`, and feeds that straight into `NibMotion.motionValues`
+— so it repaints on every scroll tick with no `setState` and no rebuild.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ParallaxBackgroundPage extends StatefulWidget {
+  const ParallaxBackgroundPage({super.key});
+
+  @override
+  State<ParallaxBackgroundPage> createState() => _ParallaxBackgroundPageState();
+}
+
+class _ParallaxBackgroundPageState extends State<ParallaxBackgroundPage> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        NibParallax(
+          scrollController: _scrollController,
+          factor: 0.5,
+          child: Container(
+            height: 400,
+            color: Theme.of(context).colorScheme.primaryContainer,
+          ),
+        ),
+        ListView.builder(
+          controller: _scrollController,
+          itemCount: 40,
+          itemBuilder: (context, index) => Container(
+            height: 80,
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+            color: Theme.of(context).colorScheme.surface,
+            alignment: Alignment.center,
+            child: Text('Row $index'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+```
+
+`factor: 0.5` makes the background container scroll at half the speed of the
+`ListView` stacked on top of it, so it appears to recede as the user scrolls
+— the classic parallax depth cue. `NibParallax` only reads
+`scrollController`'s offset; it doesn't need to sit inside the scroll view it
+tracks, which is why it works fine layered behind the `ListView` in a `Stack`
+rather than as one of its children.
+
+### Choosing a `factor`
+
+`factor` controls the parallax strength relative to the tracked scroll view:
+
+- **`0`** — `child` is pinned in place, ignoring scrolling entirely.
+- **`1`** — `child` scrolls at exactly the same rate as the tracked content
+  (no visible parallax).
+- **Between `0` and `1`** (e.g. `0.5`) — `child` scrolls slower than the
+  tracked content, appearing to sit further back.
+- **Greater than `1`, or negative** — `child` scrolls faster than, or in the
+  opposite direction to, the tracked content, for a foreground or
+  reversed-depth effect.
+
+### Tracking the horizontal axis
+
+By default `NibParallax` translates `child` vertically, using the tracked
+scroll view's vertical offset. Pass `axis: Axis.horizontal` to translate
+`child` horizontally instead — useful for a horizontally-scrolling gallery
+with a parallaxing backdrop:
+
+```dart
+NibParallax(
+  scrollController: _galleryController,
+  axis: Axis.horizontal,
+  factor: 0.4,
+  child: const Image(image: AssetImage('assets/banner.png')),
+)
+```
+
+## `NibScrollReveal`: the "fade and slide up" reveal, pre-wired
+
+`NibScrollReveal` is a thin convenience wrapper over `NibMotion.whileInView`
+— it's the same `initial`/`whileInView`/`viewport` configuration shown for
+the `RevealSection` example on [Viewport & Scroll](/docs/viewport-and-scroll),
+pre-set to sensible defaults so you don't have to spell it out on every
+section of a long page.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ArticleSection extends StatelessWidget {
+  const ArticleSection({super.key, required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibScrollReveal(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(body),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+With no extra configuration, each `ArticleSection` starts faded out and
+offset 32 logical pixels down (`initial: NibAnim(opacity: 0, y: 32)`), and
+animates to fully visible at its natural position
+(`animate: NibAnim.identity`) once 20% of its area scrolls into view. Because
+`once` defaults to `true`, each section reveals itself the first time it's
+scrolled into view and stays revealed — scrolling back up never re-hides it.
+
+### Customizing the reveal
+
+`initial`, `animate`, `transition`, `once`, and `amount` are all overridable,
+so you can reuse `NibScrollReveal` for reveals that don't fade-and-slide, or
+that should replay every time:
+
+```dart
+NibScrollReveal(
+  initial: const NibAnim(opacity: 0, scale: 0.9),
+  animate: const NibAnim(opacity: 1, scale: 1),
+  transition: NibTransition.springGentle,
+  once: false,
+  amount: 0.4,
+  child: const Chip(label: Text('Always re-reveals')),
+)
+```
+
+Here the section scales and fades in (instead of sliding), uses a gentle
+spring rather than the default transition, requires 40% visibility to
+trigger, and — since `once: false` — reverts to `initial` every time it
+scrolls back out of view, replaying the reveal on every re-entry.
+
+> **Note:** Because `NibScrollReveal` is built on `whileInView`/`viewport`
+> under the hood, everything about *when* the trigger fires — visibility
+> threshold, one-shot vs. repeating, margin — works exactly as described for
+> `NibInViewConfig` on [Viewport & Scroll](/docs/viewport-and-scroll). Reach
+> for `NibMotion.whileInView` directly instead of `NibScrollReveal` if you
+> need a `margin`, or animation targets beyond the simple `initial`/`animate`
+> pair `NibScrollReveal` exposes.
+
+## API reference
+
+### `NibParallax`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to apply the parallax offset to. |
+| `scrollController` | `ScrollController` | required | The scroll controller whose offset drives the parallax effect. Must be attached to a reachable scrollable, but `NibParallax` itself doesn't need to be inside that scroll view. |
+| `factor` | `double` | `0.5` | The parallax strength. `0` keeps `child` stationary; `1` scrolls it at the same rate as the tracked scroll view; other values (including negative or >1) produce a slower/faster/reversed depth effect. |
+| `axis` | `Axis` | `Axis.vertical` | Which axis of `scrollController`'s offset to translate `child` along. `Axis.vertical` uses `ScrollMotionBridge.scrollY`; `Axis.horizontal` uses `ScrollMotionBridge.scrollX`. |
+
+### `NibScrollReveal`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `child` | `Widget` | required | The widget to reveal. |
+| `initial` | `NibAnim` | `NibAnim(opacity: 0, y: 32)` | The animation values `child` starts at before it has entered the viewport. |
+| `animate` | `NibAnim` | `NibAnim.identity` | The animation values `child` transitions to once it enters the viewport. |
+| `transition` | `NibTransition?` | `null` | The transition used when revealing `child`. If `null`, falls back to `NibMotionConfig.defaultTransitionOf(context)`. |
+| `once` | `bool` | `true` | If `true`, `child` is revealed only the first time it enters the viewport and does not revert if scrolled back out. If `false`, it reverts to `initial` every time it leaves the viewport and replays the reveal each time it re-enters. |
+| `amount` | `double` | `0.2` | The fraction of `child`'s area that must be visible for the reveal to trigger. |
+
+## Next steps
+
+- **[Viewport & Scroll](/docs/viewport-and-scroll)** — the prerequisite for
+  this page: covers `NibMotion.whileInView`, `NibInViewConfig`, and
+  `ScrollMotionBridge`/`NibScrollMotion`, the lower-level primitives that
+  `NibParallax` and `NibScrollReveal` are both built on.
+- **[Animate](/docs/animate)** — for the full set of `NibAnim` properties you
+  can pass to `NibScrollReveal`'s `initial`/`animate`, if you haven't already
+  covered the basics.

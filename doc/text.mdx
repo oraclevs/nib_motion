@@ -1,0 +1,352 @@
+# Text
+
+Text deserves its own motion vocabulary. A heading that types itself out, a
+hero title where each word drops in a beat after the last, a gradient that
+sweeps endlessly across a label — these are common enough patterns that
+`nib_motion` ships four purpose-built widgets for them instead of asking you
+to hand-roll per-character animation on top of `NibMotion` yourself.
+
+`NibText` (with `NibTextConfig`) handles per-character, per-word, or per-line
+staggered entrances and exits. `NibGradientText` sweeps an animated gradient
+across static text. `NibTextReveal` wipes a block of text into view with a
+clip mask. `NibTypewriter` reveals text one character at a time, optionally
+with a blinking cursor. Each is independent — pick whichever matches the
+effect you're after.
+
+## `NibText`: staggered character, word, and line animation
+
+`NibText` splits its string into units — characters, words, or lines,
+depending on `NibTextConfig.unit` — and wraps each animated unit in its own
+`NibMotion`, staggered in by `NibTextConfig.staggerDelay`. It reuses the same
+zero-`setState` `NibMotion` engine the rest of the package is built on; the
+splitting and staggering logic is the only thing `NibText` adds.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class FadeInHeadline extends StatelessWidget {
+  const FadeInHeadline({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibText(
+      'Build interfaces that move.',
+      style: Theme.of(context).textTheme.headlineMedium,
+      config: const NibTextConfig(
+        unit: NibTextUnit.word,
+        initial: NibAnim(opacity: 0, y: 12),
+        animate: NibAnim(opacity: 1, y: 0),
+        staggerDelay: Duration(milliseconds: 40),
+      ),
+    );
+  }
+}
+```
+
+Each word fades and slides up into place, one `staggerDelay` after the
+previous word started. Whitespace runs between words are preserved as plain,
+unanimated `Text` so the layout reads naturally — only the words themselves
+are wrapped in `NibMotion`.
+
+### Choosing a unit
+
+`NibTextConfig.unit` is a `NibTextUnit`: `character` (the default), `word`, or
+`line`. `character` splits on grapheme clusters rather than raw UTF-16 code
+units, so multi-code-point emoji and combining marks stay intact as a single
+animated piece. `line` splits on `\n` and lays the result out in a `Column`
+instead of a `Wrap` — useful for a multi-line headline where each line
+arrives as a whole.
+
+```dart
+NibText(
+  'One line at a time.\nThen the next.',
+  config: const NibTextConfig(
+    unit: NibTextUnit.line,
+    initial: NibAnim(opacity: 0, x: -16),
+    animate: NibAnim(opacity: 1, x: 0),
+    staggerDelay: Duration(milliseconds: 120),
+  ),
+)
+```
+
+### `staggerFrom`: where the delay accumulates from
+
+`NibTextConfig.staggerFrom` (a `NibTextStaggerFrom`) controls the order units
+animate in, independent of the order they're laid out in:
+
+| Value | Behavior |
+| --- | --- |
+| `start` | Delay increases from the first unit to the last (the default). |
+| `end` | Delay increases from the last unit to the first — the end of the text animates in first. |
+| `center` | Delay increases outward from the middle unit toward both ends. |
+| `random` | Delay is a seeded-random value within the same overall window, so units arrive in a shuffled order. |
+
+```dart
+NibText(
+  'CENTER OUT',
+  config: const NibTextConfig(
+    unit: NibTextUnit.character,
+    initial: NibAnim(opacity: 0, scale: 0.5),
+    animate: NibAnim(opacity: 1, scale: 1),
+    staggerDelay: Duration(milliseconds: 25),
+    staggerFrom: NibTextStaggerFrom.center,
+  ),
+)
+```
+
+### Exit animations
+
+Setting `NibTextConfig.exit` wraps each animated unit in its own
+`NibPresence`, so removing the `NibText` from the tree (inside an ancestor
+`NibPresence`) plays every unit's exit animation before it actually unmounts
+— the same per-unit stagger applies on the way out as on the way in.
+
+```dart
+NibText(
+  'Saved!',
+  config: const NibTextConfig(
+    unit: NibTextUnit.character,
+    initial: NibAnim(opacity: 0),
+    animate: NibAnim(opacity: 1),
+    exit: NibAnim(opacity: 0, y: -8),
+    staggerDelay: Duration(milliseconds: 20),
+  ),
+)
+```
+
+### `NibText.rich`
+
+`NibText.rich` takes an `InlineSpan` (such as a `TextSpan` tree) instead of a
+flat `String` — its `toPlainText()` is split into units the same way, with
+`style` used as the shared base style for every unit. Per-span styling inside
+the original `InlineSpan` is not preserved per unit.
+
+## `NibGradientText`: a sweeping gradient across static text
+
+`NibGradientText` paints `text` once, then sweeps an animated `Gradient`
+across it by masking the gradient onto the rendered glyphs. The text itself
+never moves — only the gradient's position animates — which makes this a
+cheap way to add a shimmer or shine effect to a label or heading.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ShimmeringTitle extends StatelessWidget {
+  const ShimmeringTitle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibGradientText(
+      'Premium',
+      style: Theme.of(context).textTheme.headlineSmall,
+      gradient: const LinearGradient(
+        colors: [Color(0xFF54C5F8), Color(0xFF02569B), Color(0xFF54C5F8)],
+      ),
+      duration: const Duration(milliseconds: 2200),
+    );
+  }
+}
+```
+
+By default the sweep loops forever (`repeat: true`), travelling left to right
+and wrapping back to the opposite edge each cycle. Set `repeat: false` to play
+the sweep once and stop, or `direction: TextDirection.rtl` to reverse it.
+`style`'s `color` is ignored — the gradient is what tints the glyphs, via a
+`BlendMode.srcIn` mask applied to the painted text.
+
+## `NibTextReveal`: a clip-mask wipe
+
+`NibTextReveal` reveals its `child` — typically a block of text, but any
+widget works — by animating a clip mask that wipes in from one edge. Unlike
+`NibText`, there's no per-character splitting: the whole block reveals at
+once, as if a panel were sliding away to expose it.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class WipeInTitle extends StatelessWidget {
+  const WipeInTitle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibTextReveal(
+      direction: NibTextRevealDirection.left,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      child: Text(
+        'Welcome back',
+        style: Theme.of(context).textTheme.headlineMedium,
+      ),
+    );
+  }
+}
+```
+
+`direction` (a `NibTextRevealDirection`) is one of `left`, `right`, `up`, or
+`down`, describing the edge the reveal wipes in *from* — `left` clips the
+content starting at its left edge and grows rightward until it's fully
+visible. Pair `delay` with a `controller` (`NibMotionController`) and call
+`controller.start()` to replay the wipe on demand, such as when a card scrolls
+into view.
+
+```dart
+NibTextReveal(
+  direction: NibTextRevealDirection.up,
+  delay: const Duration(milliseconds: 200),
+  duration: const Duration(milliseconds: 500),
+  child: const Text('Now appearing from below'),
+)
+```
+
+## `NibTypewriter`: classic character-by-character reveal
+
+`NibTypewriter` reveals `text` one grapheme at a time at a fixed `speed`,
+optionally with a blinking `cursor`. This is the one text widget in
+`nib_motion` that uses `setState` internally rather than a `MotionValue` —
+the revealed character count is a discrete, content-level value advanced by a
+timer, not a continuous per-frame paint value, so there's no animation
+machinery to bypass.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class TerminalGreeting extends StatelessWidget {
+  const TerminalGreeting({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibTypewriter(
+      'Initializing system...',
+      speed: const Duration(milliseconds: 45),
+      cursor: '_',
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 16),
+      onComplete: () => debugPrint('typing finished'),
+    );
+  }
+}
+```
+
+Set `repeat: true` to loop forever — once typing finishes, `NibTypewriter`
+pauses briefly, deletes the text at `deleteSpeed` (or `speed` if unset), and
+types it again:
+
+```dart
+NibTypewriter(
+  'Looping forever...',
+  speed: const Duration(milliseconds: 60),
+  deleteSpeed: const Duration(milliseconds: 30),
+  repeat: true,
+  cursor: '|',
+)
+```
+
+`delay` defers the start of typing — useful for sequencing a typewriter
+effect after some other entrance animation has finished. `onComplete` fires
+exactly once, the first time the full text is revealed, even across later
+`repeat` cycles.
+
+## API reference
+
+### `NibText`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| (constructor) | `NibText(String text, {Key? key, NibTextConfig config, TextStyle? style, TextAlign? textAlign, TextOverflow? overflow, NibMotionController? controller})` | — | Creates a `NibText` that animates `text` split according to `config.unit`. |
+| `NibText.rich` | `NibText.rich(InlineSpan span, {Key? key, NibTextConfig config, TextStyle? style, TextAlign? textAlign, TextOverflow? overflow, NibMotionController? controller})` | — | Creates a `NibText` from a rich `InlineSpan`; `span.toPlainText()` is split into units and `style` is used as each unit's base style. |
+| `config` | `NibTextConfig` | `NibTextConfig()` | Configures how the text is split into units and how each unit animates. |
+| `style` | `TextStyle?` | `null` | The base text style applied to every unit. |
+| `textAlign` | `TextAlign?` | `null` | Text alignment for the laid-out units. |
+| `overflow` | `TextOverflow?` | `null` | How to visually overflow text that doesn't fit, applied to each unit's internal `Text`. |
+| `controller` | `NibMotionController?` | `null` | Forwarded to every unit's `NibMotion.controller`, so a single `NibMotionController` can imperatively drive every unit at once. |
+
+### `NibTextConfig`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `unit` | `NibTextUnit` | `NibTextUnit.character` | Whether to animate per-character, per-word, or per-line. |
+| `initial` | `NibAnim?` | `null` (falls back to `NibAnim.identity`) | The starting state of each unit before its entrance. |
+| `animate` | `NibAnim?` | `null` | The target state of each unit at rest. When `null`, units render at `initial` with no entrance animation. |
+| `exit` | `NibAnim?` | `null` | The state each unit transitions to when the widget exits via an ancestor `NibPresence`. |
+| `staggerDelay` | `Duration` | `Duration(milliseconds: 30)` | The delay between each successive unit's animation start. |
+| `staggerFrom` | `NibTextStaggerFrom` | `NibTextStaggerFrom.start` | Where stagger delay accumulates from — start, end, center, or random. |
+| `transition` | `NibTransition?` | `null` (falls back to a 400ms tween) | The transition used for each unit's entrance animation. |
+
+### `NibTextUnit`
+
+| Value | Description |
+| --- | --- |
+| `character` | Each grapheme cluster (user-perceived character, including multi-code-unit emoji) is its own animated unit. |
+| `word` | Each whitespace-delimited word is its own animated unit. Whitespace runs between words are preserved as plain, non-animated text. |
+| `line` | Each line (split on `\n`) is its own animated unit. |
+
+### `NibTextStaggerFrom`
+
+| Value | Description |
+| --- | --- |
+| `start` | Delay increases from the first unit to the last: `index * staggerDelay`. |
+| `end` | Delay increases from the last unit to the first: `(totalUnits - 1 - index) * staggerDelay`. |
+| `center` | Delay increases outward from the middle unit toward both ends. |
+| `random` | Delay is a seeded-random value in `[0, totalUnits * staggerDelay)`, so units animate in over the same overall window but in a shuffled order. |
+
+### `NibGradientText`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| (constructor) | `NibGradientText(String text, {Key? key, required Gradient gradient, TextStyle? style, Duration duration, bool repeat, TextDirection direction})` | — | Creates a `NibGradientText` that sweeps `gradient` across `text`. |
+| `text` | `String` | — | The text to render. |
+| `gradient` | `Gradient` | — | The gradient swept across `text`. |
+| `style` | `TextStyle?` | `null` | The base text style. Its color is ignored — the gradient masks the glyphs instead. |
+| `duration` | `Duration` | `Duration(milliseconds: 2000)` | How long one full sweep across the text takes. |
+| `repeat` | `bool` | `true` | Whether the sweep repeats forever (`true`) or plays once and stops (`false`). |
+| `direction` | `TextDirection` | `TextDirection.ltr` | The direction the sweep travels: left-to-right or right-to-left. |
+
+### `NibTextReveal`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| (constructor) | `NibTextReveal({Key? key, required Widget child, NibTextRevealDirection direction, Duration duration, Duration delay, Curve curve, NibMotionController? controller})` | — | Creates a `NibTextReveal` that wipes `child` into view from `direction`. |
+| `child` | `Widget` | — | The content being revealed. |
+| `direction` | `NibTextRevealDirection` | `NibTextRevealDirection.left` | The edge the reveal wipes in from. |
+| `duration` | `Duration` | `Duration(milliseconds: 500)` | How long the reveal animation takes. |
+| `delay` | `Duration` | `Duration.zero` | How long to wait before the reveal starts. |
+| `curve` | `Curve` | `Curves.easeInOut` | The easing curve for the reveal. |
+| `controller` | `NibMotionController?` | `null` | An optional external handle for replaying the reveal via `NibMotionController.start`. |
+
+### `NibTextRevealDirection`
+
+| Value | Description |
+| --- | --- |
+| `left` | Reveals left-to-right, clipping from the left edge. |
+| `right` | Reveals right-to-left, clipping from the right edge. |
+| `up` | Reveals bottom-to-top, clipping from the top edge. |
+| `down` | Reveals top-to-bottom, clipping from the bottom edge. |
+
+### `NibTypewriter`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| (constructor) | `NibTypewriter(String text, {Key? key, Duration speed, String? cursor, Duration cursorBlinkInterval, TextStyle? style, VoidCallback? onComplete, bool repeat, Duration? deleteSpeed, Duration delay})` | — | Creates a typewriter effect that reveals `text` over time. |
+| `text` | `String` | — | The full text to reveal. |
+| `speed` | `Duration` | `Duration(milliseconds: 50)` | How long each newly revealed character stays before the next one appears. |
+| `cursor` | `String?` | `'\|'` | The cursor string appended while typing (and, if `repeat`, while deleting). `null` disables the cursor entirely. |
+| `cursorBlinkInterval` | `Duration` | `Duration(milliseconds: 530)` | How fast the cursor blinks once typing has paused. Ignored if `cursor` is `null`. |
+| `style` | `TextStyle?` | `null` | The text style applied to the revealed text and cursor. |
+| `onComplete` | `VoidCallback?` | `null` | Called once, when the full `text` has been revealed. Not called again on subsequent `repeat` cycles. |
+| `repeat` | `bool` | `false` | If `true`, after fully typing `text` the widget deletes it (at `deleteSpeed`) and types it again, forever. |
+| `deleteSpeed` | `Duration?` | `null` (falls back to `speed`) | How fast characters are deleted during a `repeat` cycle. |
+| `delay` | `Duration` | `Duration.zero` | How long to wait before typing starts. |
+
+## Next steps
+
+- **[Animate](/docs/animate)** — `NibText`'s per-unit entrances are built on
+  the same `NibAnim`/`NibTransition` model that drives every other `NibMotion`
+  in the package.
+- **[Lists and stagger](/docs/lists-and-stagger)** — `NibText`'s
+  `staggerDelay`/`staggerFrom` mirror the stagger config used for animating
+  lists of widgets, if you want the same timing language in both places.
+- **[Transitions](/docs/transitions)** — for the curve/spring options
+  available to `NibTextConfig.transition` and `NibTextReveal.curve`.

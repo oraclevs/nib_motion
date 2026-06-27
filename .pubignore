@@ -1,0 +1,12 @@
+# Raw video source files — GIFs in assets/ are used by the README instead
+assets/*.mp4
+
+# Website MDX docs — these are for the nib website, not the pub package
+doc/
+
+# Showcase apps — large standalone demos, browsable on GitHub but not needed on pub.dev
+showcase/
+
+# Claude Code
+.claude/
+CLAUDE.md

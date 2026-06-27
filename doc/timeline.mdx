@@ -1,0 +1,257 @@
+# Timeline
+
+[Motion Controller](/docs/motion-controller) gives you an imperative handle on
+a single `NibMotionController` — call `start`, `set`, `stop`, or `sequence` on
+it and every attached `NibMotion` responds. But a multi-element intro (a
+title fades in, then a subtitle slides up 150ms later, then a CTA pops in
+after that) usually means juggling several controllers and their own
+`Future`-based timing by hand. `NibTimeline` and `NibAnimationSequence` are
+two complementary tools for that: `NibTimeline` orchestrates *multiple*
+controllers against one shared clock, and `NibAnimationSequence` is a fluent
+builder for a *single* controller's multi-step playback. Neither replaces
+`NibMotionController` — both drive one or more existing controllers, exactly
+as `start`/`sequence` do.
+
+## `NibTimeline` — multiple controllers, one shared clock
+
+`NibTimeline` takes a list of `NibTimelineEntry`s — each one pairing a
+`controller`, a `target` `NibAnim`, and an `at` offset — and fires every
+entry's `controller.start(target:, transition:)` at its offset from when
+`play()` was called. Entries are sorted by `at` automatically, regardless of
+the order you pass them in.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class IntroTimelineDemo extends StatefulWidget {
+  const IntroTimelineDemo({super.key});
+
+  @override
+  State<IntroTimelineDemo> createState() => _IntroTimelineDemoState();
+}
+
+class _IntroTimelineDemoState extends State<IntroTimelineDemo> {
+  final _titleController = NibMotionController();
+  final _subtitleController = NibMotionController();
+  final _ctaController = NibMotionController();
+  late final NibTimeline _timeline;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeline = NibTimeline([
+      NibTimelineEntry(
+        controller: _titleController,
+        target: const NibAnim(opacity: 1, y: 0),
+        at: Duration.zero,
+      ),
+      NibTimelineEntry(
+        controller: _subtitleController,
+        target: const NibAnim(opacity: 1, y: 0),
+        at: const Duration(milliseconds: 150),
+      ),
+      NibTimelineEntry(
+        controller: _ctaController,
+        target: const NibAnim(opacity: 1, scale: 1),
+        at: const Duration(milliseconds: 350),
+        transition: NibTransition.springSnappy,
+      ),
+    ]);
+  }
+
+  @override
+  void dispose() {
+    _timeline.dispose();
+    _titleController.dispose();
+    _subtitleController.dispose();
+    _ctaController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NibMotion(
+          controller: _titleController,
+          initial: const NibAnim(opacity: 0, y: -12),
+          child: const Text('Welcome', style: TextStyle(fontSize: 24)),
+        ),
+        NibMotion(
+          controller: _subtitleController,
+          initial: const NibAnim(opacity: 0, y: -12),
+          child: const Text("Let's get started"),
+        ),
+        const SizedBox(height: 16),
+        NibMotion(
+          controller: _ctaController,
+          initial: const NibAnim(opacity: 0, scale: 0.9),
+          child: ElevatedButton(onPressed: () {}, child: const Text('Continue')),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(onPressed: () => _timeline.play(), child: const Text('Play intro')),
+      ],
+    );
+  }
+}
+```
+
+Tapping "Play intro" fires the title's entry immediately, the subtitle's
+150ms later, and the CTA's 350ms in — three independent controllers, each
+still driving their own `NibMotion`(s) exactly as `start` always has, just
+scheduled from a single call.
+
+`play()` returns a `Future<void>` that completes once the *last* entry's
+animation has settled — handy for chaining work after the whole intro
+finishes:
+
+```dart
+await _timeline.play();
+// every entry has fired and finished animating
+```
+
+Calling `play()` again while already playing cancels any still-pending
+entries from the previous run before rescheduling from this run.
+`pause()`/`stop()` both cancel pending (not-yet-fired) entries without
+affecting animations that have already started — `pause` and `stop` are
+equivalent, provided as separate names to mirror `NibAnimationSequence.stop`
+and `NibMotionController.stop`. Call `dispose()` when the owning `State` is
+disposed; calling `play()` after `dispose()` throws an `AssertionError`.
+
+## `NibAnimationSequence` — a fluent builder for one controller
+
+Where `NibTimeline` schedules several controllers against absolute offsets,
+`NibAnimationSequence` is for a *single* controller's sequential playback,
+built up with a fluent chain: `.animate()` queues a step, `.wait()` queues a
+pause, `.call()` runs a synchronous callback inline, and `.loop()` repeats
+everything recorded so far. Call `.play()` to start it.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class NoticeDemo extends StatefulWidget {
+  const NoticeDemo({super.key});
+
+  @override
+  State<NoticeDemo> createState() => _NoticeDemoState();
+}
+
+class _NoticeDemoState extends State<NoticeDemo> {
+  final _controller = NibMotionController();
+  bool _seen = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _playNotice() {
+    NibAnimationSequence(_controller)
+        .animate(const NibAnim(y: -20, opacity: 0))
+        .wait(const Duration(milliseconds: 100))
+        .animate(const NibAnim(y: 0, opacity: 1), transition: NibTransition.springGentle)
+        .call(() => setState(() => _seen = true))
+        .play();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NibMotion(
+          controller: _controller,
+          initial: const NibAnim(opacity: 1, y: 0),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(_seen ? 'Seen it' : 'New notice'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(onPressed: _playNotice, child: const Text('Play')),
+      ],
+    );
+  }
+}
+```
+
+Each `.animate()` step delegates to `controller.start(target:, transition:)` —
+the same per-step semantics as `NibMotionController.sequence` — while
+`.call()` and `.loop()` are layered on top without modifying
+`NibMotionController` itself.
+
+### Looping
+
+`.loop([times])` repeats every step recorded *before* it was called — either
+`times` times, or forever if `times` is omitted:
+
+```dart
+final pulse = NibAnimationSequence(_controller)
+    .animate(const NibAnim(scale: 1.05), transition: const NibTransition(duration: Duration(milliseconds: 150)))
+    .animate(const NibAnim(scale: 1), transition: const NibTransition(duration: Duration(milliseconds: 150)))
+    .loop(); // repeats forever
+
+pulse.play(); // never completes — call pulse.stop() to halt it
+```
+
+`.loop()` must be called at most once, after the steps you want repeated and
+before `.play()`. With a finite count, `play()`'s `Future` completes once the
+final repetition finishes; with no argument (forever), the steps repeat
+indefinitely and the returned `Future` never completes — call `.stop()` to
+halt playback (steps already in progress still finish their current
+`animate`/`wait` before stopping). `.dispose()` stops playback and clears the
+recorded steps; it does not dispose the underlying controller — you still own
+that lifecycle.
+
+## API reference
+
+### `NibTimeline`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| (constructor) | `NibTimeline(List<NibTimelineEntry> entries)` | Creates a timeline from `entries`, sorted by `NibTimelineEntry.at` (stable sort — entries sharing the same offset keep their relative order). |
+| `entries` | `List<NibTimelineEntry>` | The entries this timeline plays, sorted by `at`. |
+| `play` | `Future<void> play()` | Schedules every entry's `controller.start(target:, transition:)` at its `at` offset. Returns a future that completes once the last entry has fired and finished animating. Calling again while playing cancels still-pending entries from the previous run first. |
+| `pause` | `void pause()` | Cancels every pending (not-yet-fired) entry; already-started animations keep running. The future returned by `play` will never complete after this. |
+| `stop` | `void stop()` | Equivalent to `pause` — cancels every pending entry. Provided as a separate name to mirror `NibAnimationSequence.stop`/`NibMotionController.stop`. |
+| `dispose` | `void dispose()` | Cancels all pending entries and marks the timeline unusable. Calling `play()` afterward throws an `AssertionError`. |
+
+### `NibTimelineEntry`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `controller` | `NibMotionController` | required | The controller this entry drives when it fires. |
+| `target` | `NibAnim` | required | The animation values `controller` animates toward (via `NibMotionController.start`). |
+| `at` | `Duration` | required | How long after the timeline starts playing this entry fires. |
+| `transition` | `NibTransition?` | `null` | The transition for this entry's animation. `null` uses each attached `NibMotion`'s default transition. |
+
+### `NibAnimationSequence`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| (constructor) | `NibAnimationSequence(NibMotionController controller)` | Creates a sequence builder over `controller`. |
+| `animate` | `NibAnimationSequence animate(NibAnim target, {NibTransition? transition})` | Queues a step that animates `controller` toward `target` (delegates to `controller.start`). Returns `this` for chaining. |
+| `wait` | `NibAnimationSequence wait(Duration duration)` | Queues a delay of `duration` before the next step starts. Returns `this` for chaining. |
+| `call` | `NibAnimationSequence call(VoidCallback callback)` | Queues a synchronous `callback` to run inline, at this point in the sequence. Returns `this` for chaining. |
+| `loop` | `NibAnimationSequence loop([int? times])` | Repeats every step recorded so far — `times` times, or forever if omitted. Must be called at most once, after recording the steps to repeat and before `play`. |
+| `play` | `Future<void> play()` | Starts executing the recorded steps in order. With a finite `loop` count (or no loop), the future completes once the run finishes. With an infinite loop, the future never completes. Calling again while already playing returns a new future tracking the same in-progress run. |
+| `stop` | `void stop()` | Cancels an in-progress or looping sequence; the current step still finishes its `run`, but no further steps execute. Also calls `controller.stop()`. |
+| `dispose` | `void dispose()` | Stops playback and clears the recorded steps. Does not dispose `controller` — callers own its lifecycle. |
+
+## Next steps
+
+- **[Motion Controller](/docs/motion-controller)** — the prerequisite:
+  `NibTimeline` and `NibAnimationSequence` both orchestrate one or more
+  `NibMotionController`s, they don't replace them. Start there if you haven't
+  attached a controller to a `NibMotion` yet.
+- **[Lists & Stagger](/docs/lists-and-stagger)** — for declarative
+  `staggerChildren`/`delayChildren` timing across a list of `NibMotion`
+  children, when the elements you're animating share a common parent rather
+  than needing independent imperative controllers.

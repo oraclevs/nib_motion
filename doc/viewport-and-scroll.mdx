@@ -1,0 +1,326 @@
+# Viewport & Scroll
+
+Every other page so far has covered animations triggered by a widget's own
+state, a gesture on the widget itself, or an external controller. But a huge
+class of motion on the web and in long-scrolling apps is driven by something
+else entirely: **scroll position**. A section fades and slides in as it enters
+the screen. A hero image's opacity fades out and drifts upward as the user
+scrolls past it. A badge pulses every time it re-enters view.
+
+`NibMotion` covers both ends of this spectrum — animating *when* a widget
+becomes visible, and animating *continuously* as the user scrolls — with two
+separate, composable tools: `whileInView` for the first, and
+`ScrollMotionBridge` for the second.
+
+## Animating when a widget scrolls into view
+
+`NibMotion.whileInView` is a `NibAnim` that the widget animates toward once
+it becomes visible in the viewport — the scroll equivalent of `whileHover` or
+`whileTap`, except the trigger is visibility rather than a gesture.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+NibMotion(
+  initial: const NibAnim(opacity: 0, y: 40),
+  whileInView: const NibAnim(opacity: 1, y: 0),
+  viewport: const NibInViewConfig(amount: 0.3, once: true),
+  child: const Card(
+    child: Padding(
+      padding: EdgeInsets.all(24),
+      child: Text('I fade and slide in when scrolled into view'),
+    ),
+  ),
+)
+```
+
+When this widget first mounts, it sits at `initial` (invisible, offset 40px
+down). As soon as 30% of its area scrolls into the viewport, it animates to
+`whileInView` — fading in and sliding up to its resting position. Because
+`viewport.once` is `true`, it stays there even if the user scrolls back up and
+the widget leaves the screen again.
+
+## `NibInViewConfig` — controlling the trigger
+
+`viewport` takes a `NibInViewConfig`, which controls exactly when
+`whileInView` fires:
+
+```dart
+const NibInViewConfig({
+  double amount = 0.5,
+  bool once = false,
+  EdgeInsets margin = EdgeInsets.zero,
+})
+```
+
+- **`amount`** — the fraction of the widget's area that must be visible
+  before it's considered "in view," from `0.0` (any pixel visible at all) to
+  `1.0` (the entire widget must be on screen). The default, `0.5`, triggers
+  once the widget is about half-visible.
+- **`once`** — if `true`, `whileInView` plays only the *first* time the
+  widget enters the viewport, and never reverts afterward — ideal for
+  one-shot entrance animations on a long page. If `false` (the default), the
+  widget animates back toward `animate` (or `initial`, if `animate` isn't
+  set) every time it scrolls *out* of view, and plays `whileInView` again
+  each time it re-enters.
+- **`margin`** — expands (positive values) or shrinks (negative values) the
+  bounds used for the visibility check, per edge, independently of the
+  widget's actual on-screen position. A positive `margin.bottom`, for
+  example, makes a widget near the bottom of the screen count as "in view"
+  slightly before it's actually visible — useful for triggering animations a
+  little early so they feel ready by the time the user sees them.
+
+If `viewport` is omitted entirely while `whileInView` is set, `NibMotion` uses
+`NibInViewConfig`'s defaults (`amount: 0.5`, `once: false`, `margin:
+EdgeInsets.zero`).
+
+## Example: a fade-and-slide-in section (`once: true`)
+
+The most common use of `whileInView` is a one-time entrance animation for a
+section of a long page — a hero, a feature block, a testimonial. Setting
+`once: true` means each section animates in the first time it's scrolled into
+view and then stays settled, even as the user scrolls back and forth.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class RevealSection extends StatelessWidget {
+  const RevealSection({super.key, required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(opacity: 0, y: 32),
+      whileInView: const NibAnim(opacity: 1, y: 0),
+      viewport: const NibInViewConfig(amount: 0.25, once: true),
+      transition: const NibTransition(duration: Duration(milliseconds: 400)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(body),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+Each `RevealSection` starts faded out and shifted down by 32px. As the user
+scrolls down a page built from a list of these, each section fades and slides
+into place once a quarter of it is visible — and, because `once: true`,
+scrolling back up never re-hides a section that's already revealed.
+
+## Example: a re-triggering highlight (`once: false`)
+
+Sometimes you *want* an animation to replay every time a widget becomes
+visible — a status badge that pulses whenever it scrolls into view, or a
+highlight that draws attention each time the user revisits a section. Leaving
+`once: false` (the default) makes `whileInView` revert and replay on every
+visibility transition.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class RetriggeringHighlight extends StatelessWidget {
+  const RetriggeringHighlight({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      animate: const NibAnim(scale: 1, opacity: 0.6),
+      whileInView: const NibAnim(scale: 1.05, opacity: 1),
+      viewport: const NibInViewConfig(amount: 0.6),
+      transition: NibTransition.springSnappy,
+      child: Chip(
+        label: Text(label),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      ),
+    );
+  }
+}
+```
+
+Here `viewport.once` defaults to `false`, so every time at least 60% of the
+chip is visible it springs up to `scale: 1.05` and full opacity; every time it
+scrolls back out of view, it eases back down to `animate`'s dimmer, smaller
+resting state — ready to repeat the moment it's scrolled back into view.
+
+> **Note:** `whileInView` and `viewport` only need a scrollable ancestor
+> somewhere above the widget in the tree — a `ListView`, `SingleChildScrollView`,
+> `CustomScrollView`, or similar. There's no special wrapper widget required.
+
+## Scroll-linked animation with `ScrollMotionBridge`
+
+`whileInView` animates *toward a target* in response to a visibility change —
+it's a discrete trigger, like `whileHover`. But some effects need to track
+scroll position *continuously*: a header that fades out gradually as you
+scroll down the first 200 pixels, a progress indicator that fills in step with
+scroll offset, a parallax effect where a background image moves slower than
+the foreground.
+
+For this, `ScrollMotionBridge` mirrors a `ScrollController`'s offset into a
+pair of [`MotionValue`s](/docs/physics) — `scrollY` and `scrollX` — that
+update on every scroll frame with no `setState` and no rebuild:
+
+```dart
+class ScrollMotionBridge {
+  ScrollMotionBridge({required ScrollController controller});
+
+  /// Tracks ScrollController.offset. Use for vertically-scrolling views.
+  late final MotionValue<double> scrollY;
+
+  /// Tracks ScrollController.offset. Use for horizontally-scrolling views.
+  late final MotionValue<double> scrollX;
+
+  void dispose();
+}
+```
+
+Both `scrollY` and `scrollX` track the *same* `controller.offset` — pick
+whichever name matches the axis of the scroll view you're attached to. From
+either, derive any animatable value with `MotionValue`'s `mapRange` or
+`transform` (covered in full on [Physics & Motion Values](/docs/physics)), and
+feed the result into `NibMotion.motionValues` (covered on [Motion
+Controller](/docs/motion-controller)) to drive a property directly from scroll
+position, bypassing `NibMotion`'s own animation system entirely.
+
+## `NibScrollMotion` — wiring up the bridge
+
+`NibScrollMotion` is a small convenience widget that creates a
+`ScrollMotionBridge` for a `ScrollController`, hands it to a `builder`, and
+disposes it automatically:
+
+```dart
+const NibScrollMotion({
+  required ScrollController controller,
+  required Widget Function(BuildContext context, ScrollMotionBridge bridge) builder,
+})
+```
+
+You still own the `ScrollController` and attach it to your scroll view as
+usual — `NibScrollMotion` just saves you from manually creating, disposing,
+and threading the bridge through your widget tree yourself.
+
+## Example: a parallax header
+
+This example attaches a `ScrollController` to a `CustomScrollView`, wraps a
+header in `NibScrollMotion`, and derives the header's opacity and vertical
+translation from `scrollY` using `mapRange` — so the header fades out and
+drifts upward as the user scrolls the body beneath it.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class ParallaxHeaderPage extends StatefulWidget {
+  const ParallaxHeaderPage({super.key});
+
+  @override
+  State<ParallaxHeaderPage> createState() => _ParallaxHeaderPageState();
+}
+
+class _ParallaxHeaderPageState extends State<ParallaxHeaderPage> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NibScrollMotion(
+      controller: _scrollController,
+      builder: (context, bridge) {
+        return CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: NibMotion(
+                motionValues: NibMotionValues(
+                  opacity: bridge.scrollY.mapRange([0, 200], [1.0, 0.0]),
+                  translateY: bridge.scrollY.mapRange([0, 200], [0.0, -40.0]),
+                ),
+                child: Container(
+                  height: 240,
+                  alignment: Alignment.center,
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(
+                    'Scroll down',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ),
+              ),
+            ),
+            SliverList.builder(
+              itemCount: 30,
+              itemBuilder: (context, index) => ListTile(
+                title: Text('Item $index'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+```
+
+As `bridge.scrollY` rises from `0` to `200`, `mapRange` linearly interpolates
+the header's `opacity` from `1.0` down to `0.0` and its `translateY` from `0`
+to `-40` pixels — so the header fades out and lifts slightly as it scrolls
+toward the top, then stays fully transparent and shifted for any scroll offset
+beyond `200`. Because `mapRange` defaults to `clamp: true`, the values never
+overshoot `0.0`/`-40.0` even if the user keeps scrolling further. Passing these
+through `motionValues` means `NibMotion` reads them directly on every paint —
+no `AnimationController`, no `setState`, and no rebuild on every scroll frame.
+
+## API reference
+
+### `NibInViewConfig`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `amount` | `double` | `0.5` | The fraction of the widget's area that must be visible to count as "in view," from `0.0` (any part visible) to `1.0` (fully visible). |
+| `once` | `bool` | `false` | If `true`, `whileInView` plays only the first time the widget enters the viewport and never reverts. If `false`, it replays on every entry and reverts toward `animate`/`initial` on every exit. |
+| `margin` | `EdgeInsets` | `EdgeInsets.zero` | Expands (positive) or shrinks (negative) the viewport bounds used for the visibility check, per edge. |
+
+### `NibScrollMotion`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `controller` | `ScrollController` | required | The scroll controller whose offset is mirrored into the `ScrollMotionBridge` passed to `builder`. |
+| `builder` | `Widget Function(BuildContext, ScrollMotionBridge)` | required | Builds the subtree below this widget, given the bridge created for `controller`. |
+
+### `ScrollMotionBridge`
+
+| Member | Type | Default | Description |
+| --- | --- | --- | --- |
+| `controller` | `ScrollController` | required (constructor) | The scroll controller whose offset is mirrored into `scrollY` and `scrollX`. |
+| `scrollY` | `MotionValue<double>` | — | Tracks `controller.offset`. Use for vertically-scrolling views. |
+| `scrollX` | `MotionValue<double>` | — | Tracks `controller.offset`. Use for horizontally-scrolling views (same underlying value as `scrollY`). |
+| `dispose()` | `void` | — | Removes this bridge's listener from `controller` and disposes `scrollY` and `scrollX`. |
+
+## Next steps
+
+- **[Physics & Motion Values](/docs/physics)** — for the full picture of
+  `MotionValue`, `mapRange`, `transform`, and how derived values combine —
+  the mechanism that makes `ScrollMotionBridge`'s `scrollY`/`scrollX` usable
+  for any animatable property.
+- **[Animate](/docs/animate)** — for the full set of `NibAnim` properties you
+  can target with `whileInView` (and every other declarative trigger), if you
+  haven't already covered the basics.

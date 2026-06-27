@@ -1,0 +1,548 @@
+# Physics & Motion Values
+
+Most animations in NibMotion are driven by discrete state changes — you set
+`animate` to a new `NibAnim`, and NibMotion transitions to it. But some
+interactions require *continuous* control: dragging a card with your finger,
+linking a scroll offset to a parallax effect, or building a custom springy
+pull-to-refresh. For those cases, NibMotion provides two lower-level
+primitives: **motion values** and **physics solvers**.
+
+A `MotionValue<T>` is a reactive container that notifies listeners the moment
+its value changes — without triggering a widget rebuild. A `SpringSolver` or
+`InertiaSolver` writes new positions into a `MotionValue` on every animation
+tick. Because `RenderNibMotion` listens to `MotionValue` directly and repaints
+via `markNeedsPaint()`, the result is smooth, rebuild-free animation that
+integrates naturally with Flutter's rendering pipeline.
+
+## Spring Descriptions
+
+`NibSpringDescription` encapsulates the three physical parameters of a spring:
+mass, stiffness, and damping. You pass a `NibSpringDescription` to a
+`SpringSolver` to control the character of spring-driven motion — whether it
+overshoots, how fast it settles, and how much it oscillates.
+
+### Parameters
+
+- **`mass`** — the inertia of the simulated object. A higher mass means slower
+  acceleration and deceleration.
+- **`stiffness`** — the spring constant. Higher values pull the object toward
+  the target more aggressively, producing snappier motion.
+- **`damping`** — the resistance applied to the spring. Higher damping reduces
+  overshoot and oscillation.
+
+### Named presets
+
+Four presets cover the most common motion characters:
+
+```dart
+// A soft, slow-settling spring — good for overlays and drawers.
+const spring = NibSpringDescription.gentle;
+
+// Fast and tight with minimal overshoot — good for UI feedback.
+const spring = NibSpringDescription.snappy;
+
+// Loose and bouncy — noticeable oscillation before settling.
+const spring = NibSpringDescription.wobbly;
+
+// Very tight, near-instant settling — good for loading states.
+const spring = NibSpringDescription.stiff;
+```
+
+### Custom spring
+
+When none of the presets fit, construct one directly:
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+const spring = NibSpringDescription(
+  mass: 1.0,
+  stiffness: 200.0,
+  damping: 16.0,
+);
+```
+
+### Converting to Flutter's `SpringDescription`
+
+`NibSpringDescription.toFlutter()` returns a `flutter/physics.dart`
+`SpringDescription`, which you can pass directly to `SpringSimulation` or any
+other Flutter physics API that accepts it:
+
+```dart
+import 'package:flutter/physics.dart' as flutter_physics;
+import 'package:nib_motion/nib_motion.dart';
+
+final flutterSpring = NibSpringDescription.snappy.toFlutter();
+final simulation = flutter_physics.SpringSimulation(
+  flutterSpring,
+  0.0,   // starting position
+  1.0,   // target
+  0.0,   // initial velocity
+);
+```
+
+## Motion Values
+
+`MotionValue<T>` is the reactive backbone of the physics layer. It holds a
+single value of type `T` and notifies its listeners synchronously whenever that
+value changes — but only when it *actually* changes (equality is checked first).
+Because listeners are notified directly on the value, rather than via
+`setState`, no widget subtree is rebuilt; only the `RenderObject` that is
+listening repaints.
+
+### Creating a motion value
+
+Use the `motionValue<T>` factory function to create a value with an initial
+state:
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+final offset = motionValue<double>(0.0);
+final color = motionValue<Color?>(null);
+```
+
+### Reading and writing the value
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+final position = motionValue<double>(0.0);
+
+// Read the current value.
+print(position.value); // 0.0
+
+// Write a new value — listeners are notified if it changed.
+position.value = 42.0;
+
+// Writing the same value is a no-op — no listener is notified.
+position.value = 42.0; // silent
+```
+
+### Transforming a motion value
+
+`MotionValue.transform` creates a `DerivedMotionValue` that recomputes
+automatically whenever the source changes. Transforms can be chained:
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+final rawOffset = motionValue<double>(0.0);
+
+// Derive a clamped version of the same offset.
+final clampedOffset = rawOffset.transform(
+  (v) => v.clamp(0.0, 300.0),
+);
+
+// Clamped offset is also a MotionValue — chain another transform.
+final normalised = clampedOffset.transform((v) => v / 300.0);
+
+rawOffset.value = 450.0;
+print(clampedOffset.value); // 300.0
+print(normalised.value);    // 1.0
+```
+
+### Mapping a numeric range
+
+The `mapRange` extension on `MotionValue<double>` performs multi-stop linear
+interpolation — useful for driving opacity, scale, or color intensity from a
+scroll offset:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+final scrollY = motionValue<double>(0.0);
+
+// Map scroll position 0–200 to opacity 0.0–1.0, clamped at the ends.
+final headerOpacity = scrollY.mapRange(
+  [0.0, 200.0],
+  [0.0, 1.0],
+);
+
+// Three-stop gradient: 0→100 maps to 0→1, 100→300 maps to 1→0.5.
+final fadeAndFade = scrollY.mapRange(
+  [0.0, 100.0, 300.0],
+  [0.0, 1.0,   0.5],
+);
+```
+
+Pass `clamp: false` to extrapolate beyond the first and last stops:
+
+```dart
+final unclamped = scrollY.mapRange(
+  [0.0, 100.0],
+  [0.0, 1.0],
+  clamp: false, // values below 0 or above 100 are extrapolated
+);
+```
+
+### Using a motion value in a widget
+
+`MotionValue<T>` implements `ValueListenable<T>`, so it works directly with
+`ValueListenableBuilder` or `AnimatedBuilder`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class PositionDisplay extends StatelessWidget {
+  const PositionDisplay({super.key, required this.position});
+
+  final MotionValue<double> position;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: position,
+      builder: (context, _) {
+        return Transform.translate(
+          offset: Offset(position.value, 0),
+          child: Container(
+            width: 60,
+            height: 60,
+            color: Colors.blue,
+          ),
+        );
+      },
+    );
+  }
+}
+```
+
+## Derived Motion Values
+
+`DerivedMotionValue<S, T>` is what `MotionValue.transform` returns: a
+`MotionValue<T>` whose value is computed from a source `MotionValue<S>` via a
+mapper function. It subscribes to its source on construction and removes its
+listener on `dispose()` — no manual cleanup is needed beyond calling `dispose`.
+
+Because `DerivedMotionValue` is itself a `MotionValue`, all `MotionValue`
+methods — including further `.transform()` calls and `.mapRange()` — are
+available on derived values too.
+
+### Creating a derived value explicitly
+
+While `MotionValue.transform` is the typical entry point, you can also
+construct a `DerivedMotionValue` directly:
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+final angle = motionValue<double>(0.0); // radians
+
+// Derive a sine wave from a raw angle value.
+final sinValue = DerivedMotionValue<double, double>(
+  angle,
+  (radians) => radians < 0 ? -1.0 : 1.0, // simplified sign function
+);
+```
+
+### Chaining derived values
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+
+final rawX = motionValue<double>(0.0);
+
+// Step 1: clamp to viewport width.
+final clampedX = rawX.transform((v) => v.clamp(0.0, 390.0));
+
+// Step 2: normalise to 0–1.
+final progress = clampedX.transform((v) => v / 390.0);
+
+// Step 3: derive an opacity from progress.
+final opacity = progress.transform((v) => 1.0 - v);
+```
+
+### Typed convenience aliases
+
+Two typedefs cover the most frequently animated compound types:
+
+```dart
+import 'package:flutter/painting.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+// A MotionValue holding an animatable Color, or null for "no color".
+final ColorMotionValue background = motionValue<Color?>(Colors.blue);
+
+// A MotionValue holding an animatable list of BoxShadows, or null.
+final BoxShadowMotionValue shadow = motionValue<List<BoxShadow>?>(null);
+
+background.value = Colors.red; // listeners are notified
+```
+
+## Spring Solver
+
+`SpringSolver` drives a `MotionValue<double>` toward a target using real spring
+physics. It wraps Flutter's `SpringSimulation`, runs on a `Ticker` obtained
+from a `TickerProvider` (typically your `State` mixin), and writes the
+simulated position to the motion value on every tick.
+
+Because the write goes directly to the `MotionValue` rather than through
+`setState`, the simulation runs with zero widget rebuilds.
+
+### Basic usage
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class SpringCard extends StatefulWidget {
+  const SpringCard({super.key});
+
+  @override
+  State<SpringCard> createState() => _SpringCardState();
+}
+
+class _SpringCardState extends State<SpringCard>
+    with SingleTickerProviderStateMixin {
+  late final MotionValue<double> _x;
+  late final SpringSolver _solver;
+
+  @override
+  void initState() {
+    super.initState();
+    _x = motionValue<double>(0.0);
+    _solver = SpringSolver(
+      vsync: this,
+      value: _x,
+      spring: NibSpringDescription.wobbly,
+    );
+  }
+
+  @override
+  void dispose() {
+    _solver.dispose();
+    _x.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _solver.animateTo(target: 100.0),
+      child: AnimatedBuilder(
+        animation: _x,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(_x.value, 0),
+          child: child,
+        ),
+        child: Container(
+          width: 100,
+          height: 100,
+          color: Colors.indigo,
+          child: const Center(child: Text('Tap me')),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Continuous interruption
+
+`animateTo` can be called at any time, even while a simulation is already
+running. When called mid-animation without an explicit `initialVelocity`, the
+new simulation inherits the outgoing simulation's current position and
+velocity, so the motion remains fluid with no discontinuity:
+
+```dart
+// The user changes their mind mid-gesture — animation reverses smoothly.
+_solver.animateTo(target: 0.0);
+```
+
+### Reading instantaneous velocity
+
+`SpringSolver.velocity` returns the current simulated velocity in units per
+second. Use it to hand off motion to an `InertiaSolver` at the moment the user
+releases a drag:
+
+```dart
+final speed = _springSolver.velocity;
+_springSolver.stop();
+_inertiaSolver.animateTo(velocity: speed);
+```
+
+### Reacting when the spring settles
+
+Pass `onComplete` to be notified when the spring simulation reaches its target
+within tolerance:
+
+```dart
+_solver = SpringSolver(
+  vsync: this,
+  value: _x,
+  spring: NibSpringDescription.gentle,
+  onComplete: () {
+    // Spring has settled — update UI state if needed.
+    setState(() => _settled = true);
+  },
+);
+```
+
+## Inertia Solver
+
+`InertiaSolver` drives a `MotionValue<double>` with a decelerating
+"coast to a stop" simulation — the same friction model iOS uses for scroll
+deceleration. You give it an initial velocity and it decelerates until the
+value comes to rest.
+
+The `drag` parameter is a friction coefficient: values closer to `1.0` coast
+farther before stopping. The default `0.135` matches iOS scroll behaviour.
+
+### Basic usage
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class InertiaPanel extends StatefulWidget {
+  const InertiaPanel({super.key});
+
+  @override
+  State<InertiaPanel> createState() => _InertiaPanelState();
+}
+
+class _InertiaPanelState extends State<InertiaPanel>
+    with SingleTickerProviderStateMixin {
+  late final MotionValue<double> _offsetY;
+  late final InertiaSolver _inertia;
+
+  @override
+  void initState() {
+    super.initState();
+    _offsetY = motionValue<double>(0.0);
+    _inertia = InertiaSolver(
+      vsync: this,
+      value: _offsetY,
+      drag: 0.135, // iOS-style deceleration
+    );
+  }
+
+  @override
+  void dispose() {
+    _inertia.dispose();
+    _offsetY.dispose();
+    super.dispose();
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    // Kick off a coast from the finger's final velocity.
+    _inertia.animateTo(velocity: details.velocity.pixelsPerSecond.dy);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onPanEnd: _onPanEnd,
+      child: AnimatedBuilder(
+        animation: _offsetY,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, _offsetY.value),
+          child: child,
+        ),
+        child: Container(
+          height: 200,
+          color: Colors.teal,
+          child: const Center(child: Text('Flick me')),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Adjusting friction
+
+```dart
+// Longer coast — closer to frictionless.
+final inertia = InertiaSolver(
+  vsync: this,
+  value: _offsetY,
+  drag: 0.05,
+);
+
+// Short, snappy deceleration.
+final inertia = InertiaSolver(
+  vsync: this,
+  value: _offsetY,
+  drag: 0.5,
+);
+```
+
+### Stopping early
+
+Call `stop()` to freeze the value at its current position without disposing the
+solver (you can call `animateTo` again afterwards):
+
+```dart
+_inertia.stop();
+```
+
+## API Reference
+
+### `NibSpringDescription`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `mass` | `double` | `1.0` | The mass attached to the spring. Higher values increase inertia, slowing acceleration and deceleration. |
+| `stiffness` | `double` | `100.0` | The spring constant. Higher values produce snappier, faster motion. |
+| `damping` | `double` | `10.0` | The damping coefficient. Higher values reduce overshoot and oscillation. |
+| `gentle` | `NibSpringDescription` (static const) | `mass: 1.0, stiffness: 120.0, damping: 14.0` | Soft, slow-settling spring with minimal overshoot. |
+| `snappy` | `NibSpringDescription` (static const) | `mass: 1.0, stiffness: 300.0, damping: 20.0` | Tight, fast spring with very little overshoot. |
+| `wobbly` | `NibSpringDescription` (static const) | `mass: 1.0, stiffness: 180.0, damping: 12.0` | Loose spring that oscillates noticeably before settling. |
+| `stiff` | `NibSpringDescription` (static const) | `mass: 1.0, stiffness: 400.0, damping: 28.0` | Very tight, fast-settling spring with near-zero overshoot. |
+| `toFlutter()` | `SpringDescription` | — | Converts to a `flutter/physics.dart` `SpringDescription`. |
+
+### `MotionValue<T>`
+
+| Param / Member | Type | Default | Description |
+| --- | --- | --- | --- |
+| `initial` (constructor arg) | `T` | *(required)* | The starting value held by this container. |
+| `value` (getter) | `T` | — | Returns the current value. |
+| `value` (setter) | `T` | — | Updates the value and notifies listeners if it changed. No-op if the new value is equal to the current value. |
+| `hasListeners` | `bool` | — | Whether any listeners are currently attached. |
+| `transform<R>(mapper)` | `DerivedMotionValue<T, R>` | — | Returns a derived value that applies `mapper` whenever this value changes. |
+| `mapRange(inputRange, outputRange, {clamp})` | `DerivedMotionValue<double, double>` | `clamp: true` | Extension on `MotionValue<double>`. Linearly interpolates this value across multi-stop input/output ranges. |
+
+### `DerivedMotionValue<S, T>`
+
+| Param / Member | Type | Default | Description |
+| --- | --- | --- | --- |
+| `source` (constructor arg) | `MotionValue<S>` | *(required)* | The source motion value to derive from. |
+| `mapper` (constructor arg) | `T Function(S)` | *(required)* | Function applied to the source value to produce the derived value. |
+| `dispose()` | `void` | — | Removes the listener from the source and disposes the underlying `ChangeNotifier`. |
+
+### `SpringSolver`
+
+| Param / Member | Type | Default | Description |
+| --- | --- | --- | --- |
+| `vsync` | `TickerProvider` | *(required)* | Provides the `Ticker` for the simulation loop. |
+| `value` | `MotionValue<double>` | *(required)* | The motion value the solver writes to on each tick. |
+| `spring` | `NibSpringDescription` | *(required)* | The spring parameters used for subsequent `animateTo` calls. Mutable — update it before calling `animateTo` to change spring character mid-flight. |
+| `onComplete` | `VoidCallback?` | `null` | Called when the running simulation settles within tolerance. |
+| `animateTo({target, from?, initialVelocity?})` | `void` | `initialVelocity: 0` | Starts or restarts the simulation toward `target`. Inherits current position and velocity from a running simulation unless `from` or `initialVelocity` override them. |
+| `velocity` | `double` | — | The instantaneous velocity of the current simulation, in units per second. Returns `0.0` if no simulation is running. |
+| `stop()` | `void` | — | Stops the simulation, freezing `value` at its current position. |
+| `dispose()` | `void` | — | Stops and disposes the underlying `Ticker`. |
+
+### `InertiaSolver`
+
+| Param / Member | Type | Default | Description |
+| --- | --- | --- | --- |
+| `vsync` | `TickerProvider` | *(required)* | Provides the `Ticker` for the simulation loop. |
+| `value` | `MotionValue<double>` | *(required)* | The motion value the solver writes to on each tick. |
+| `drag` | `double` | `0.135` | Friction coefficient. Values closer to `1.0` coast farther before stopping. `0.135` matches iOS scroll deceleration. Mutable. |
+| `onComplete` | `VoidCallback?` | `null` | Called when the simulation comes to rest. |
+| `animateTo({velocity})` | `void` | — | Starts a deceleration simulation from the current `value` position with the given initial velocity (units per second). |
+| `stop()` | `void` | — | Stops the simulation, freezing `value` at its current position. |
+| `dispose()` | `void` | — | Stops and disposes the underlying `Ticker`. |
+
+## Next Steps
+
+For orchestrating spring-driven motion with higher-level controls — including
+imperative `play`, `pause`, and `reverse` APIs — see
+[Motion Controller](/docs/motion-controller). To use motion values in
+response to scroll position or viewport visibility, see
+[Viewport & Scroll](/docs/viewport-and-scroll).

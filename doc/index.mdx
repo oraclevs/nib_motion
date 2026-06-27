@@ -1,0 +1,338 @@
+# NibMotion
+
+NibMotion is a declarative, physics-based animation layer for Flutter. If
+you've used Framer Motion in React, the mental model will feel familiar:
+instead of wiring up `AnimationController`s, `Tween`s, and `AnimatedBuilder`s
+by hand, you describe **what a widget should look like** in different states —
+`initial`, `animate`, `whileTap`, `whileHover`, and more — and NibMotion
+figures out how to animate between those states for you.
+
+Under the hood, every animatable property (opacity, position, scale,
+rotation, skew, color, border radius, and box shadow) is driven by its own
+`MotionValue`, interpolated either with a curve-based tween or a real spring
+simulation. Because these values are pushed straight to the render layer,
+animating a widget with NibMotion does not trigger Flutter widget rebuilds.
+
+NibMotion ships as a single, self-contained package with **zero required pub
+dependencies** beyond the Flutter SDK itself — it adds no transitive
+dependencies to your app.
+
+> **Note:** This page covers installation, the core `NibMotion` widget, global
+> configuration via `NibMotionConfig`, the entrance gate (`NibMotionGate`),
+> and reduced-motion support. Gestures, drag, viewport-triggered animations,
+> variants, keyframes, and motion values each have their own dedicated page —
+> linked from the API reference tables below and the sidebar.
+
+## Installation
+
+Add the package to your `pubspec.yaml` with the Flutter CLI:
+
+```bash
+flutter pub add nib_motion
+```
+
+Then import it wherever you want to use `NibMotion` or any of its supporting
+classes:
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+```
+
+That's it — there's no code generation step, no build runner, and no
+additional native setup. `NibMotion` is a plain Flutter widget you can drop
+into any existing widget tree.
+
+## The `NibMotion` widget
+
+The core building block is the `NibMotion` widget. It wraps a single `child`
+and accepts a set of `NibAnim` values describing what that child should look
+like in different states. The two you'll use on almost every widget are:
+
+- **`initial`** — the appearance on the very first frame, before any
+  animation runs.
+- **`animate`** — the appearance NibMotion animates *toward* once the widget
+  has mounted (or whenever `animate` changes on a rebuild).
+
+Here's a minimal fade-in: the child starts fully transparent (`opacity: 0`)
+and animates to fully visible (`opacity: 1`) as soon as it appears on screen.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class WelcomeCard extends StatelessWidget {
+  const WelcomeCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(opacity: 0),
+      animate: const NibAnim(opacity: 1),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text('Welcome to NibMotion!'),
+      ),
+    );
+  }
+}
+```
+
+When this widget first builds, NibMotion:
+
+1. Applies `initial` immediately — the `Container` is invisible.
+2. Schedules a post-frame callback, waits for `NibMotionGate` and the
+   configured warm-up window (see below), and then animates every property
+   present in `animate` from its `initial` value toward its `animate` value
+   using the active `NibTransition` (covered in full on the
+   [Transitions](/docs/transitions) page).
+
+Any property you omit from `NibAnim` is left untouched — a `NibAnim(opacity:
+0)` only animates opacity, regardless of what other properties a sibling
+`NibMotion` might be animating. This is why `NibAnim` treats every field as
+nullable: `null` means "don't touch this," not "set this to zero."
+
+You can combine multiple properties in a single `NibAnim`. For example, a
+"slide up and fade in" entrance:
+
+```dart
+NibMotion(
+  initial: const NibAnim(opacity: 0, y: 24),
+  animate: const NibAnim(opacity: 1, y: 0),
+  child: const Card(
+    child: Padding(
+      padding: EdgeInsets.all(16),
+      child: Text('Slides up and fades in'),
+    ),
+  ),
+)
+```
+
+`NibMotion` also exposes `whileTap`, `whileHover`, `whileFocus`, `whileDrag`,
+and `whileInView` for interaction- and visibility-driven animations, plus
+`variants`, `keyframes`, `motionValues`, and `controller` for more advanced
+choreography. Each of these is summarized in the API reference below and
+covered in depth on its own page.
+
+## `NibMotionConfig`
+
+`NibMotionConfig` is an `InheritedWidget` you place near the root of your app
+— typically wrapping `MaterialApp` (or `CupertinoApp`/`WidgetsApp`) — to set
+defaults that every descendant `NibMotion` picks up automatically.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+void main() {
+  runApp(
+    NibMotionConfig(
+      defaultTransition: const NibTransition(
+        duration: Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      ),
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'My App',
+      home: const HomeScreen(),
+    );
+  }
+}
+```
+
+The three configuration knobs are:
+
+- **`reducedMotion`** — when set to `true` or `false`, this overrides the
+  platform's `MediaQuery.disableAnimations` setting for every descendant
+  `NibMotion`. Leave it `null` (the default) to defer to the platform
+  accessibility setting. See [Reduced motion](#reduced-motion) below for what
+  this actually changes.
+- **`defaultTransition`** — the `NibTransition` used by any `NibMotion` that
+  doesn't specify its own `transition`. Without a `NibMotionConfig` ancestor
+  (or when this field is left at its default), `NibMotion` falls back to
+  `const NibTransition()`'s own defaults. Full details on `NibTransition`,
+  including spring vs. curve-based tweens, are on the
+  [Transitions](/docs/transitions) page.
+- **`entranceWarmup`** — how long after the app starts `NibMotion` entrance
+  animations (`animate`/`keyframes` on first build, and an
+  immediately-visible `whileInView`) should wait before starting. Defaults to
+  `Duration(milliseconds: 400)`.
+
+### Why `entranceWarmup` exists
+
+On a real device there's a brief gap between Flutter rendering its first frame
+and the platform's native splash screen actually disappearing. Without any
+warm-up, an entrance animation could start — and even finish — while it's
+still hidden behind that splash screen, so the user never sees it play.
+`entranceWarmup` absorbs that gap: any `NibMotion` created within the warm-up
+window waits until the window elapses before starting its entrance animation.
+Widgets created *after* the warm-up window has already elapsed (for example,
+on a screen the user navigates to later) start immediately, with no delay.
+
+The default of 400ms comfortably covers this gap for most apps. If your app
+preserves its native splash screen for much longer than that (for example, via
+`flutter_native_splash` in "preserve" mode), use `NibMotionGate` instead — see
+the next section.
+
+## `NibMotionGate`
+
+`NibMotionGate` is a global gate — separate from `NibMotionConfig` — that
+holds *every* `NibMotion`'s entrance animation at its initial frame until your
+app explicitly signals that it's ready to be seen.
+
+By default the gate is **open**: `NibMotionGate.ready` starts as `true`, so
+entrance animations only wait for the `entranceWarmup` window described above.
+Apps that preserve a native splash screen for longer than the default warm-up
+— and need to guarantee entrance animations don't run underneath it — can
+**hold** the gate before `runApp` and **release** it once the splash screen is
+actually gone:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+Future<void> main() async {
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  // Hold every NibMotion entrance animation until we explicitly release it.
+  NibMotionGate.hold();
+
+  runApp(const MyApp());
+
+  // Run your async startup work (loading config, checking auth, etc.)...
+  await initializeApp();
+
+  // Now it's safe to remove the splash screen and let entrance
+  // animations play.
+  FlutterNativeSplash.remove();
+  NibMotionGate.release();
+}
+```
+
+While the gate is held (`NibMotionGate.ready.value == false`), every
+`NibMotion` with an `animate`, `keyframes`, `repeatAnimationInLoop`, or an
+immediately-visible `whileInView` simply sits at its `initial` (or first
+keyframe) appearance — no animation runs, and no time is "wasted" animating
+something the user can't see yet. As soon as `release()` is called, all of
+those held animations begin, each still respecting its own
+`entranceWarmup` if that window hasn't elapsed yet.
+
+`NibMotionGate` exposes four static members:
+
+- **`ready`** — a `ValueNotifier<bool>` that `NibMotion` widgets listen to.
+  `true` means entrance animations are allowed to proceed (subject to
+  `entranceWarmup`); `false` means they're held at their initial frame.
+- **`hold()`** — sets `ready` to `false`, holding all entrance animations.
+- **`release()`** — sets `ready` to `true`, releasing any held animations.
+- **`reset()`** — resets `ready` back to its default open (`true`) state.
+  Intended for use in tests, so each test starts from a known gate state.
+
+> **Note:** Most apps never need to call `NibMotionGate` directly — the
+> default open gate plus the 400ms `entranceWarmup` is enough. Reach for
+> `NibMotionGate.hold()`/`release()` specifically when you're preserving a
+> native splash screen for an async startup sequence longer than 400ms.
+
+## Reduced motion
+
+Some users enable a system-level "reduce motion" accessibility setting.
+Flutter surfaces this as `MediaQuery.of(context).disableAnimations`, and
+NibMotion respects it automatically — every `NibMotion` checks
+`NibMotionConfig.shouldReduceMotion(context)` before starting an animation.
+
+Resolution order is:
+
+1. A test-only global override (`NibMotionConfig.setReducedMotion`), if set.
+2. `NibMotionConfig.reducedMotion`, if a `NibMotionConfig` ancestor sets it to
+   `true` or `false`.
+3. Otherwise, `MediaQuery.of(context).disableAnimations` — the platform
+   accessibility setting.
+
+When reduced motion is in effect, `NibMotion` does **not** simply skip
+animations and leave the widget at `initial` — it jumps **straight to the
+final state** with no visible transition:
+
+- An `animate`/`keyframes` entrance jumps immediately to the `animate` target
+  (or the last keyframe).
+- `whileTap`, `whileHover`, `whileFocus`, `whileDrag`, and `whileInView`
+  transitions still apply their target state, just instantly instead of
+  animating.
+- `repeatAnimationInLoop` jumps to the end of one cycle and does **not** loop
+  forever — looping animations would be especially disruptive for users who
+  asked for reduced motion.
+
+This means your UI ends up in exactly the same final layout and visual state
+either way — reduced motion only removes the *motion*, not the result. To
+force this behavior on for testing (regardless of the platform setting or any
+`NibMotionConfig` ancestor), call:
+
+```dart
+NibMotionConfig.setReducedMotion(true);
+// ... run your test ...
+NibMotionConfig.setReducedMotion(null); // clear the override
+```
+
+## API reference
+
+### `NibMotion`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `key` | `Key?` | `null` | Required (non-null) if `exit` is set, so an ancestor `NibPresence` can track this widget across removals. |
+| `initial` | `NibAnim \| String?` | `null` (treated as `NibAnim.identity`) | The appearance applied immediately on first build, before any transition runs. Either a `NibAnim` or a `String` naming an entry in `variants`. |
+| `animate` | `NibAnim \| String?` | `null` | The appearance to animate toward. `null` means "no change" unless `variants` is set and an ancestor `NibMotion` propagates a matching variant name. Either a `NibAnim` or a `String` naming an entry in `variants`; when a `String`, the name is also propagated to descendants with a matching `variants` entry and no explicit `animate`. |
+| `exit` | `NibAnim?` | `null` | The appearance to animate toward when an ancestor `NibPresence` removes this widget. Requires `key` to be set. |
+| `whileTap` | `NibAnim?` | `null` | The appearance to animate toward while this widget is pressed. Part of the gestures system — see [Gestures](/docs/gestures). |
+| `whileHover` | `NibAnim?` | `null` | The appearance to animate toward while the pointer hovers over this widget. See [Gestures](/docs/gestures). |
+| `whileFocus` | `NibAnim?` | `null` | The appearance to animate toward while this widget has input focus. See [Gestures](/docs/gestures). |
+| `whileDrag` | `NibAnim?` | `null` | The appearance to animate toward while this widget is being dragged; reverts to `animate` (or `initial`) when the drag ends. See [Drag](/docs/drag). |
+| `drag` | `NibDragConfig?` | `null` | Enables dragging this widget when set. Full configuration (axis constraints, snap points, release behavior) is covered on the [Drag](/docs/drag) page. |
+| `whileInView` | `NibAnim?` | `null` | The appearance to animate toward while this widget is visible on screen, according to `viewport`. Full details on the [Viewport](/docs/viewport) page. |
+| `viewport` | `NibInViewConfig?` | `NibInViewConfig()` defaults (when `whileInView` is set) | Configures the visibility check used by `whileInView` (margins, visible-area threshold, `once`). See [Viewport](/docs/viewport). |
+| `variants` | `NibVariants?` | `null` | Named animation states this widget resolves `initial`/`animate` string names against, and matches against variant names propagated from an ancestor `NibMotion`. Full details on the [Variants](/docs/variants) page. |
+| `keyframes` | `List<NibKeyframe>?` | `null` | A multi-step enter animation that overrides `initial`/`animate`, driven by a single tween from `0.0` to `1.0`. Not compatible with spring transitions. See [Keyframes](/docs/keyframes). |
+| `motionValues` | `NibMotionValues?` | `null` | Pre-built `MotionValue`s that drive this widget's animatable properties directly, bypassing the internal spring/tween system for any property they provide. See [Motion values](/docs/motion-values). |
+| `transition` | `NibTransition?` | `null` (falls back to `NibMotionConfig.defaultTransitionOf(context)`, or `NibTransition()` defaults) | The transition used for `animate` and as the default for gesture states that don't specify their own. Full details on the [Transitions](/docs/transitions) page. |
+| `controller` | `NibMotionController?` | `null` | An optional external handle for imperatively driving this widget's animations (e.g. replaying the entrance, playing keyframes on demand). See [Controllers](/docs/controllers). |
+| `repeatAnimationInLoop` | `bool` | `false` | When `true`, instead of a one-shot entrance animation, this widget ping-pongs forever between `initial` and `animate` (or between keyframe `0.0` and `1.0`), using the active transition's duration/curve. Has no effect if `motionValues` is set. Under reduced motion, jumps to the end of one cycle and does not loop. |
+| `child` | `Widget` | *(required)* | The widget below this one in the tree. |
+
+### `NibMotionConfig`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `reducedMotion` | `bool?` | `null` | Overrides `MediaQuery.of(context).disableAnimations` when non-null. `null` defers to the platform accessibility setting. |
+| `defaultTransition` | `NibTransition` | `const NibTransition()` | The transition used by descendant `NibMotion` widgets that don't specify their own `transition`. See [Transitions](/docs/transitions). |
+| `entranceWarmup` | `Duration` | `Duration(milliseconds: 400)` | How long after the app starts entrance animations should wait before starting, absorbing the gap between Flutter's first frame and the native splash screen disappearing. |
+| `child` | `Widget` | *(required)* | The subtree this configuration applies to — typically your whole app. |
+
+### `NibMotionGate`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `ready` | `ValueNotifier<bool>` (static) | starts `true` | Whether entrance animations are allowed to start. `NibMotion` widgets listen to this and hold their entrance animation at its initial frame while it's `false`. |
+| `hold()` | `static void` | — | Sets `ready` to `false`, holding all `NibMotion` entrance animations at their initial frame until `release()` is called. |
+| `release()` | `static void` | — | Sets `ready` to `true`, releasing any entrance animations held by `hold()`. |
+| `reset()` | `static void` | — | Resets the gate back to its default open (`true`) state. Intended for tests. |
+
+## Next steps
+
+- **[Animate](/docs/animate)** — a deeper look at `initial`/`animate`,
+  `NibAnim`'s full set of animatable properties, and how values interpolate
+  between states.
+- **[Transitions](/docs/transitions)** — configure `NibTransition` to control
+  how animations move: curve-based tweens vs. spring physics, duration,
+  delay, and stagger.

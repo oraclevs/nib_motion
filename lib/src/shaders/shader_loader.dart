@@ -1,0 +1,75 @@
+import 'dart:ui' show FragmentProgram;
+
+/// Asset paths for every fragment shader bundled with `nib_motion`.
+///
+/// These must match the `flutter.shaders` entries in `pubspec.yaml`.
+class NibShaderAssets {
+  NibShaderAssets._();
+
+  /// Asset path for the shimmer/skeleton-loading shader.
+  static const String shimmer = 'packages/nib_motion/lib/shaders/shimmer.frag';
+
+  /// Asset path for the noise-based dissolve transition shader.
+  static const String dissolve = 'packages/nib_motion/lib/shaders/dissolve.frag';
+
+  /// Asset path for the animated gradient sweep shader.
+  static const String gradientSweep = 'packages/nib_motion/lib/shaders/gradient_sweep.frag';
+}
+
+/// A singleton cache/loader for the [FragmentProgram]s bundled with
+/// `nib_motion`.
+///
+/// `FragmentProgram.fromAsset` compiles a shader asynchronously the first
+/// time it's requested; widgets such as `NibShimmer` and `NibDissolve` call
+/// straight into this loader and create their `FragmentShader` instances
+/// once the relevant program resolves. Call [preloadAll] once at app
+/// startup (via `NibMotionConfig.init`) so the first shader-backed widget
+/// built doesn't pay the compilation cost on its own first frame.
+class NibShaderLoader {
+  NibShaderLoader._();
+
+  static final Map<String, Future<FragmentProgram>> _cache = {};
+
+  /// Returns the cached or newly-started [Future] that resolves to the
+  /// compiled [FragmentProgram] for the shimmer shader.
+  static Future<FragmentProgram> shimmer() => _load(NibShaderAssets.shimmer);
+
+  /// Returns the cached or newly-started [Future] that resolves to the
+  /// compiled [FragmentProgram] for the dissolve shader.
+  static Future<FragmentProgram> dissolve() => _load(NibShaderAssets.dissolve);
+
+  /// Returns the cached or newly-started [Future] that resolves to the
+  /// compiled [FragmentProgram] for the gradient sweep shader.
+  static Future<FragmentProgram> gradientSweep() => _load(NibShaderAssets.gradientSweep);
+
+  static Future<FragmentProgram> _load(String assetKey) {
+    return _cache.putIfAbsent(assetKey, () => FragmentProgram.fromAsset(assetKey));
+  }
+
+  /// Kicks off compilation of every bundled shader and waits for all of
+  /// them to finish (or fail).
+  ///
+  /// Failures are caught and swallowed here rather than rethrown: a host
+  /// app that doesn't bundle the shader assets (or runs in an environment
+  /// without shader compilation support, such as some test harnesses)
+  /// should still be able to start — shader-backed widgets fall back to
+  /// painting only their child when their program never resolves. Callers
+  /// that need to know whether preloading actually succeeded should call
+  /// [shimmer]/[dissolve]/[gradientSweep] directly and inspect the
+  /// resulting [Future].
+  static Future<void> preloadAll() async {
+    await Future.wait<void>([
+      shimmer().then((_) {}, onError: (_) {}),
+      dissolve().then((_) {}, onError: (_) {}),
+      gradientSweep().then((_) {}, onError: (_) {}),
+    ]);
+  }
+
+  /// Removes every cached program, forcing the next call to
+  /// [shimmer]/[dissolve]/[gradientSweep] to recompile from the asset.
+  ///
+  /// Intended for tests.
+  static void resetForTesting() {
+    _cache.clear();
+  }
+}

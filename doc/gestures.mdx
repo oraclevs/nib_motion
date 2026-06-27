@@ -1,0 +1,459 @@
+# Gestures
+
+So far, `NibMotion`'s `initial`, `animate`, and `exit` props describe
+animations driven by your own state — a flag flips, you call `setState`, and
+`NibMotion` tweens from one `NibAnim` to the next. But some of the most
+satisfying motion in an interface is driven by the user's pointer directly:
+a button that visibly compresses under a tap, a card that lifts when you
+hover over it, or a panel you can drag around the screen and let go of.
+
+`NibMotion` covers all of this with four gesture-reactive props —
+`whileTap`, `whileHover`, `whileFocus`, and `whileDrag` — plus a `drag`
+prop that turns on full drag-and-release handling. None of this requires
+wrapping your widget in a `GestureDetector` or managing animation
+controllers yourself; `NibMotion` wires up the recognizers and runs the
+animations for you.
+
+## The `while*` props
+
+Each `while*` prop takes a `NibAnim` — exactly like `animate` — but it's only
+applied **while the corresponding interaction state is active**. The moment
+the interaction ends, `NibMotion` animates back toward `animate` (or
+`initial`, if `animate` is unset).
+
+| Prop | Active while... |
+| --- | --- |
+| `whileTap` | the pointer is pressed down on the widget |
+| `whileHover` | the pointer is hovering over the widget (desktop/web) |
+| `whileFocus` | the widget has keyboard focus |
+| `whileDrag` | the widget is being dragged (see [Drag](#drag)) |
+
+If more than one of these states is active at once, `NibMotion` picks a
+single winner using the priority **drag > tap > hover > focus**. So a widget
+that's both hovered and pressed animates toward `whileTap`, not `whileHover`
+— and a widget that's being dragged ignores `whileTap`/`whileHover`/`whileFocus`
+entirely until the drag ends.
+
+Just like `animate`, a `while*` `NibAnim` only needs to describe the
+properties that change. Anything you don't set keeps its current value, so
+`whileTap: NibAnim(scale: 0.96)` shrinks the widget slightly without
+disturbing its position, opacity, or color.
+
+### `whileTap`: a button that compresses on press
+
+A common micro-interaction: scale a button down slightly the instant it's
+pressed, and back up the instant it's released.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class PressableButton extends StatelessWidget {
+  const PressableButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      whileTap: const NibAnim(scale: 0.96),
+      transition: const NibTransition(duration: Duration(milliseconds: 100)),
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Continue',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+`NibMotion` detects the press via its own internal tap recognizer — it
+doesn't need your `GestureDetector`'s `onTap` to fire first. The instant the
+pointer goes down, the widget animates to `scale: 0.96`; the instant it lifts
+(or the gesture is cancelled), it animates back to its resting scale of `1.0`.
+A short `transition.duration` like `100ms` keeps the squash feeling immediate
+rather than springy.
+
+### `whileHover`: a card that lifts on hover
+
+On desktop and web, `whileHover` is the natural home for "lift" effects —
+nudging a card upward and deepening its shadow to suggest it's now
+interactive.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class LiftingCard extends StatelessWidget {
+  const LiftingCard({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      whileHover: NibAnim(
+        y: -4,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      transition: const NibTransition(duration: Duration(milliseconds: 180)),
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+      ),
+    );
+  }
+}
+```
+
+Give the card's resting state its own `boxShadow` (set directly on the
+`Container`'s `decoration`, as above) so the hover transition reads as a
+*deepening* of an existing shadow rather than a shadow appearing from
+nothing. `NibMotion` interpolates `boxShadow` lists the same way it
+interpolates colors and offsets — element by element.
+
+`whileFocus` works identically to `whileHover`, but is driven by keyboard
+focus instead of pointer position — useful for showing a focus ring or subtle
+glow on form fields without writing your own `Focus`/`FocusNode` listener.
+
+## Drag
+
+Set the `drag` prop to a `NibDragConfig` to let the user pick up and move a
+`NibMotion` with their finger or pointer. While the drag is active, the
+widget's translation follows the pointer directly (subject to `axis` and
+`constraints`), and `whileDrag` — if set — describes how the rest of the
+widget should look while that's happening (e.g. a slight scale-up or shadow,
+to suggest the item has been "picked up").
+
+```dart
+NibMotion(
+  drag: const NibDragConfig(
+    axis: Axis.horizontal,
+    constraints: Rect.fromLTRB(-120, 0, 120, 0),
+  ),
+  whileDrag: const NibAnim(scale: 1.05),
+  child: const ChipWidget(),
+)
+```
+
+### `axis`
+
+`axis` locks dragging to a single direction. `Axis.horizontal` zeroes out all
+vertical movement; `Axis.vertical` zeroes out horizontal movement. Leave it
+`null` (the default) to allow free dragging in both directions — useful for
+draggable cards, map-style panning, or anything that isn't meant to slide
+along a single rail.
+
+### `constraints`
+
+`constraints` is a `Rect` describing the bounding box the drag offset is
+confined to, **relative to the widget's position before the drag started** —
+not screen coordinates. So `Rect.fromLTRB(-120, 0, 120, 0)` means "this widget
+can move up to 120 logical pixels left or right of where it started, but
+can't move vertically at all" (and would normally be paired with
+`axis: Axis.horizontal` to make that vertical lock explicit).
+
+If `constraints` is `null` (the default), the drag offset is unbounded.
+
+### `elastic` and `elasticFactor`: rubber-band resistance
+
+By default, once the drag offset reaches the edge of `constraints`, it's
+**clamped** — the widget simply stops moving, even if the pointer keeps
+going. Setting `elastic: true` changes this to **rubber-band resistance**:
+the widget keeps moving past the constraint, but at a fraction of the
+pointer's actual movement, so it feels like it's being stretched against a
+spring.
+
+`elasticFactor` (default `0.2`) controls how much of the over-the-edge
+movement gets through — the expected range is `0.1`–`0.5`. Smaller values
+feel stiffer (more resistance); larger values feel looser.
+
+```dart
+NibMotion(
+  drag: const NibDragConfig(
+    axis: Axis.horizontal,
+    constraints: Rect.fromLTRB(-80, 0, 80, 0),
+    elastic: true,
+    elasticFactor: 0.25,
+  ),
+  whileDrag: const NibAnim(scale: 1.03),
+  child: const PillToggle(),
+)
+```
+
+With `elastic: true` and the default `releaseMode: NibDragReleaseMode.springBack`,
+dragging past either edge of `constraints` stretches the widget a bit further
+than the limit, and releasing snaps it back inside the bounds — the classic
+"pull-to-refresh" feel.
+
+### `onDragStart` and `onDragEnd`
+
+`onDragStart` is a `VoidCallback` fired the moment a drag gesture begins —
+useful for triggering a `whileDrag`-style state change elsewhere in your UI,
+pausing other animations, or just logging analytics.
+
+`onDragEnd` is called once when the drag gesture ends, with the release
+`Velocity` (from `package:flutter/gestures.dart`). This is the value that
+determines how `NibDragReleaseMode.inertia` coasts — you can also read it
+yourself to decide, for example, whether a swipe was fast enough to count as
+a "dismiss" versus a gentle nudge that should spring back.
+
+```dart
+NibMotion(
+  drag: NibDragConfig(
+    axis: Axis.horizontal,
+    onDragStart: () => print('drag started'),
+    onDragEnd: (velocity) => print('released at ${velocity.pixelsPerSecond}'),
+  ),
+  child: const DraggableTile(),
+)
+```
+
+### `releaseMode`: how the widget settles
+
+Once the pointer lifts, `releaseMode` (a `NibDragReleaseMode`) decides what
+happens next — *unless* `snapPoints` is set and non-empty, in which case
+`snapPoints` wins and `releaseMode` is ignored entirely.
+
+#### `springBack`: return to the start
+
+The default. The widget animates back to the position it was at before the
+drag started, as if pulled back by a spring. This is the right choice for
+anything that should feel like it was only "borrowed" — a card you can
+nudge to peek at what's behind it, then let go to put it back.
+
+```dart
+NibMotion(
+  drag: const NibDragConfig(
+    releaseMode: NibDragReleaseMode.springBack,
+  ),
+  whileDrag: const NibAnim(scale: 1.04),
+  transition: const NibTransition(
+    duration: Duration(milliseconds: 300),
+    curve: Curves.easeOutBack,
+  ),
+  child: const PeekCard(),
+)
+```
+
+Drag the card anywhere, release, and it animates back to exactly where it
+started — `Curves.easeOutBack` gives the return a small, satisfying
+overshoot.
+
+#### `inertia`: coast to a natural stop
+
+The widget keeps moving in the direction (and roughly the speed) it was
+released, gradually slowing to a stop — driven by the release `Velocity`.
+This is the feel behind swipe-to-dismiss: a fast flick sends the widget
+flying offscreen, while a slow drag-and-release barely moves it further.
+
+```dart
+NibMotion(
+  drag: const NibDragConfig(
+    axis: Axis.horizontal,
+    releaseMode: NibDragReleaseMode.inertia,
+  ),
+  whileDrag: const NibAnim(scale: 0.98),
+  child: const DismissibleNotification(),
+)
+```
+
+Pair `inertia` with an `onDragEnd` check on the release velocity if you want
+to trigger a side effect — such as actually removing the item from a list —
+once it's clear the widget coasted far enough offscreen to count as
+dismissed.
+
+#### `stay`: leave it where it was dropped
+
+The simplest mode: whatever offset the widget had when the pointer lifted is
+where it stays. No spring-back, no coasting. This suits free-form
+arrangements — sticky notes, a moodboard, anything where the user is
+intentionally repositioning something permanently (within a session).
+
+```dart
+NibMotion(
+  drag: const NibDragConfig(
+    releaseMode: NibDragReleaseMode.stay,
+  ),
+  child: const StickyNote(),
+)
+```
+
+### `snapPoints`: snap to the nearest of several positions
+
+`snapPoints` is a `List<Offset>` of candidate resting positions, expressed as
+offsets from the widget's starting position — the same coordinate space as
+`constraints`. If `snapPoints` is set and non-empty, releasing the drag
+animates the widget to whichever point in the list is closest to where it was
+released, **regardless of `releaseMode`**.
+
+This is the building block for bottom sheets, paginated carousels, and
+toggle-style switches — anywhere the widget should always come to rest at one
+of a small, known set of positions.
+
+## Putting it together: a draggable bottom sheet
+
+Combining `drag`, `whileDrag`, `constraints`, and `snapPoints` produces a
+bottom-sheet-style card that can be dragged between a "peek" position and
+fully open, and always snaps cleanly to one or the other on release:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class SnapSheet extends StatelessWidget {
+  const SnapSheet({super.key});
+
+  static const _peekOffset = Offset(0, 320);
+  static const _openOffset = Offset.zero;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      drag: const NibDragConfig(
+        axis: Axis.vertical,
+        constraints: Rect.fromLTRB(0, 0, 0, 320),
+        snapPoints: [_openOffset, _peekOffset],
+        releaseMode: NibDragReleaseMode.springBack,
+      ),
+      whileDrag: const NibAnim(
+        boxShadow: [
+          BoxShadow(color: Colors.black26, blurRadius: 24, offset: Offset(0, -4)),
+        ],
+      ),
+      transition: const NibTransition(
+        duration: Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      ),
+      child: Container(
+        height: 360,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Drag me up or down',
+                style: Theme.of(context).textTheme.titleMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+The sheet starts at `_openOffset` (`Offset.zero`). `constraints` keeps the
+drag within `0` to `320` logical pixels of vertical travel, `axis: vertical`
+ignores any horizontal movement, and `snapPoints` lists the two valid resting
+positions — fully open and "peeked" 320px down. Wherever the pointer is
+released, `NibMotion` animates to whichever of `_openOffset`/`_peekOffset` is
+closer, using the `transition` curve and duration above; `releaseMode` is set
+for clarity but is overridden by `snapPoints` whenever it's non-empty.
+`whileDrag` adds a shadow above the sheet only while it's actively being
+dragged, reinforcing that it's been "lifted" off the layout below it.
+
+## The building block: `DragHandler` and `applyElastic`
+
+Everything above is `NibMotion` driving its own internal `DragHandler` — but
+if you're building a fully custom widget with your own `GestureDetector` and
+want the same axis-locking, constraint, and elastic behavior without
+`NibMotion`'s animation machinery, `DragHandler` is the standalone class that
+does exactly that. Construct it with a `NibDragConfig` plus `onUpdate` and
+`onRelease` callbacks, then forward your `GestureDetector`'s
+`onPanStart`/`onPanUpdate`/`onPanEnd` straight into
+`handlePanStart`/`handlePanUpdate`/`handlePanEnd` — `DragHandler` tracks the
+running `offset` and release velocity for you, applying `axis`,
+`constraints`, and `elastic`/`elasticFactor` exactly as described above. The
+free function `applyElastic(value, min, max, factor)` is the rubber-band math
+itself, exported separately in case you only need that one calculation.
+
+## API reference
+
+### `NibDragConfig`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `axis` | `Axis?` | `null` | Locks dragging to a single axis. `null` allows free dragging in both directions. |
+| `constraints` | `Rect?` | `null` | The bounding box the drag offset is confined to, relative to the widget's position before the drag started. `null` means unconstrained. |
+| `elastic` | `bool` | `false` | Whether dragging past `constraints` applies rubber-band resistance instead of clamping outright. |
+| `elasticFactor` | `double` | `0.2` | How much of the drag past `constraints` is applied when `elastic` is `true`. Expected range `0.1`–`0.5`; smaller values are stiffer. |
+| `onDragStart` | `VoidCallback?` | `null` | Called when a drag gesture begins. |
+| `onDragEnd` | `void Function(Velocity velocity)?` | `null` | Called when a drag gesture ends, with the release velocity. |
+| `releaseMode` | `NibDragReleaseMode` | `NibDragReleaseMode.springBack` | How the widget settles once the drag gesture ends. Ignored if `snapPoints` is set and non-empty. |
+| `snapPoints` | `List<Offset>?` | `null` | If set and non-empty, the widget springs to the nearest of these points on release instead of following `releaseMode`. |
+
+### `NibDragReleaseMode`
+
+| Value | Description |
+| --- | --- |
+| `springBack` | Spring back to the position the widget was at before the drag started. |
+| `inertia` | Coast to a natural stop using the release velocity. |
+| `stay` | Stay exactly where the drag left it. |
+
+### `DragHandler`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| (constructor) | `DragHandler({required NibDragConfig config, required ValueChanged<Offset> onUpdate, required void Function(Offset offset, Velocity velocity) onRelease})` | Creates a handler driven by `config`, reporting position updates via `onUpdate` and the release state via `onRelease`. |
+| `offset` | `Offset` (getter) | The current drag offset relative to the gesture's start. |
+| `handlePanStart` | `void handlePanStart(DragStartDetails details)` | Call from `GestureDetector.onPanStart`. Resets `offset` and calls `config.onDragStart`. |
+| `handlePanUpdate` | `void handlePanUpdate(DragUpdateDetails details)` | Call from `GestureDetector.onPanUpdate`. Applies `axis` locking and `constraints`/`elastic`, then calls `onUpdate` with the new offset. |
+| `handlePanEnd` | `void handlePanEnd(DragEndDetails details)` | Call from `GestureDetector.onPanEnd`. Calls `onRelease` with the final offset and release velocity. |
+
+### `applyElastic`
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `applyElastic` | `double applyElastic(double value, double min, double max, double factor)` | Applies rubber-band resistance to `value` once it passes `min` or `max`, scaled by `factor`. |
+
+## Next steps
+
+- **[Variants](/docs/variants)** — `while*` props and `drag` work alongside
+  `variants`, so a single named state (like `"selected"`) can drive layout,
+  color, *and* what happens on tap or drag, all from one place.
+- **[Motion Controller](/docs/motion-controller)** — for gestures that should
+  trigger an animation on a *different* widget (not just the one being
+  tapped or dragged), drive that animation from a `MotionController` instead
+  of a `while*` prop.

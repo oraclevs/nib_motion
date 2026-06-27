@@ -1,0 +1,302 @@
+# Animate
+
+Every visual change `NibMotion` can produce — a fade, a slide, a spring-driven
+pop, a color shift — is described by a single value type: `NibAnim`. If
+`NibMotion` is the *engine*, `NibAnim` is the *destination*: an immutable
+snapshot of what a widget should look like at one point in time. `initial`,
+`animate`, `exit`, `whileTap`, `whileHover`, every entry in `variants`, and
+every `NibKeyframe.value` are all just `NibAnim` values — once you understand
+this one type, you understand the vocabulary the whole package is built on.
+
+## What `NibAnim` describes
+
+`NibAnim` is a plain, immutable data class with twelve nullable fields, one
+per animatable property:
+
+- **`x`**, **`y`** — pixel offsets from the widget's natural position.
+- **`scale`**, **`scaleX`**, **`scaleY`** — uniform or per-axis scale, where
+  `1.0` is "no change."
+- **`rotate`** — rotation around the Z axis, expressed in *turns* rather than
+  degrees or radians (`1.0` is a full 360° turn, so a quarter turn is `0.25`).
+- **`skewX`**, **`skewY`** — horizontal and vertical shear, in radians.
+- **`opacity`** — from `0.0` (fully transparent) to `1.0` (fully opaque).
+- **`color`** — a background color painted behind the child.
+- **`borderRadius`** — a clip radius applied to the widget and its `color`/
+  `boxShadow`.
+- **`boxShadow`** — a list of shadows painted behind the widget.
+
+Every one of these fields is nullable, and that nullability is doing real
+work — it's the mechanism that lets multiple independent `NibAnim` values
+combine without stepping on each other.
+
+### `null` means "don't touch this," not "reset this"
+
+When you write `NibAnim(opacity: 0)`, you're not saying "everything else is
+zero" — you're saying "this animation only cares about `opacity`; leave `x`,
+`scale`, `rotate`, and everything else exactly as they are." This is why a
+`whileHover: NibAnim(scale: 1.05)` on one widget never resets that widget's
+position, color, or any other property a sibling animation might be driving —
+`scale` is the only field that animation touches.
+
+This matters once you start layering states. A widget might have an `animate`
+that fades it in, a `whileHover` that scales it up, and a `whileTap` that
+darkens its color — three `NibAnim` values, each touching a different
+property, that compose cleanly because the untouched fields stay `null`.
+
+## Usage examples
+
+### Fade in/out via `opacity`
+
+The simplest possible animation: animate only `opacity`, leaving position,
+scale, and everything else untouched.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class FadeInBanner extends StatelessWidget {
+  const FadeInBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(opacity: 0),
+      animate: const NibAnim(opacity: 1),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: const Text('This banner fades in on mount.'),
+      ),
+    );
+  }
+}
+```
+
+### Slide + fade combo via `x`/`y` + `opacity`
+
+Because `NibAnim` is just a bundle of independent properties, combining a
+slide with a fade is just a matter of setting more fields on the same
+`initial`/`animate` pair. Here the child starts 24px below its resting
+position and fully transparent, then animates to its natural position at full
+opacity:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class SlideUpListItem extends StatelessWidget {
+  const SlideUpListItem({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(opacity: 0, y: 24),
+      animate: const NibAnim(opacity: 1, y: 0),
+      child: ListTile(title: Text(title)),
+    );
+  }
+}
+```
+
+### Scale + rotate (a "pop in" effect)
+
+Combining `scale` and `rotate` produces a playful "pop in" — the widget starts
+small and slightly rotated, then springs to its natural size and orientation.
+Remember `rotate` is in *turns*, so `-0.05` is a small counter-clockwise tilt:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class PopInBadge extends StatelessWidget {
+  const PopInBadge({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      initial: const NibAnim(scale: 0.5, rotate: -0.05, opacity: 0),
+      animate: const NibAnim(scale: 1, rotate: 0, opacity: 1),
+      child: Chip(label: Text(label)),
+    );
+  }
+}
+```
+
+### Animating `color` and `borderRadius` (a status badge)
+
+`color` and `borderRadius` interpolate just like the numeric properties —
+`NibMotion` will smoothly cross-fade between colors and morph between corner
+radii. This is useful for status indicators that need to visibly transition
+between states rather than snapping:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class StatusBadge extends StatelessWidget {
+  const StatusBadge({super.key, required this.isOnline});
+
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      animate: NibAnim(
+        color: isOnline ? Colors.green : Colors.grey,
+        borderRadius: BorderRadius.circular(isOnline ? 16 : 4),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(
+          isOnline ? 'Online' : 'Offline',
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+```
+
+Toggling `isOnline` and rebuilding this widget changes `animate`, which
+NibMotion then animates *toward* from whatever color/radius it's currently
+displaying — no `AnimatedContainer` or `TweenAnimationBuilder` required.
+
+### Custom keyframe sequence (a bounce)
+
+For anything more elaborate than "from A to B," `keyframes` lets you describe
+a full sequence of `NibAnim` snapshots, each pinned to a progress value `at`
+between `0.0` and `1.0`. NibMotion drives a single tween across the whole
+sequence and interpolates between whichever two keyframes surround the current
+progress.
+
+Here's a classic bounce: the widget grows past its target size at the
+halfway point before settling back down, using `Curves.easeOut` to ease into
+the overshoot and the default curve to settle at the end:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class BouncyIcon extends StatelessWidget {
+  const BouncyIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotion(
+      keyframes: const [
+        NibKeyframe(at: 0.0, value: NibAnim(scale: 0, opacity: 0)),
+        NibKeyframe(
+          at: 0.5,
+          value: NibAnim(scale: 1.2, opacity: 1),
+          curve: Curves.easeOut,
+        ),
+        NibKeyframe(at: 1.0, value: NibAnim(scale: 1, opacity: 1)),
+      ],
+      child: const Icon(Icons.favorite, color: Colors.red, size: 48),
+    );
+  }
+}
+```
+
+The first keyframe (`at: 0.0`) is effectively the same role `initial` plays
+elsewhere — it's where the widget starts. Every keyframe after that describes
+a stop along the way, with its own optional `curve` controlling the easing of
+the segment leading *into* it.
+
+> **Note:** `keyframes` overrides `initial`/`animate` entirely and is not
+> compatible with spring-based transitions, since a spring simulation can't be
+> reliably scrubbed to arbitrary progress values the way a tween can. See
+> [Transitions](/docs/transitions) for the difference between tween-based and
+> spring-based transitions.
+
+## How values combine: `identity`, `copyWith`, `lerp`, `merge`
+
+Under the hood, `NibAnim` provides a small set of operations that the rest of
+NibMotion — transitions, variants, and keyframes — build on:
+
+- **`NibAnim.identity`** is the "no visual change" snapshot: `x: 0`, `y: 0`,
+  `scale`/`scaleX`/`scaleY: 1`, `rotate`/`skewX`/`skewY: 0`, `opacity: 1`, and
+  no color, border radius, or shadow. It's the implicit starting point for any
+  property a `NibAnim` doesn't explicitly set.
+- **`copyWith`** returns a copy of a `NibAnim` with specific fields replaced,
+  leaving the rest as-is — the usual immutable-update pattern, useful for
+  deriving one animation state from another.
+- **`lerp(other, t)`** interpolates between two `NibAnim`s at progress `t`.
+  For each numeric property, if *either* side is set but the other is `null`,
+  the missing side falls back to its `identity` value before interpolating —
+  so an animation that only specifies `opacity` doesn't suddenly start moving
+  or scaling just because the other end of the interpolation specified `x` or
+  `scale`. `color`, `borderRadius`, and `boxShadow` interpolate via Flutter's
+  own `Color.lerp`, `BorderRadius.lerp`, and `BoxShadow.lerpList`, which already
+  handle `null` gracefully. `lerp` is what `computeAnimFromKeyframes` uses
+  internally to blend between adjacent keyframes.
+- **`merge(other)`** overlays every *non-null* property of `other` on top of
+  this `NibAnim`, leaving this animation's own values in place wherever
+  `other` is `null`. This is how the [Variants](/docs/variants) system lets a
+  child widget's variant state layer on top of (rather than replace) whatever
+  its parent propagated.
+
+You won't usually call these directly — but they're the reason `initial`,
+`animate`, `whileHover`, `variants`, and `keyframes` all compose so predictably
+even when several of them are in play on the same widget.
+
+## API reference
+
+### `NibAnim`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `x` | `double?` | `null` | Horizontal offset from the widget's natural position, in pixels. |
+| `y` | `double?` | `null` | Vertical offset from the widget's natural position, in pixels. |
+| `scale` | `double?` | `null` | Uniform scale applied to both axes. Identity is `1.0`. |
+| `scaleX` | `double?` | `null` | Horizontal scale. Identity is `1.0`. |
+| `scaleY` | `double?` | `null` | Vertical scale. Identity is `1.0`. |
+| `rotate` | `double?` | `null` | Rotation around the Z axis, in turns (`1.0` == 360°). |
+| `skewX` | `double?` | `null` | Horizontal shear, in radians. |
+| `skewY` | `double?` | `null` | Vertical shear, in radians. |
+| `opacity` | `double?` | `null` | Opacity from `0.0` (fully transparent) to `1.0` (fully opaque, identity). |
+| `color` | `Color?` | `null` | Background color painted behind the child. `null` means transparent. |
+| `borderRadius` | `BorderRadius?` | `null` | Clip radius applied to the widget and its `color`/`boxShadow`. |
+| `boxShadow` | `List<BoxShadow>?` | `null` | Shadows painted behind the widget. |
+| `identity` | `NibAnim` (static) | `NibAnim(x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0, skewX: 0, skewY: 0, opacity: 1)` | The "no visual change" snapshot — every transform/opacity property at its neutral value, with no color, border radius, or shadow. |
+
+### `NibKeyframe`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `at` | `double` | *(required)* | The progress (`0.0` to `1.0`) along the keyframe animation at which `value` is reached. |
+| `value` | `NibAnim` | *(required)* | The animation state at `at`. |
+| `curve` | `Curve?` | `null` (falls back to `defaultCurve`) | The easing curve for the segment leading into this keyframe, from the previous keyframe's `value` to this one. |
+
+### `computeAnimFromKeyframes`
+
+```dart
+NibAnim computeAnimFromKeyframes(
+  List<NibKeyframe> keyframes,
+  double t,
+  Curve defaultCurve,
+)
+```
+
+Computes the `NibAnim` at progress `t` along `keyframes` (sorted by `at` if
+not already). At or before the first keyframe and at or after the last
+keyframe, returns that keyframe's `value` directly. Otherwise, finds the two
+keyframes surrounding `t`, normalizes `t` into that segment, applies the
+upcoming keyframe's `curve` (or `defaultCurve` if unset), and interpolates
+between the two keyframes' values with `NibAnim.lerp`. This is the function
+`NibMotion` calls internally whenever `keyframes` is set.
+
+## Next steps
+
+- **[Transitions](/docs/transitions)** — now that you know *what* a `NibAnim`
+  describes, see how `NibTransition` controls *how* NibMotion moves between
+  two `NibAnim` values: curve-based tweens vs. spring physics, duration,
+  delay, and stagger.
+- **[Physics & Motion Values](/docs/physics)** — for animations driven by
+  continuous input (drag, scroll, gestures) rather than discrete `initial`/
+  `animate` states, see how `MotionValue`s and spring simulations plug into
+  the same `NibAnim` properties described here.

@@ -1,0 +1,200 @@
+# Presence
+
+`NibMotion`'s `exit` animation describes how a widget should animate *out* —
+but a `NibMotion` only gets a chance to run that animation while it's still in
+the tree. The moment you remove a widget from a `List<Widget>` and call
+`setState`, Flutter just... removes it. There's no time for an exit animation
+to play, because the widget is gone before the next frame is even built.
+
+`NibPresence` solves this. It sits between you and your list of children,
+intercepts removals, and keeps a removed child mounted just long enough for
+its `NibMotion.exit` animation to finish — then removes it for real.
+
+## The problem: instant removal
+
+Without `NibPresence`, removing an item from a list looks like this:
+
+```dart
+setState(() {
+  items.removeAt(index);
+});
+```
+
+Flutter rebuilds, the widget for that item disappears, and the remaining items
+snap into its place instantly. Even if that item's `child` is a `NibMotion`
+with an `exit: NibAnim(opacity: 0, x: -100)`, it never gets the chance to run —
+the widget was already unmounted before the animation could start.
+
+## How `NibPresence` works
+
+Wrap the list of children in `NibPresence` instead of building them directly
+into a `Column`, `ListView`, or similar:
+
+```dart
+NibPresence(
+  children: [
+    for (final item in items)
+      NibMotion(
+        key: ValueKey(item.id),
+        exit: const NibAnim(opacity: 0, x: -100),
+        child: ItemCard(item: item),
+      ),
+  ],
+)
+```
+
+When you remove an item from `items` and call `setState`, `NibPresence`
+compares the new `children` list against the previous one. Any child whose key
+is missing from the new list isn't unmounted immediately — instead,
+`NibPresence` keeps it on screen (wrapped in an `IgnorePointer` so it can no
+longer be tapped or scrolled), triggers its `NibMotion.exit` animation, and
+only removes it from the tree once that animation finishes.
+
+Children that are still present in the new list, and any newly added children,
+are passed through unchanged — new children mount normally and play their own
+`initial`/`animate` entrance animation as usual.
+
+## Requirement: every child needs a unique, non-null `Key`
+
+`NibPresence` identifies children by their `Key`, not by their position in the
+list. This is how it tells "this item moved" apart from "this item was
+removed" apart from "this is a brand new item."
+
+Every widget you pass to `NibPresence.children` **must** have a non-null,
+unique `Key` — typically a `ValueKey` wrapping a stable identifier from your
+data, such as a database ID:
+
+```dart
+NibMotion(
+  key: ValueKey(item.id), // required — must be unique and stable
+  exit: const NibAnim(opacity: 0, x: -100),
+  child: ItemCard(item: item),
+)
+```
+
+> **Note:** Don't use the list index as the key (e.g. `ValueKey(index)`).
+> Indices shift when items are removed, so `NibPresence` would think an
+> existing item changed identity rather than recognizing that a different item
+> was removed — and the exit animation would play on the wrong item.
+
+A `NibMotion` that declares an `exit` animation also requires its own `key` to
+be non-null for exactly this reason — `NibPresence` uses that key to look up
+the widget's animator and trigger its exit animation when the widget is
+removed from `children`.
+
+## Example: a removable list of cards
+
+Here's a complete, self-contained example: a list of dismissible cards, each
+wrapped in a `NibMotion` with a fade-and-slide `exit` animation, all managed by
+a `NibPresence`. Tapping a card's "Remove" button removes it from the
+underlying list — `NibPresence` plays the exit animation first, and only then
+is the card actually gone.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class DismissibleCardList extends StatefulWidget {
+  const DismissibleCardList({super.key});
+
+  @override
+  State<DismissibleCardList> createState() => _DismissibleCardListState();
+}
+
+class _DismissibleCardListState extends State<DismissibleCardList> {
+  final List<_Item> _items = [
+    _Item(id: 1, title: 'Walk the dog'),
+    _Item(id: 2, title: 'Write release notes'),
+    _Item(id: 3, title: 'Review pull requests'),
+    _Item(id: 4, title: 'Plan next sprint'),
+  ];
+
+  void _remove(int id) {
+    setState(() {
+      _items.removeWhere((item) => item.id == id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NibPresence(
+      children: [
+        for (final item in _items)
+          NibMotion(
+            key: ValueKey(item.id),
+            initial: const NibAnim(opacity: 0, y: -16),
+            animate: const NibAnim(opacity: 1, y: 0),
+            exit: const NibAnim(opacity: 0, x: -120),
+            transition: const NibTransition(
+              duration: Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            ),
+            child: Card(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              child: ListTile(
+                title: Text(item.title),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => _remove(item.id),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Item {
+  const _Item({required this.id, required this.title});
+
+  final int id;
+  final String title;
+}
+```
+
+Walking through what happens when a user taps the close icon on "Write release
+notes":
+
+1. `_remove(2)` removes that item from `_items` and calls `setState`.
+2. `NibPresence.children` rebuilds without a `NibMotion` keyed `ValueKey(2)`.
+3. `NibPresence` notices the key is missing, but doesn't drop the widget —
+   it wraps it in an `IgnorePointer` and triggers its `exit` animation
+   (`opacity: 0, x: -120` over 250ms).
+4. Once the exit animation completes, `NibPresence` removes the widget from
+   its internal tree for good. The remaining cards reflow into its place only
+   at that point, not before.
+
+The other three cards are unaffected — they're still present in the new
+`children` list (with the same keys), so `NibPresence` passes them through
+unchanged.
+
+## Looking ahead: staggered lists with `NibMotionList`
+
+`NibPresence` handles exit animations for *any* list of `NibMotion` children,
+but it's also the foundation for `NibMotionList`'s `presenceEnabled` option,
+covered in depth on [Lists & Stagger](/docs/lists-and-stagger). When
+`presenceEnabled` is set, `NibMotionList` wraps its children in a `NibPresence`
+for you — so removed items still play their exit animation — while also
+giving you staggered enter/exit timing across the whole list via
+`staggerChildren`/`delayChildren`. If you find yourself reaching for
+`NibPresence` directly on a list that's also using `NibMotionList`, that page
+shows how to combine the two.
+
+## API reference
+
+### `NibPresence`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `key` | `Key?` | `null` | Standard widget key for `NibPresence` itself. |
+| `children` | `List<Widget>` | required | The widgets to display. **Every child must have a non-null, unique `Key`** (typically a `ValueKey` wrapping a stable data identifier) — `NibPresence` uses these keys to detect additions, removals, and reorders between rebuilds, and to look up each removed child's `NibMotion.exit` animator. |
+
+## Next steps
+
+- **[Lists & Stagger](/docs/lists-and-stagger)** — see how `NibMotionList`'s
+  `presenceEnabled` option builds on `NibPresence` to combine exit animations
+  with staggered enter/exit timing across an entire list.
+- **[Layout Animations](/docs/layout-animations)** — once items can animate in
+  and out, the next question is how the *remaining* items animate as they
+  reflow into the new layout — covered on the layout animations page.

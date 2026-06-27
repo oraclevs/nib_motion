@@ -1,0 +1,344 @@
+# Lists & Stagger
+
+Animating a single widget with `NibMotion` is one thing — animating a *list*
+of widgets so each one enters a beat after the last is another. You could
+manually compute a `transition.delay` for every item, but that gets tedious
+fast and is easy to get wrong when the list changes length.
+
+`NibMotionList` does this for you. It wraps each child in its own `NibMotion`
+and automatically staggers each child's animation start based on its position
+in the list — so a list of cards, rows, or to-do items can fade and slide in
+one after another with a single widget.
+
+## What `NibMotionList` does
+
+`NibMotionList` takes a `children: List<Widget>` — the same as `Column` —
+and wraps each one in a `NibMotion`. Every child receives the same
+`initial`, `animate`, `exit`, `variants`, and `controller` you pass to
+`NibMotionList` itself, exactly as if you'd written a `NibMotion` around each
+child by hand.
+
+The one thing that *isn't* identical across children is timing: each child's
+`transition.delay` is offset by an extra amount based on its index, so the
+first child starts animating immediately and each subsequent child starts a
+little later.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class StaggeredList extends StatelessWidget {
+  const StaggeredList({super.key, required this.labels});
+
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotionList(
+      initial: const NibAnim(opacity: 0, y: 16),
+      animate: const NibAnim(opacity: 1, y: 0),
+      children: [
+        for (final label in labels)
+          Card(
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            child: ListTile(title: Text(label)),
+          ),
+      ],
+    );
+  }
+}
+```
+
+Without `NibMotionList`, every `Card` would fade and slide in at the exact
+same instant. With it, the first card starts immediately, the second starts
+slightly after, the third after that, and so on — giving the list a natural,
+cascading entrance.
+
+## `staggerDelay`: how much extra delay per child
+
+`staggerDelay` is a `Duration` — the *extra* delay applied per child, on top
+of whatever `transition.delay` you've configured. It's multiplied by the
+child's position, so each successive child waits longer than the one before
+it.
+
+The default is `Duration(milliseconds: 50)`. With four children and the
+default `staggerDelay`, the per-child delays added on top of the base
+`transition.delay` are:
+
+| Child index | Extra delay |
+| --- | --- |
+| 0 | `0ms` |
+| 1 | `50ms` |
+| 2 | `100ms` |
+| 3 | `150ms` |
+
+To make the cascade more pronounced — or more subtle — set `staggerDelay`
+explicitly:
+
+```dart
+NibMotionList(
+  initial: const NibAnim(opacity: 0, y: 16),
+  animate: const NibAnim(opacity: 1, y: 0),
+  staggerDelay: const Duration(milliseconds: 120),
+  children: [
+    for (final label in labels) Text(label),
+  ],
+)
+```
+
+Here, the fourth child (index 3) doesn't start animating until `360ms`
+(`120ms * 3`) after the first — a noticeably slower, more deliberate reveal
+than the `50ms` default.
+
+`staggerDelay` is added to `transition.delay`, not used in place of it — if
+you also set `transition: NibTransition(delay: Duration(milliseconds: 100))`,
+every child's stagger offset is computed on top of that shared `100ms` base
+delay.
+
+## `staggerDirection`: which end animates first
+
+By default, the first child (index `0`) animates first, and each later child
+follows after an additional `staggerDelay`. `staggerDirection` — an
+`NibStaggerDirection` — controls which end of the list this cascade starts
+from:
+
+- **`NibStaggerDirection.forward`** *(default)* — the first child animates
+  first; the stagger offset increases with index.
+- **`NibStaggerDirection.reverse`** — the *last* child animates first; the
+  stagger offset increases the closer a child is to the start of the list.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class StaggerDirectionDemo extends StatelessWidget {
+  const StaggerDirectionDemo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = ['Row 1', 'Row 2', 'Row 3', 'Row 4'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('forward', style: Theme.of(context).textTheme.labelLarge),
+        NibMotionList(
+          initial: const NibAnim(opacity: 0, x: -24),
+          animate: const NibAnim(opacity: 1, x: 0),
+          staggerDirection: NibStaggerDirection.forward,
+          children: [
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(row),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Text('reverse', style: Theme.of(context).textTheme.labelLarge),
+        NibMotionList(
+          initial: const NibAnim(opacity: 0, x: 24),
+          animate: const NibAnim(opacity: 1, x: 0),
+          staggerDirection: NibStaggerDirection.reverse,
+          children: [
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(row),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+```
+
+In the `forward` list, "Row 1" slides in first and "Row 4" slides in last. In
+the `reverse` list, "Row 4" slides in first and "Row 1" slides in last —
+useful for lists where the most recently added or most important item is at
+the bottom and should draw attention first.
+
+## `presenceEnabled`: animating removals
+
+So far, every example has only covered items *entering* the list.
+`NibMotionList` can also animate items *leaving* the list, via the same
+mechanism described on [Presence](/docs/presence): when `presenceEnabled` is
+`true`, `NibMotionList` wraps its children in a `NibPresence` instead of a
+plain `Column`. A child removed from `children` plays its `exit` animation
+before it's actually removed from the tree — instead of disappearing
+instantly.
+
+This comes with the same requirement as `NibPresence` itself: **every widget
+in `children` must carry a non-null, unique `Key`** (typically a `ValueKey`
+wrapping a stable ID from your data), so `NibMotionList` can tell which item
+was removed across rebuilds.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+class TodoList extends StatefulWidget {
+  const TodoList({super.key});
+
+  @override
+  State<TodoList> createState() => _TodoListState();
+}
+
+class _TodoListState extends State<TodoList> {
+  final List<_Todo> _todos = [
+    _Todo(id: 1, title: 'Walk the dog'),
+    _Todo(id: 2, title: 'Write release notes'),
+    _Todo(id: 3, title: 'Review pull requests'),
+    _Todo(id: 4, title: 'Plan next sprint'),
+  ];
+
+  void _remove(int id) {
+    setState(() {
+      _todos.removeWhere((todo) => todo.id == id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NibMotionList(
+      initial: const NibAnim(opacity: 0, y: -12),
+      animate: const NibAnim(opacity: 1, y: 0),
+      exit: const NibAnim(opacity: 0, x: -120),
+      staggerDelay: const Duration(milliseconds: 60),
+      presenceEnabled: true,
+      children: [
+        for (final todo in _todos)
+          Card(
+            key: ValueKey(todo.id),
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            child: ListTile(
+              title: Text(todo.title),
+              trailing: IconButton(
+                icon: const Icon(Icons.check_circle_outline),
+                onPressed: () => _remove(todo.id),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Todo {
+  const _Todo({required this.id, required this.title});
+
+  final int id;
+  final String title;
+}
+```
+
+When the user taps the check icon on "Write release notes":
+
+1. `_remove(2)` removes that item from `_todos` and calls `setState`.
+2. `NibMotionList` rebuilds its `children` without a widget keyed
+   `ValueKey(2)`.
+3. Because `presenceEnabled` is `true`, the underlying `NibPresence` notices
+   the key is missing and keeps that card mounted just long enough to play its
+   `exit: NibAnim(opacity: 0, x: -120)` animation.
+4. Once the exit animation finishes, the card is removed for real and the
+   remaining to-dos reflow into its place.
+
+The remaining cards are unaffected by the removal — they keep their existing
+keys, so `NibPresence` passes them through unchanged. Note that the `exit`
+animation here is shared across all children (it's a single `NibAnim`, not a
+list), the same way `initial`/`animate` are.
+
+> **Note:** When `presenceEnabled` is `false` (the default), `NibMotionList`
+> lays its wrapped children out in a plain `Column` — `exit` is still
+> forwarded to each child's `NibMotion`, but without `NibPresence` there's no
+> mechanism to keep a removed child mounted, so its `exit` animation won't
+> have a chance to run. Set `presenceEnabled: true` whenever your list's
+> `children` can shrink and you want removals to animate.
+
+## `initial`, `animate`, `exit`, `variants`, `transition`, and `controller`
+
+Every other `NibMotionList` prop is forwarded to each child's `NibMotion`
+unchanged, with the same meaning described on
+[Animate](/docs/animate) and [Variants](/docs/variants):
+
+- **`initial`** and **`animate`** — each either a `NibAnim` or a `String`
+  naming an entry in `variants`, applied to every child exactly as they would
+  be on a single `NibMotion`.
+- **`exit`** — a `NibAnim` played by each child when `presenceEnabled` is
+  `true` and that child is removed (see above).
+- **`variants`** — a shared `NibVariants` map that every child's `initial`
+  and `animate` strings are resolved against, just as with a standalone
+  `NibMotion`.
+- **`transition`** — the base `NibTransition` (duration, curve, delay,
+  spring, etc.) used for every child's `animate`. `NibMotionList` only adds to
+  this transition's `delay` — per child — to produce the stagger; every other
+  field (`duration`, `curve`, `spring`, `delayChildren`, `staggerChildren`) is
+  passed through unchanged to each child.
+- **`controller`** — forwarded to every child's `NibMotion.controller`, so a
+  single `NibMotionController` drives the entire list's children together
+  (see [Motion Controller](/docs/motion-controller)).
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:nib_motion/nib_motion.dart';
+
+const listVariants = NibVariants({
+  'hidden': NibAnim(opacity: 0, y: 16),
+  'visible': NibAnim(opacity: 1, y: 0),
+});
+
+NibMotionList(
+  variants: listVariants,
+  initial: 'hidden',
+  animate: 'visible',
+  staggerDelay: const Duration(milliseconds: 80),
+  transition: const NibTransition(
+    duration: Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  ),
+  children: [
+    for (final label in labels) Text(label),
+  ],
+)
+```
+
+Here, `'hidden'` and `'visible'` are resolved against `listVariants` for every
+child, each child uses the same `250ms` `easeOut` transition, and each
+successive child's `delay` is offset by an additional `80ms` on top of that
+shared transition's `delay` (which is `Duration.zero` by default).
+
+## API reference
+
+### `NibMotionList`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `children` | `List<Widget>` | required | The widgets to animate. If `presenceEnabled` is `true`, each must carry a non-null, unique `Key`. |
+| `initial` | `NibAnim \| String?` | `null` | Forwarded to every child's `NibMotion.initial`. Either a `NibAnim` or a `String` naming an entry in `variants`. |
+| `animate` | `NibAnim \| String?` | `null` | Forwarded to every child's `NibMotion.animate`. Either a `NibAnim` or a `String` naming an entry in `variants`. |
+| `exit` | `NibAnim?` | `null` | Forwarded to every child's `NibMotion.exit`, played when `presenceEnabled` is `true` and that child is removed from `children`. |
+| `variants` | `NibVariants?` | `null` | Forwarded to every child's `NibMotion.variants`, for resolving `initial` and `animate` when they are variant-name `String`s. |
+| `staggerDelay` | `Duration` | `Duration(milliseconds: 50)` | Extra delay applied per child, multiplied by its position in `staggerDirection` order, on top of `transition`'s own `delay`. |
+| `staggerDirection` | `NibStaggerDirection` | `NibStaggerDirection.forward` | Which end of `children` animates first. |
+| `transition` | `NibTransition?` | `null` (falls back to `NibMotion`'s default) | The transition used for each child's `animate`. The per-child stagger offset is added to `NibTransition.delay`; every other field is passed through unchanged. |
+| `controller` | `NibMotionController?` | `null` | Forwarded to every child's `NibMotion.controller`, so a single controller drives every child. |
+| `presenceEnabled` | `bool` | `false` | Whether a child removed from `children` plays its `exit` animation via `NibPresence` before being removed from the tree. If `false`, children are laid out in a `Column`. |
+
+### `NibStaggerDirection`
+
+| Value | Description |
+| --- | --- |
+| `forward` | The first child (index `0`) animates first. |
+| `reverse` | The last child animates first. |
+
+## Next steps
+
+- **[Presence](/docs/presence)** — `NibMotionList`'s `presenceEnabled` option
+  is built directly on `NibPresence`. If you want finer control over exit
+  animations — or want to use the same removal-aware pattern outside of
+  `NibMotionList` — see how `NibPresence` works on its own.
+- **[Layout Animations](/docs/layout-animations)** — once a list's items can
+  animate in, out, and stagger, the next question is how the *remaining*
+  items animate as they reflow into their new positions — covered on the
+  layout animations page.
