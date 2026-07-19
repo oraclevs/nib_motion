@@ -51,6 +51,7 @@ export 'src/scroll/nib_scroll_reveal.dart';
 export 'src/scroll/scroll_motion_bridge.dart';
 export 'src/shaders/nib_dissolve.dart';
 export 'src/shaders/nib_shimmer.dart';
+export 'src/shaders/shader_loader.dart';
 export 'src/text/nib_text.dart' show NibText;
 export 'src/text/nib_text_config.dart';
 export 'src/text/nib_text_gradient.dart';
