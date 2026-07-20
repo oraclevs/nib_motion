@@ -16,6 +16,10 @@ class NibShaderAssets {
   /// Asset path for the animated gradient sweep shader.
   static const String gradientSweep =
       'packages/nib_motion/lib/shaders/gradient_sweep.frag';
+
+  /// Asset path for the liquid-glass backdrop-refraction shader.
+  static const String liquidGlass =
+      'packages/nib_motion/lib/shaders/liquid_glass.frag';
 }
 
 /// A singleton cache/loader for the [FragmentProgram]s bundled with
@@ -45,6 +49,11 @@ class NibShaderLoader {
   static Future<FragmentProgram> gradientSweep() =>
       _load(NibShaderAssets.gradientSweep);
 
+  /// Returns the cached or newly-started [Future] that resolves to the
+  /// compiled [FragmentProgram] for the liquid-glass shader.
+  static Future<FragmentProgram> liquidGlass() =>
+      _load(NibShaderAssets.liquidGlass);
+
   static Future<FragmentProgram> _load(String assetKey) {
     return _cache.putIfAbsent(
         assetKey, () => FragmentProgram.fromAsset(assetKey));
@@ -66,6 +75,7 @@ class NibShaderLoader {
       shimmer().then((_) {}, onError: (_) {}),
       dissolve().then((_) {}, onError: (_) {}),
       gradientSweep().then((_) {}, onError: (_) {}),
+      liquidGlass().then((_) {}, onError: (_) {}),
     ]);
   }
 

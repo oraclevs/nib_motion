@@ -43,6 +43,7 @@ class NibScaffold extends StatefulWidget {
     this.extendBodyBehindNavBar = false,
     this.backgroundColor,
     this.useMaterialScaffold = false,
+    this.resizeToAvoidBottomInset = false,
   }) : assert(
           screens.length == navItems.length,
           'NibScaffold: screens and navItems must have the same length.',
@@ -99,6 +100,13 @@ class NibScaffold extends StatefulWidget {
   /// avoidance, [floatingActionButton] placement, and other Material
   /// behaviors. Defaults to `false`.
   final bool useMaterialScaffold;
+
+  /// Whether the soft keyboard resizes the body (pushing a bottom-docked
+  /// [NibNavBar] up with it). Defaults to `false` — the nav bar stays pinned to
+  /// the bottom edge and the keyboard is drawn **over** it, which is the correct
+  /// behaviour for a persistent bottom bar. Only takes effect when
+  /// [useMaterialScaffold] is `true`.
+  final bool resizeToAvoidBottomInset;
 
   @override
   State<NibScaffold> createState() => _NibScaffoldState();
@@ -170,6 +178,7 @@ class _NibScaffoldState extends State<NibScaffold> {
       return Scaffold(
         backgroundColor: widget.backgroundColor,
         floatingActionButton: widget.floatingActionButton,
+        resizeToAvoidBottomInset: widget.resizeToAvoidBottomInset,
         body: stack,
       );
     }

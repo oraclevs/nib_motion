@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
+import '../shaders/nib_glass.dart';
 import '../values/motion_value.dart';
 import 'nib_nav_bar_painter.dart';
 import 'nib_nav_item.dart';
@@ -312,6 +313,21 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
         : contentRect.top + contentRect.height / 2;
   }
 
+  /// Wraps the bar's painter in a [NibGlass] liquid-glass surface when
+  /// [NibNavBarStyle.glass] is set, so the content behind the bar refracts
+  /// through it; otherwise returns [child] untouched.
+  Widget _maybeGlass(Widget child) {
+    final style = widget.style;
+    if (!style.glass) return child;
+    return NibGlass(
+      borderRadius: style.borderRadius ?? BorderRadius.zero,
+      blurSigma: style.glassBlur,
+      tint: style.glassTint ?? const Color(0x1FFFFFFF),
+      highlight: style.glassHighlight,
+      child: child,
+    );
+  }
+
   // ---------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------
@@ -344,6 +360,15 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
           );
           final iconCenterY = _iconCenterY(contentRect);
 
+          // When glass, the painter draws only the indicator + labels — the
+          // opaque background is replaced by the NibGlass surface below.
+          final painterStyle = widget.style.glass
+              ? widget.style.copyWith(
+                  backgroundColor: const Color(0x00000000),
+                  elevation: 0,
+                )
+              : widget.style;
+
           return SizedBox(
             width: width,
             height: widget.style.height,
@@ -365,19 +390,21 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
                         },
                   onTapUp: (_) => _onTapReleased(),
                   onTapCancel: _onTapReleased,
-                  child: CustomPaint(
-                    size: Size(width, widget.style.height),
-                    painter: NibNavBarPainter(
-                      items: widget.items,
-                      currentIndex: widget.currentIndex,
-                      style: widget.style,
-                      indicator: widget.indicator,
-                      indicatorX: _indicatorX,
-                      indicatorWidth: _indicatorWidth,
-                      indicatorHeight: _indicatorHeight,
-                      indicatorOpacity: _indicatorOpacity,
-                      itemScales: _itemScales,
-                      itemOpacities: _itemOpacities,
+                  child: _maybeGlass(
+                    CustomPaint(
+                      size: Size(width, widget.style.height),
+                      painter: NibNavBarPainter(
+                        items: widget.items,
+                        currentIndex: widget.currentIndex,
+                        style: painterStyle,
+                        indicator: widget.indicator,
+                        indicatorX: _indicatorX,
+                        indicatorWidth: _indicatorWidth,
+                        indicatorHeight: _indicatorHeight,
+                        indicatorOpacity: _indicatorOpacity,
+                        itemScales: _itemScales,
+                        itemOpacities: _itemOpacities,
+                      ),
                     ),
                   ),
                 ),

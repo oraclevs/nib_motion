@@ -20,6 +20,10 @@ class NibNavBarStyle {
     this.border,
     this.iconSize = 24,
     this.labelStyle,
+    this.glass = false,
+    this.glassTint,
+    this.glassBlur = 8,
+    this.glassHighlight = 0.7,
   });
 
   /// The standard light-mode style used when no style is supplied.
@@ -61,6 +65,22 @@ class NibNavBarStyle {
   /// Text style applied to each item's label.
   final TextStyle? labelStyle;
 
+  /// Whether the bar's background is rendered as a `NibGlass` liquid-glass
+  /// surface (the content scrolls behind it, refracted) instead of a flat
+  /// [backgroundColor] fill. Pair with `extendBodyBehindNavBar: true` on a
+  /// `NibScaffold` so there is something to refract.
+  final bool glass;
+
+  /// Tint of the glass surface when [glass] is `true`. Defaults to a light
+  /// white sheen.
+  final Color? glassTint;
+
+  /// Backdrop blur of the glass surface when [glass] is `true`.
+  final double glassBlur;
+
+  /// Specular highlight intensity of the glass surface when [glass] is `true`.
+  final double glassHighlight;
+
   /// Returns a copy of this style with the given fields replaced.
   NibNavBarStyle copyWith({
     Color? backgroundColor,
@@ -74,6 +94,10 @@ class NibNavBarStyle {
     Border? border,
     double? iconSize,
     TextStyle? labelStyle,
+    bool? glass,
+    Color? glassTint,
+    double? glassBlur,
+    double? glassHighlight,
   }) {
     return NibNavBarStyle(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -87,6 +111,10 @@ class NibNavBarStyle {
       border: border ?? this.border,
       iconSize: iconSize ?? this.iconSize,
       labelStyle: labelStyle ?? this.labelStyle,
+      glass: glass ?? this.glass,
+      glassTint: glassTint ?? this.glassTint,
+      glassBlur: glassBlur ?? this.glassBlur,
+      glassHighlight: glassHighlight ?? this.glassHighlight,
     );
   }
 
@@ -104,7 +132,11 @@ class NibNavBarStyle {
         other.borderRadius == borderRadius &&
         other.border == border &&
         other.iconSize == iconSize &&
-        other.labelStyle == labelStyle;
+        other.labelStyle == labelStyle &&
+        other.glass == glass &&
+        other.glassTint == glassTint &&
+        other.glassBlur == glassBlur &&
+        other.glassHighlight == glassHighlight;
   }
 
   @override
@@ -120,6 +152,10 @@ class NibNavBarStyle {
         border,
         iconSize,
         labelStyle,
+        glass,
+        glassTint,
+        glassBlur,
+        glassHighlight,
       );
 }
 

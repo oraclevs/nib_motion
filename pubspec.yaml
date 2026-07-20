@@ -1,9 +1,9 @@
 name: nib_motion
-description: "A declarative, physics-based animation framework for Flutter. Inspired by Framer Motion — springs, gestures, variants, presence, scroll, FLIP layout, and GPU shader effects with zero external dependencies."
-version: 0.2.1
-homepage: https://nib-website-five.vercel.app
-repository: https://github.com/oraclevs/Nib-Motion
-issue_tracker: https://github.com/oraclevs/Nib-Motion/issues
+description: "A declarative, physics-based Flutter animation framework inspired by Framer Motion — springs, gestures, variants, presence, FLIP layout, and GPU shaders."
+version: 0.3.0
+homepage: https://www.nibmotion.xyz
+repository: https://github.com/oraclevs/nib_motion
+issue_tracker: https://github.com/oraclevs/nib_motion/issues
 
 
 environment:
@@ -24,6 +24,7 @@ flutter:
     - lib/shaders/shimmer.frag
     - lib/shaders/dissolve.frag
     - lib/shaders/gradient_sweep.frag
+    - lib/shaders/liquid_glass.frag
 
 
 

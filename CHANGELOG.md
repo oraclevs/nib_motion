@@ -1,3 +1,17 @@
+## 0.3.0
+
+* **Liquid Glass**: new `NibGlass` widget — a physically-modelled glass dome
+  over the backdrop (Apple's Liquid Glass material), with Snell's-law
+  refraction, chromatic aberration, and a light-driven specular highlight,
+  rendered by the bundled `liquid_glass.frag` shader.
+* **Glass nav bar**: `NibNavBarStyle` gains `glass`, `glassTint`, `glassBlur`,
+  and `glassHighlight` — render `NibNavBar`/`NibScaffold`'s bar as a live
+  liquid-glass surface.
+* Added the `liquid_glass` shader asset (`NibShaderAssets.liquidGlass`) and
+  loader (`NibShaderLoader.liquidGlass()`), preloaded alongside the other
+  built-in shaders.
+* Exported `NibGlass` from the package barrel.
+
 ## 0.2.1
 
 * Added example app demonstrating core primitives.
