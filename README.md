@@ -20,8 +20,8 @@
 </p>
 
 <p align="center">
-  <a href="https://nib-website-five.vercel.app/motion">Live Demo</a> ·
-  <a href="https://nib-website-five.vercel.app/docs">Documentation</a> ·
+  <a href="https://www.nibmotion.xyz/motion">Live Demo</a> ·
+  <a href="https://www.nibmotion.xyz/docs">Documentation</a> ·
   <a href="https://pub.dev/packages/nib_motion">pub.dev</a>
 </p>
 
@@ -89,6 +89,7 @@ NibMotion(
 | **Keyframes** | Multi-step animations with easing control |
 | **Text** | Per-char/word/line — `NibText`, `NibTypewriter`, `NibGradientText`, `NibTextReveal` |
 | **Shaders** | GPU effects — `NibShimmer`, `NibDissolve` |
+| **Liquid Glass** | `NibGlass` — Apple-style glass with real refraction, chromatic aberration & specular light; glass `NibNavBar`/`NibScaffold` |
 | **Presets** | `NibShake`, `NibBounce`, `NibPulse`, `NibFloat`, `NibFlip`, `NibRubberBand` |
 | **Gestures+** | `NibDraggable`, `NibPinch`, `NibSwipeDismiss` |
 | **Timeline** | `NibTimeline`, `NibAnimationSequence` for orchestration |
@@ -181,6 +182,17 @@ NibMotion(
   animate: const NibAnim(x: 100),
   transition: NibTransition.spring(NibSpringDescription.snappy),
   child: YourWidget(),
+)
+```
+
+### Liquid Glass
+
+```dart
+NibGlass(
+  refractiveIndex: 1.2,
+  chromaticAberration: 0.03,
+  thickness: 20,
+  child: const Text('Liquid Glass'),
 )
 ```
 
