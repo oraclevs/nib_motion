@@ -1,3 +1,8 @@
+## 0.3.1
+
+* Fixed `NibScreenStack` swallowing taps on the incoming screen while its
+  entrance transition was still settling.
+
 ## 0.3.0
 
 * **Liquid Glass**: new `NibGlass` widget — a physically-modelled glass dome

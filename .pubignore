@@ -1,6 +1,7 @@
 # Build artifacts
 build/
 coverage/
+*.log
 
 # README media (logo, banner, GIFs). The README references these via absolute
 # raw.githubusercontent.com URLs, so they ship on GitHub (kept in git) and don't

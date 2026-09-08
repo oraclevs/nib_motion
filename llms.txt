@@ -1,0 +1,3292 @@
+# nib_motion & nib_components — LLM Reference
+
+> This file follows the [llms.txt](https://llmstxt.org) convention: a single,
+> information-dense Markdown document intended to be read by an LLM/coding
+> agent before it generates Flutter code against these packages. It is not a
+> human tutorial — it assumes Flutter fluency and favors exact signatures and
+> runnable snippets over prose.
+
+## What This Is
+
+Two sibling Dart/Flutter packages, published independently to pub.dev and
+developed together in the same monorepo:
+
+| Package | pub.dev | Path (this monorepo) | Version | What it is |
+|---|---|---|---|---|
+| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.0 | A declarative, physics-based animation framework for Flutter (Framer Motion-style). Zero pub dependencies beyond the Flutter SDK. |
+| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.1.0 | A native, installable Flutter UI component library — 30+ theme-aware, animated, controller-driven widgets, built on `nib_motion`. |
+
+`nib_components` depends on `nib_motion` (`^0.3.0`) — installing
+`nib_components` pulls `nib_motion` in transitively. You can also use
+`nib_motion` completely standalone, on any Flutter widget, with no
+`nib_components` dependency at all.
+
+**Both are normal pub.dev packages, installed via `flutter pub add` and
+imported directly.** Nothing here is copy-pasted by a CLI into your project —
+if you encounter older documentation (a root-level `CLAUDE.md` in this
+monorepo) describing a shadcn/ui-style "registry" + `nib add <component>` CLI
+that copies component source into your app, that describes an **abandoned,
+earlier design**. It was scrapped 2026-07-10 in favor of the two real,
+installable packages described in this file. Do not follow that model.
+
+## Installation
+
+```bash
+# Animation framework only
+flutter pub add nib_motion
+
+# Component library (pulls in nib_motion automatically)
+flutter pub add nib_components
+```
+
+```dart
+import 'package:nib_motion/nib_motion.dart';
+import 'package:nib_components/nib_components.dart'; // if using components
+```
+
+## Design Philosophy
+
+- **Physics over curves, by default.** Most transitions in both packages
+  default to real spring simulations (`NibSpringDescription` presets:
+  `gentle`/`snappy`/`wobbly`/`stiff`) rather than fixed-duration curves. You
+  can always override with a curve-based `NibTransition(duration:, curve:)`
+  instead.
+- **No forced rebuilds for animation.** `nib_motion`'s core primitive,
+  `MotionValue`, drives a `RenderObject` directly via `markNeedsPaint` —
+  animating a `NibMotion` widget never calls `setState`. When building your
+  own animated widgets on top of these packages, preserve this property;
+  don't wrap `NibMotion` in something that rebuilds every frame.
+- **Stateful-by-default, controller-optional** (`nib_components`). Every
+  component works with zero wiring — pass plain parameters and it manages its
+  own internal state. Reach for a `Nib<Component>Controller` only when you
+  need to drive it imperatively from outside.
+- **Theme-aware, light/dark by default.** `nib_components` reads all colors
+  and radii from `NibTheme` (a `ThemeExtension`); components work
+  out-of-the-box without registering it (falls back to `NibTheme.light`/
+  `.dark` by ambient `Brightness`).
+- **Animation is opt-in per component** (`nib_components`). Every component
+  takes `animated: bool = false`. When `false`, it builds **zero**
+  `NibMotion` widgets — not just "animation disabled," literally absent from
+  the tree.
+
+
+---
+
+# nib_motion API Reference
+
+Declarative, physics-based Flutter animation framework (Framer-Motion style), zero pub dependencies. Package root: `lib/nib_motion.dart`.
+
+## Core Concepts
+
+**MotionValue<T>** (`lib/src/values/motion_value.dart`) is a `ChangeNotifier` + `ValueListenable<T>` holding one animatable value. Setting `.value` notifies listeners synchronously only if the value actually changed. It is the single reactive primitive the whole package is built on: animation drivers (`SpringSolver`, `InertiaSolver`, raw `Ticker`s) write into a `MotionValue` every tick, and render objects (`RenderNibMotion` and friends) read it directly during `paint()`. `DerivedMotionValue<S,T>` (via `.transform()`/`.mapRange()`) recomputes reactively from a source `MotionValue`, and is itself chainable.
+
+**NibAnim** (`lib/src/core/nib_anim.dart`) is an immutable snapshot of every property `NibMotion` can animate (x, y, scale/scaleX/scaleY, rotate, skewX/skewY, opacity, color, borderRadius, boxShadow) — the "what to animate to". Every field is nullable, and `null` means "this animation doesn't touch this property", not "reset to identity". `NibAnim.identity` is the only place defaults live; `.lerp()` falls back to `identity`'s value per-property only when interpolating between a set and unset side. `.merge()` (non-null-overrides) is how the Variants system cascades a child's resolved variant state over its parent's.
+
+**NibTransition** (`lib/src/core/nib_transition.dart`) is the "how" — either curve-based tweening (`duration` + `curve`) or real spring physics (`spring: NibSpringDescription`, via `SpringSolver`/`flutter/physics.dart`'s `SpringSimulation`). Setting `spring` makes `type` resolve to `NibTransitionType.spring` and `duration`/`curve` are ignored. It also carries `delay`, `delayChildren`, and `staggerChildren` for stagger timing. `NibAnim` and `NibTransition` are deliberately separate — "what" vs "how" never mix.
+
+**Propagation via InheritedWidget scopes, not props.** Several cross-cutting features use ancestor scopes a `NibMotion` reads instead of prop-drilling: `VariantsScope` (internal, not exported — created by `NibMotion.build`) propagates a `String` variant name plus stagger timing to descendants whose `variants` map has a matching key and no explicit `animate`; `NibPresenceScope` (internal) lets a `NibMotion` with `exit` register/unregister with the nearest ancestor `NibPresence` so its exit animation plays before removal; `NibMotionReplayScope` (exported) lets `NibScreenStack` (and any custom code) force entrance animations to replay, e.g. on tab revisit.
+
+**Zero-rebuild animation is the load-bearing performance property of the entire package.** `NibMotion` owns one `MotionValue<double|Color?|BorderRadius?|List<BoxShadow>?>` per property, handed straight to `RenderNibMotion` (a `RenderProxyBox`). Animating never calls `setState` — a `MotionValue` notification calls `markNeedsPaint()` (and `markNeedsCompositingBitsUpdate()` for opacity) directly on the render object. Every other primitive in the package (`NibDraggable`, `NibPinch`, `NibShimmer`, `NibDrawPath`, `NibNavBar`'s `CustomPainter`, etc.) follows the identical pattern: a `MotionValue` written by a `Ticker`/`SpringSolver`/gesture callback, read directly in `paint()`. The only sanctioned exceptions are `NibTypewriter` (a discrete content value, not a per-frame paint value) and `NibPerfOverlay` (updates ~1Hz from `SchedulerBinding.addTimingsCallback`, not a member of the 60-120fps pipeline).
+
+**Reduced motion & startup warm-up.** `NibMotionConfig` (in `core/reduced_motion.dart`) resolves reduced-motion via `setReducedMotion` override > `NibMotionConfig.reducedMotion` > `MediaQuery.disableAnimations`; when true, `NibMotion` jumps straight to the target with `setImmediately`. `NibMotionConfig.entranceWarmup` (400ms default) delays entrance animations (`animate`/`keyframes` on first build) so they don't run unseen under a native splash screen; `NibMotionGate.hold()`/`release()` extends that hold indefinitely for apps using `flutter_native_splash` in "preserve" mode.
+
+## Widget/API Reference
+
+### core
+
+#### `NibMotion` (`nib_motion_widget.dart`)
+The central animated widget — owns a `MotionValue` per property and drives it via spring/tween.
+- `initial: Object?` — `NibAnim` or variant-name `String`; starting state (default `NibAnim.identity`)
+- `animate: Object?` — `NibAnim` or variant-name `String`; target state. `null` with `variants` set means "inherit from ancestor `VariantsScope`"
+- `exit: NibAnim?` — played by an ancestor `NibPresence` before removal. **Requires non-null `key`** (constructor `assert`)
+- `whileTap`, `whileHover`, `whileFocus`, `whileDrag: NibAnim?` — gesture-state overrides; priority `drag > tap > hover > focus > none`
+- `drag: NibDragConfig?` — enables dragging when non-null
+- `whileInView: NibAnim?`, `viewport: NibInViewConfig?` — scroll-triggered animation
+- `variants: NibVariants?` — named `NibAnim` map for `initial`/`animate` string lookup and inheritance
+- `keyframes: List<NibKeyframe>?` — multi-step entrance overriding `initial`/`animate`; spring transitions unsupported with keyframes
+- `motionValues: NibMotionValues?` — external `MotionValue` overrides, bypassing spring/tween per-property
+- `transition: NibTransition?` — default `NibMotionConfig.defaultTransitionOf(context)` if null
+- `controller: NibMotionController?` — imperative external driver
+- `repeatAnimationInLoop: bool = false` — forever ping-pong `initial ⇄ animate`
+- `child: Widget` required
+```dart
+NibMotion(
+  initial: const NibAnim(opacity: 0, y: 24),
+  animate: const NibAnim(opacity: 1, y: 0),
+  whileTap: const NibAnim(scale: 0.95),
+  transition: NibTransition.springSnappy,
+  child: const Card(child: Text('Hello')),
+)
+```
+Gotcha: `exit` without a `key` throws an assertion. Spring transitions ignore `keyframes` entirely (curve-only).
+
+#### `NibAnim` (`nib_anim.dart`)
+Immutable snapshot: `x, y, scale, scaleX, scaleY, rotate, skewX, skewY` (`double?`), `opacity: double?`, `color: Color?`, `borderRadius: BorderRadius?`, `boxShadow: List<BoxShadow>?`. All default `null` (untouched). `static const identity` sets every transform/opacity field to its neutral value. Methods: `lerp(other, t)`, `copyWith({...})`, `merge(other)` (other's non-null wins).
+
+#### `NibTransition` (`nib_transition.dart`)
+- `duration: Duration = 300ms`, `curve: Curve = Curves.easeInOut`, `delay: Duration = Duration.zero`
+- `spring: NibSpringDescription?` — non-null switches `type` to `.spring`
+- `delayChildren: Duration = Duration.zero`, `staggerChildren: Duration = Duration.zero`
+- Static presets: `springGentle`, `springSnappy`, `springWobbly` (each just sets `spring:`)
+- `NibTransitionType` enum: `tween`, `spring`
+
+#### `NibKeyframe` / `computeAnimFromKeyframes` (`nib_keyframe.dart`)
+`NibKeyframe({required at: double, required value: NibAnim, curve: Curve?})` — one point in a `NibMotion.keyframes` sequence; `curve` styles the segment *into* this keyframe. `computeAnimFromKeyframes(keyframes, t, defaultCurve) → NibAnim` is the top-level interpolation function (sorts by `at` if needed, binary-searches the surrounding pair, lerps).
+```dart
+NibMotion(
+  keyframes: const [
+    NibKeyframe(at: 0.0, value: NibAnim(y: -60, opacity: 0)),
+    NibKeyframe(at: 0.6, value: NibAnim(y: 0, opacity: 1)),
+    NibKeyframe(at: 1.0, value: NibAnim(y: 0)),
+  ],
+  child: const Text('Bounced in'),
+)
+```
+
+#### `NibMotionController` (`nib_motion_controller.dart`)
+Imperative multi-widget driver — attach the same controller to several `NibMotion`s via `controller:`.
+- `start({NibAnim? target, List<NibKeyframe>? keyframes, NibTransition? transition}) → Future<void>` — exactly one of `target`/`keyframes`, or neither to replay entrance
+- `set(NibAnim target)` — immediate, no animation
+- `stop()` — freezes in place
+- `repeat([bool enabled = true])` — toggles the ping-pong loop at runtime
+- `sequence(List<NibMotionSequenceStep> steps) → Future<void>` — runs steps in order, awaiting each's animation + optional `wait`
+- `NibMotionSequenceStep({required target: NibAnim, transition: NibTransition?, wait: Duration?})`
+```dart
+final controller = NibMotionController();
+ElevatedButton(onPressed: () => controller.start(target: const NibAnim(opacity: 0, y: -20)), child: const Text('Hide'));
+NibMotion(controller: controller, animate: const NibAnim(opacity: 1, y: 0), child: const Text('Target'));
+// dispose controller in State.dispose()
+```
+Gotcha: must call `controller.dispose()` yourself — it's a plain `ChangeNotifier`, not owned by any `NibMotion`.
+
+#### `NibMotionGate` (`nib_motion_gate.dart`)
+`abstract final class` — global `static ValueNotifier<bool> ready` (default `true`). `hold()` freezes all entrance animations at frame 0; `release()` lets them proceed; `reset()` (tests only) restores default.
+```dart
+void main() {
+  NibMotionGate.hold();
+  runApp(const MyApp());
+}
+// after FlutterNativeSplash.remove():
+NibMotionGate.release();
+```
+
+#### `NibMotionProvider` (`nib_motion_provider.dart`)
+Thin `StatelessWidget` wrapper over `NibMotionConfig` for app-root configuration.
+- `child: Widget` required, `defaultTransition: NibTransition = NibTransition()`, `respectReducedMotion: bool = true`, `debug: bool = false` (reserved, not wired)
+```dart
+runApp(NibMotionProvider(defaultTransition: NibTransition.springGentle, child: const MyApp()));
+```
+
+#### `NibMotionConfig` (`reduced_motion.dart`)
+`InheritedWidget` — `reducedMotion: bool?`, `defaultTransition: NibTransition = NibTransition()`, `entranceWarmup: Duration = 400ms`, `child` required. Statics: `maybeOf(context)`, `shouldReduceMotion(context)`, `defaultTransitionOf(context)`, `remainingWarmup(context)`, `setReducedMotion(bool?)` (test override), `resetAppStartTime()` (test), `globalDefaultTransition`/`reducedMotionEnabled` getters, and `static Future<void> init({preloadShaders = true, defaultTransition = const NibTransition(), respectReducedMotion = true})` — call once before `runApp` to preload bundled shaders and set process-wide defaults.
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NibMotionConfig.init(defaultTransition: NibTransition.springGentle);
+  runApp(const MyApp());
+}
+```
+
+#### `NibMotionReplayScope` / `NibMotionReplaySignal` (`nib_motion_replay_scope.dart`)
+`NibMotionReplaySignal extends ChangeNotifier` — `lastReplayDelay: Duration`, `replay({Duration delay = Duration.zero})`. `NibMotionReplayScope extends InheritedNotifier<NibMotionReplaySignal>` — `static maybeOf(context)`. Descendant `NibMotion`s with an entrance animation listen and replay when fired.
+
+#### `NibMotionValues` (`nib_motion_values.dart`)
+Immutable bag of optional external `MotionValue`s (`opacity, translateX, translateY, scaleX, scaleY, rotate, skewX, skewY, color, borderRadius, boxShadow`) to feed `NibMotion.motionValues`. Any non-null field is read-but-never-owned by `NibMotion` — caller must dispose it.
+```dart
+NibMotion(
+  motionValues: NibMotionValues(opacity: bridge.scrollY.mapRange([0, 200], [1.0, 0.0])),
+  child: const HeaderBar(),
+)
+```
+
+#### `RenderNibMotion` (`render_nib_motion.dart`)
+`RenderProxyBox` most consumers never instantiate directly — it's `NibMotion`'s internal paint layer, exposed publicly for advanced/testing use. Exposes settable `opacity/translateX/translateY/scaleX/scaleY/rotate/skewX/skewY/color/borderRadius/boxShadow` (`MotionValue`s), and a `transform` getter (the composed `Matrix4`). Paint order: opacity → transform → shadow → color fill → clip → child.
+
+### values (`lib/src/values/`)
+
+#### `MotionValue<T>` (`motion_value.dart`)
+`MotionValue(T initial)`; `value` getter/setter (no-op-notify if unchanged); `hasListeners`; `transform<R>(R Function(T) mapper) → DerivedMotionValue<T,R>`. Top-level `motionValue<T>(initial) → MotionValue<T>` factory. Extension `MotionValueMapRange` on `MotionValue<double>`: `.mapRange(List<double> inputRange, List<double> outputRange, {bool clamp = true}) → DerivedMotionValue<double,double>` — linear piecewise map, needs ≥2 stops, clamps by default outside range.
+```dart
+final scrollY = motionValue<double>(0);
+final opacity = scrollY.mapRange([0, 200], [1.0, 0.0]);
+```
+
+#### `DerivedMotionValue<S,T>` (`derived_motion_value.dart`)
+`extends MotionValue<T>`; created via `.transform()`/`.mapRange()`. Recomputes and re-notifies whenever its source changes; chainable since it's itself a `MotionValue`. `dispose()` removes its source listener.
+
+#### `ColorMotionValue` / `BoxShadowMotionValue` (`motion_value_types.dart`)
+Typedefs: `MotionValue<Color?>` and `MotionValue<List<BoxShadow>?>`.
+
+### physics (`lib/src/physics/`)
+
+#### `NibSpringDescription` (`spring_description.dart`)
+`{mass = 1.0, stiffness = 100.0, damping = 10.0}`. Presets: `gentle` (120/14), `snappy` (300/20), `wobbly` (180/12), `stiff` (400/28). `.toFlutter() → flutter_physics.SpringDescription`.
+
+#### `SpringSolver` (`spring_solver.dart`)
+`{required vsync: TickerProvider, required value: MotionValue<double>, required spring: NibSpringDescription, onComplete: VoidCallback?}`. `animateTo({required target, from, initialVelocity = 0})` — if a simulation is already running and no `initialVelocity` is given, continuity is preserved (continues from the outgoing sim's current velocity/position). `velocity` getter, `stop()`, `dispose()`.
+Gotcha (general awareness): the `SpringSimulation` this drives resolves `onComplete`/any `animateTo`-derived `Future` only once `SpringSimulation.isDone()` passes Flutter's tight default `Tolerance` (distance & velocity < 0.001) — this can take ~0.5-1s *longer* than the animation looks visually settled. Don't gate perceptual "done" UI on `NibMotion.animateTo()`'s Future for a spring transition; only use it for chaining subsequent animations.
+
+#### `InertiaSolver` (`inertia_solver.dart`)
+`{required vsync, required value: MotionValue<double>, drag = 0.135, onComplete}` — `FrictionSimulation`-driven coast-to-stop (0.135 matches iOS scroll deceleration). `animateTo({required velocity})`, `stop()`, `dispose()`.
+
+### gestures (`lib/src/gestures/`)
+Only `NibDragConfig` and `NibDragReleaseMode` are exported from `drag_handler.dart` (its `DragHandler` class and `applyElastic` function are package-internal).
+
+#### `NibDragConfig` (`drag_handler.dart`)
+`{axis: Axis?, constraints: Rect?, elastic = false, elasticFactor = 0.2, onDragStart, onDragEnd: void Function(Velocity)?, releaseMode = NibDragReleaseMode.springBack, snapPoints: List<Offset>?}`. `NibDragReleaseMode`: `springBack | inertia | stay`. Feeds `NibMotion.drag`.
+
+#### `NibDraggable` (`nib_draggable.dart`)
+Standalone drag widget (no `NibMotion` integration) — `{required child, axis, bounds, snapBack = false, snapTarget, onDragStart, onDragUpdate, onDragEnd, spring = NibSpringDescription.gentle}`.
+```dart
+NibDraggable(
+  bounds: const Rect.fromLTWH(-100, -100, 200, 200),
+  snapBack: true,
+  child: const FlutterLogo(size: 64),
+)
+```
+
+#### `NibPinch` (`nib_pinch.dart`)
+`{required child, minScale = 0.5, maxScale = 4.0, initialScale = 1.0, snapBackOnRelease = false, onScaleChanged, spring = NibSpringDescription.gentle}`.
+
+#### `NibSwipeDismiss` (`nib_swipe_dismiss.dart`)
+`{required child, required onDismissed: VoidCallback, dismissThreshold = 0.5, dismissDirection = DismissDirection.horizontal, background: Widget?, spring = NibSpringDescription.gentle}`. `DismissDirection`: `horizontal | vertical | startToEnd | endToStart`.
+```dart
+NibSwipeDismiss(
+  onDismissed: () => setState(() => items.removeAt(i)),
+  background: Container(color: Colors.red),
+  child: ListTile(title: Text(items[i])),
+)
+```
+
+### layout (`lib/src/layout/`)
+
+#### `NibLayoutGroup` (`nib_layout_group.dart`)
+FLIP (First-Last-Invert-Play) auto-animate for position changes. `{required children: List<Widget>, transition}` — default `NibTransition.springGentle`. **Every child needs a unique, non-null `Key`.** Newly added children mount without a FLIP animation; removed keys stop being tracked.
+```dart
+NibLayoutGroup(
+  transition: NibTransition.springSnappy,
+  children: [for (final item in sortedItems) ListTile(key: ValueKey(item.id), title: Text(item.name))],
+)
+```
+
+### list (`lib/src/list/`)
+
+#### `NibMotionList` (`nib_motion_list.dart`)
+`{required children, initial, animate, exit, variants, staggerDelay = 50ms, staggerDirection = NibStaggerDirection.forward, transition, controller, presenceEnabled = false}`. Wraps each child in `NibMotion`, offsetting `NibTransition.delay` by `staggerDelay * index`. If `presenceEnabled`, wraps in `NibPresence` (every child then needs a unique `Key`); otherwise lays out in a `Column`. `NibStaggerDirection`: `forward | reverse`.
+
+### nav (`lib/src/nav/`)
+The most widget-heavy corner — a full animated bottom-nav app shell.
+
+#### `NibScaffold` (`nib_scaffold.dart`)
+`{required screens: List<NibNavScreen>, required navItems: List<NibNavItem>` (equal length, asserted), `initialIndex = 0, onIndexChanged, navBarStyle, navIndicator, itemAnimation, screenTransition = NibNavScreenTransition(), floatingActionButton, navBarPosition = NibNavBarPosition.bottom, extendBodyBehindNavBar = false, backgroundColor, useMaterialScaffold = false, resizeToAvoidBottomInset = false}`. Owns the active tab index; every animation tick is `MotionValue`-driven except the single `setState` on tab change. `NibNavBarPosition`: `bottom | top`.
+
+#### `NibScreenStack` (`nib_screen_stack.dart`)
+`{required screens, required currentIndex, screenTransition = NibNavScreenTransition()}` — keeps every screen mounted (per `NibNavScreen.keepAlive`), animating outgoing+incoming simultaneously. `NibNavScreen({required child, keepAlive = true})`.
+
+#### `NibNavBar` (`nib_nav_bar.dart`)
+`{required items: List<NibNavItem>, required currentIndex, required onIndexChanged, style = NibNavBarStyle.standard, indicator = NibNavIndicatorStyle(), itemAnimation = NibNavItemAnimation()}`. Indicator/background driven by `SpringSolver`s into a `CustomPainter`; icons are real `Icon` widgets layered on top (not canvas-rasterized) for crisp scaling.
+
+#### `NibNavItem` / `NibNavBadge` (`nib_nav_item.dart`)
+`NibNavItem({required icon, activeIcon, label, badge, tooltip})` + `copyWith`. `NibNavBadge({count, color, textColor})` — `count: null` = dot, `0` = hidden, `>99` capped at "99+".
+
+#### `NibNavBarStyle` / `NibNavIndicatorStyle` / `NibNavItemAnimation` (`nib_nav_style.dart`)
+Value classes with full `copyWith`/`==`/`hashCode`. `NibNavBarStyle`: `backgroundColor, activeColor, inactiveColor, height=64, padding, margin, elevation=0, borderRadius, border, iconSize=24, labelStyle, glass=false, glassTint, glassBlur=8, glassHighlight=0.7` (static `standard`). `NibNavIndicatorStyle`: `type = NibNavIndicatorType.pill, color, height, width, borderRadius, spring = NibSpringDescription.snappy` (static `none`). `NibNavIndicatorType`: `pill | dot | line | highlight | none`. `NibNavItemAnimation`: `whileTap = NibAnim(scale: 0.85), whileActive = NibAnim(scale: 1.1), tapTransition = NibTransition.springSnappy` (static `none` sets both anims null).
+
+#### `NibNavBarPainter` (`nib_nav_bar_painter.dart`)
+`CustomPainter` used internally by `NibNavBar` — exported for advanced customization but rarely instantiated directly.
+
+#### `NibNavScreenTransition` / `NibNavTransitions` (`nib_nav_transition.dart`, `nib_nav_transitions.dart`)
+`NibNavScreenTransition({type = NibNavTransitionType.fade, spring = NibSpringDescription.gentle, tween, retriggerPageAnimations = false, retriggerDelay = Duration.zero})` — statics `none`, `slide`, `fade`. `NibNavTransitionType`: `fade | slideHorizontal | slideVertical | scale | sharedAxis | none`. `NibNavTransitions.resolve(type, direction, screenSize) → (enterFrom, exitTo)` — static resolver, rarely called directly by consumers.
+
+### path (`lib/src/path/`)
+
+#### `NibDrawPath` / `NibDrawPathController` (`nib_draw_path.dart`)
+`{required path: Path, strokeWidth = 2.0, color = black, strokeCap = round, duration = 1000ms, curve = easeOut, autoPlay = true, repeat = false, controller}`. **Does not integrate with `NibMotionController`** — use `NibDrawPathController` (`play()/pause()/restart()`) instead.
+```dart
+NibDrawPath(path: signaturePath, color: Colors.blue, strokeWidth: 3, duration: const Duration(milliseconds: 1200))
+```
+
+#### `NibPathMotion` / `NibPathMotionController` (`nib_path_motion.dart`)
+`{required child, required path, progress: MotionValue<double>?, duration = 1000ms, curve = easeInOut, repeat = false, autoPlay = true, rotate = false, controller}`. If `progress` is supplied externally, `duration/curve/repeat/autoPlay` are ignored — caller drives it (e.g. from a `ScrollMotionBridge`). Own controller type, same reasoning as `NibDrawPath`.
+
+### presence (`lib/src/presence/`)
+
+#### `NibPresence` (`nib_presence.dart`)
+`{required children: List<Widget>}`. **Every child must carry a non-null, unique `Key`.** Removed children stay mounted (wrapped `IgnorePointer`) until their `NibMotion.exit` finishes via the internal `NibMotionAnimator.triggerExit`, then are removed.
+```dart
+NibPresence(
+  children: [for (final item in items) NibMotion(key: ValueKey(item.id), exit: const NibAnim(opacity: 0, x: -40), child: Tile(item))],
+)
+```
+Gotcha: a child without `exit` set is removed instantly with no animation (its `triggerExit` future resolves immediately).
+
+### presets (`lib/src/presets/`)
+See table below for the ready-made widgets; `NibAnimPresets` (`nib_anim_presets.dart`) is the underlying data library: keyframe lists `shake`, `bounceIn`, `pulse`, `rubberBand`, `wiggle`, and single-state `NibAnim`s `fadeUp/fadeDown/fadeLeft/fadeRight/zoomIn/zoomOut`, usable directly with `NibMotion.keyframes`/`initial`.
+
+### scroll (`lib/src/scroll/`)
+
+#### `ScrollMotionBridge` (`scroll_motion_bridge.dart`)
+`{required controller: ScrollController}` — mirrors `controller.offset` into `scrollY`/`scrollX` (`MotionValue<double>`), from which any animatable value can be derived via `.mapRange()`. Manual `dispose()` required.
+
+#### `NibScrollMotion` (`nib_scroll_motion.dart`)
+`{required controller, required builder: Widget Function(context, ScrollMotionBridge)}` — creates/disposes the bridge for you.
+```dart
+NibScrollMotion(
+  controller: scrollController,
+  builder: (context, bridge) => NibMotion(
+    motionValues: NibMotionValues(opacity: bridge.scrollY.mapRange([0, 200], [1, 0])),
+    child: const HeaderBar(),
+  ),
+)
+```
+
+#### `NibParallax` (`nib_parallax.dart`)
+`{required child, required scrollController, factor = 0.5, axis = Axis.vertical}` — `factor: 0` pins in place, `1` scrolls 1:1 (no visible parallax). Does not need to be inside the tracked scroll view.
+
+#### `NibScrollReveal` (`nib_scroll_reveal.dart`)
+Thin `NibMotion.whileInView` convenience — `{required child, initial = NibAnim(opacity: 0, y: 32), animate = NibAnim.identity, transition, once = true, amount = 0.2}`.
+
+### shaders (`lib/src/shaders/`)
+Require Flutter's shader asset pipeline (`flutter.shaders` in the host `pubspec.yaml` matching `NibShaderAssets`'s paths); all degrade gracefully (child painted as-is, or with a plain opacity fallback) if the shader fails to compile.
+
+#### `NibShaderLoader` / `NibShaderAssets` (`shader_loader.dart`)
+Singleton cache — `shimmer()/dissolve()/gradientSweep()/liquidGlass() → Future<FragmentProgram>`, `preloadAll()` (swallows failures), `resetForTesting()`.
+
+#### `NibShimmer` (`nib_shimmer.dart`)
+`{required child, baseColor, shimmerColor, speed = 1.5, angle = -0.3, enabled = true}` — GPU diagonal sweep skeleton-loader effect.
+
+#### `NibDissolve` (`nib_dissolve.dart`)
+`{required child, duration = 500ms, direction = NibDissolveDirection.outward, noiseScale = 0.02, onComplete}`. `NibDissolveDirection`: `inward | outward`.
+
+#### `NibGlass` (`nib_glass.dart`)
+Liquid-glass surface. `{required child, borderRadius = circular(24), clipper, blurSigma = 1, tint = 0x14FFFFFF, thickness = 20, refractiveIndex = 1.2, chromaticAberration = 0.03, saturation = 1.3, highlight = 0.5, lightDirection = Offset(-0.5, -1)}`. True edge refraction needs the **Impeller** backend (`ui.ImageFilter.isShaderFilterSupported`); otherwise falls back to frosted blur + tint + painted rim. `static Future<bool> debugShaderPathAvailable()` for diagnostics.
+
+### text (`lib/src/text/`)
+`text/nib_text.dart` exports **only `NibText`** — `NibTextUnitData`, `splitGraphemes`, `splitTextIntoUnits`, and `computeStaggerDelay` are public in-file but not part of the package's public surface.
+
+#### `NibTextConfig` (`nib_text_config.dart`)
+`{unit = NibTextUnit.character, initial, animate, exit, staggerDelay = 30ms, staggerFrom = NibTextStaggerFrom.start, transition}`. `NibTextUnit`: `character | word | line`. `NibTextStaggerFrom`: `start | end | center | random`.
+
+#### `NibText` (`nib_text.dart`)
+`NibText(text, {config = NibTextConfig(), style, textAlign, overflow, controller})` and `NibText.rich(span, {...})`. Splits into per-unit `NibMotion`s reusing the core engine — never drives its own per-frame value.
+```dart
+NibText(
+  'Welcome aboard',
+  config: NibTextConfig(
+    unit: NibTextUnit.word,
+    initial: const NibAnim(opacity: 0, y: 12),
+    animate: NibAnim.identity,
+    staggerDelay: const Duration(milliseconds: 60),
+  ),
+)
+```
+Gotcha: `NibText.rich`'s per-span styling within the `InlineSpan` is *not* preserved per-unit — only `style` (the flat base style) is.
+
+#### `NibGradientText` (`nib_text_gradient.dart`)
+`{required text: String, required gradient: Gradient, style, duration = 2000ms, repeat = true, direction = TextDirection.ltr}` — masks an animated gradient sweep onto painted glyph pixels via `BlendMode.srcIn`.
+
+#### `NibTextReveal` (`nib_text_reveal.dart`)
+`{required child, direction = NibTextRevealDirection.left, duration = 500ms, delay = Duration.zero, curve = easeInOut, controller}` — whole-block clip wipe (not per-character). `NibTextRevealDirection`: `left | right | up | down`.
+
+#### `NibTypewriter` (`nib_typewriter.dart`)
+`{required text: String, speed = 50ms, cursor = '|', cursorBlinkInterval = 530ms, style, onComplete, repeat = false, deleteSpeed, delay = Duration.zero}`. The one legitimate `setState`-per-tick widget in the package (discrete character count, driven by `Timer.periodic`, not a continuous paint value).
+
+### timeline (`lib/src/timeline/`)
+
+#### `NibAnimationSequence` (`nib_animation_sequence.dart`)
+Fluent builder over one `NibMotionController`: `.animate(target, {transition})`, `.wait(duration)`, `.call(callback)`, `.loop([times])` (call at most once, before `.play()`; omitted `times` loops forever), `.play() → Future<void>` (never completes if looping forever), `.stop()`, `.dispose()`.
+```dart
+await NibAnimationSequence(controller)
+  .animate(const NibAnim(y: -20, opacity: 0))
+  .wait(const Duration(milliseconds: 100))
+  .animate(const NibAnim(y: 0, opacity: 1), transition: NibTransition.springGentle)
+  .play();
+```
+
+#### `NibTimeline` / `NibTimelineEntry` (`nib_timeline.dart`, `nib_timeline_entry.dart`)
+`NibTimeline(List<NibTimelineEntry> entries)` — sorts by `at`, schedules each entry's `controller.start(target:, transition:)` via internal `Timer`s. `.play() → Future<void>` (completes once the last entry fires+finishes), `.pause()`/`.stop()` (cancel pending timers only), `.dispose()`. `NibTimelineEntry({required controller: NibMotionController, required target: NibAnim, required at: Duration, transition})`.
+```dart
+final timeline = NibTimeline([
+  NibTimelineEntry(controller: titleController, target: const NibAnim(opacity: 1), at: Duration.zero),
+  NibTimelineEntry(controller: subtitleController, target: const NibAnim(opacity: 1), at: const Duration(milliseconds: 150)),
+]);
+await timeline.play();
+```
+
+### variants (`lib/src/variants/`)
+Only `nib_variants.dart` is exported — `VariantsScope`/`VariantsIndexCounter` (`variants_scope.dart`) are package-internal, driven automatically by `NibMotion`.
+
+#### `NibVariants` (`nib_variants.dart`)
+`typedef NibVariants = Map<String, NibAnim>` — named states `NibMotion.initial`/`.animate` resolve by name, and that descendants with their own `variants` react to via propagation.
+```dart
+const containerVariants = {'hidden': NibAnim(opacity: 0), 'visible': NibAnim(opacity: 1)};
+NibMotion(variants: containerVariants, animate: 'visible', child: child); // propagates 'visible' to descendants
+```
+
+### viewport (`lib/src/viewport/`)
+
+#### `NibInViewConfig` (`nib_in_view_config.dart`)
+`{amount = 0.5 (0.0-1.0, asserted), once = false, margin = EdgeInsets.zero}` — configures `NibMotion.whileInView`'s visibility threshold.
+
+### extensions (`lib/src/extensions/`)
+
+#### `NibDurationExtension` on `int` (`duration_extensions.dart`)
+`.ms → Duration(milliseconds: this)`, `.seconds → Duration(seconds: this)`.
+
+#### `NibMotionWidgetExtension` on `Widget` (`widget_motion_extensions.dart`)
+`.animate({initial, animate, exit, transition, whileTap, whileHover, key}) → NibMotion` (wraps `this` as `child`); `.shimmer({enabled = true}) → NibShimmer`; `.revealOnScroll({initial, once = true}) → NibScrollReveal` (default `initial: NibAnimPresets.fadeUp`).
+```dart
+const Text('Hi').animate(initial: const NibAnim(opacity: 0), animate: NibAnim.identity);
+myImage.shimmer();
+const Text('Reveal me').revealOnScroll();
+```
+
+### debug (`lib/src/debug/`)
+
+#### `NibMotionRegistry` (`motion_value_inspector.dart`)
+Global debug-only singleton (`.instance`) mapping string id → `MotionValue`. `register(id, value)`/`unregister(id)`/`values` (unmodifiable snapshot) are all no-ops outside `kDebugMode` — zero production overhead.
+
+#### `NibMotionDebugger` (`nib_motion_debugger.dart`)
+`{required child, enabled = kDebugMode, showBoundingBoxes = true, showMotionValues = true, showFps = true}`. When `enabled: false`, `build()` returns `child` directly — a complete no-op passthrough with zero extra widgets. `showBoundingBoxes` is a simplified visual indicator (dashed-border marker), not true per-widget box tracing (documented engineering trade-off in source).
+```dart
+NibMotionDebugger(child: const MyApp()) // wrap app root during development
+```
+
+#### `NibPerfOverlay` (`nib_perf_overlay.dart`)
+`{textStyle}` — live FPS readout via `SchedulerBinding.addTimingsCallback` (~1Hz updates, not per-frame).
+
+## Presets quick table
+
+| Widget | What it does | Key params |
+|---|---|---|
+| `NibBounce` | Drop-in-from-above + settle bounce entrance (`NibAnimPresets.bounceIn` keyframes) | `duration = 800ms` |
+| `NibFlip` | 3D card flip revealing `back` in place of `front` | `isFlipped`, `duration = 600ms`, `flipAxis = horizontal` |
+| `NibFloat` | Forever gentle up/down float (ping-pong loop) | `distance = 10px`, `duration = 1600ms` |
+| `NibPulse` | Forever "heartbeat" scale pulse (`NibAnimPresets.pulse`, looped) | `duration = 900ms` |
+| `NibRubberBand` | One-shot non-uniform overshoot-and-settle (`NibAnimPresets.rubberBand`) | `duration = 1000ms` |
+| `NibShake` | Rapid left-right shake, triggered on demand via `NibShakeController.shake()` | `controller: NibShakeController?`, `duration = 600ms` |
+
+`NibAnimPresets` (not a widget) additionally exposes raw data: keyframe lists `shake`, `bounceIn`, `pulse`, `rubberBand`, `wiggle`, and single `NibAnim`s `fadeUp/fadeDown/fadeLeft/fadeRight/zoomIn/zoomOut` for use with any `NibMotion.keyframes`/`initial`.
+
+## Common Recipes
+
+**Fade + slide entrance with stagger (list of cards):**
+```dart
+NibMotionList(
+  initial: const NibAnim(opacity: 0, y: 24),
+  animate: NibAnim.identity,
+  staggerDelay: const Duration(milliseconds: 60),
+  children: [for (final c in cards) CardTile(key: ValueKey(c.id), card: c)],
+)
+```
+
+**Draggable card with spring snap-back:**
+```dart
+NibMotion(
+  drag: const NibDragConfig(releaseMode: NibDragReleaseMode.springBack, elastic: true),
+  whileDrag: const NibAnim(scale: 1.05),
+  transition: NibTransition.springGentle,
+  child: const CreditCard(),
+)
+```
+
+**Bottom-nav app shell:**
+```dart
+NibScaffold(
+  navItems: const [
+    NibNavItem(icon: Icon(Icons.home), label: 'Home'),
+    NibNavItem(icon: Icon(Icons.search), label: 'Search'),
+  ],
+  screens: const [NibNavScreen(child: HomeScreen()), NibNavScreen(child: SearchScreen())],
+  screenTransition: const NibNavScreenTransition(type: NibNavTransitionType.sharedAxis),
+)
+```
+
+**Scroll-linked parallax + fade header:**
+```dart
+final scrollController = ScrollController();
+NibScrollMotion(
+  controller: scrollController,
+  builder: (context, bridge) => NibMotion(
+    motionValues: NibMotionValues(opacity: bridge.scrollY.mapRange([0, 150], [1.0, 0.0])),
+    child: const HeaderImage(),
+  ),
+)
+// elsewhere: NibParallax(scrollController: scrollController, factor: 0.4, child: const BackgroundArt())
+```
+
+**Per-word text reveal on entrance:**
+```dart
+NibText(
+  'Ship it.',
+  config: NibTextConfig(
+    unit: NibTextUnit.word,
+    initial: const NibAnim(opacity: 0, y: 16),
+    animate: NibAnim.identity,
+    staggerFrom: NibTextStaggerFrom.start,
+  ),
+)
+```
+
+**Gesture-driven whileTap/whileHover button:**
+```dart
+NibMotion(
+  whileTap: const NibAnim(scale: 0.92),
+  whileHover: const NibAnim(scale: 1.05),
+  transition: NibTransition.springSnappy,
+  child: const ElevatedButtonLikeSurface(),
+)
+```
+
+**Exit animation list (remove-with-animation):**
+```dart
+NibPresence(
+  children: [
+    for (final item in items)
+      NibMotion(
+        key: ValueKey(item.id),
+        initial: const NibAnim(opacity: 0, x: 40),
+        animate: NibAnim.identity,
+        exit: const NibAnim(opacity: 0, x: -40),
+        child: Tile(item),
+      ),
+  ],
+)
+```
+
+**Variant-driven parent/child cascade:**
+```dart
+const menuVariants = {'closed': NibAnim(opacity: 0, scale: 0.9), 'open': NibAnim(opacity: 1, scale: 1)};
+NibMotion(
+  variants: menuVariants,
+  animate: isOpen ? 'open' : 'closed',
+  transition: const NibTransition(staggerChildren: Duration(milliseconds: 40)),
+  child: Column(children: [for (final item in menuItems) NibMotion(variants: menuVariants, child: MenuRow(item))]),
+)
+```
+
+## Known Pitfalls
+
+- **`exit` requires a non-null `key`.** `NibMotion`'s constructor asserts this — `NibPresence` tracks widget identity across removal by `Key`.
+- **Spring-driven Futures resolve later than the animation looks done.** `SpringSolver.animateTo()`/`NibMotion.animateTo()` (and anything chained through `NibMotionController.start`/`.sequence`) complete only once `SpringSimulation.isDone()` passes Flutter's tight default `Tolerance` (distance & velocity < 0.001) — this can trail the perceptual settle by ~0.5-1s. Only rely on these Futures for chaining subsequent animation steps, never to gate "animation finished" UI/interaction re-enabling.
+- **`NibDrawPath`/`NibPathMotion` don't use `NibMotionController`.** They ship their own `NibDrawPathController`/`NibPathMotionController` (`play/pause/restart`) — passing a `NibMotionController` to them does nothing.
+- **`NibText.rich` doesn't preserve per-span styling per-unit** — only the flat `style:` parameter applies to every split unit; mixed-style `TextSpan` children are flattened to plain text for splitting.
+- **`text/nib_text.dart`'s only exported symbol is `NibText`** — `splitGraphemes`, `NibTextUnitData`, `splitTextIntoUnits`, `computeStaggerDelay` are public in the source file but not part of the package API (the barrel uses `show NibText`).
+- **`gestures/drag_handler.dart` only exports `NibDragConfig`/`NibDragReleaseMode`** — `DragHandler` and `applyElastic` are internal; use `NibMotion.drag` or `NibDraggable`, not the handler directly.
+- **`NibPresence` children without an `exit`** are removed from the tree instantly (their `triggerExit` Future resolves immediately with no animation) — set `exit` on every child you want to animate out.
+- **Manual dispose responsibilities:** `NibMotionController`, `ScrollMotionBridge`, `NibShakeController`, `NibAnimationSequence`, `NibTimeline`, and any externally-owned `MotionValue` passed via `NibMotionValues`/`NibPathMotion.progress` are **not** disposed by the widgets that consume them — the creator must call `.dispose()`.
+- **`TickerProvider` requirement:** almost every driver (`SpringSolver`, `InertiaSolver`, raw `Ticker`-based widgets like `NibDrawPath`/`NibFlip`/`NibShimmer`/`NibDissolve`/`NibGradientText`) needs a `vsync`; all the package's own `StatefulWidget`s already mix in `TickerProviderStateMixin`/`SingleTickerProviderStateMixin` — only relevant if you drive `SpringSolver`/`InertiaSolver` yourself outside a `NibMotion`.
+- **Reduced-motion jump semantics:** when `NibMotionConfig.shouldReduceMotion(context)` is true, `NibMotion.animateTo`/keyframe playback/loop all jump straight to the target with `setImmediately` — no animation frames run at all (not just "faster"), so don't assume any transition frames exist for reduced-motion users.
+- **Shader-backed widgets (`NibShimmer`, `NibDissolve`, `NibGlass`) degrade silently** if the host app hasn't declared `nib_motion`'s shader assets in its own `pubspec.yaml` `flutter.shaders`, or on a non-Impeller rendering backend for `NibGlass`'s true refraction path — they never throw, just fall back to a plain child paint (or blur, for `NibGlass`) with no dev-facing warning besides `NibGlass.debugShaderPathAvailable()`.
+- **`NibLayoutGroup`/`NibPresence`/`NibMotionList` (with `presenceEnabled`) all require unique, non-null `Key`s** on every child — omitting one throws (`child.key!`).
+- **`entranceWarmup` (400ms default) delays entrance animations from `NibMotion.initState`**, not just `NibMotionGate` — a widget built well after app start (e.g. on a pushed-later screen) is unaffected since the warmup window has already elapsed, but a widget built in the first frame will visibly wait before its `animate`/`keyframes` entrance begins.
+
+---
+
+# nib_components API Reference
+
+Package: `nib_components` (Flutter). A native, installable widget library — NOT a
+copy-paste CLI/registry (that model is abandoned/historical; ignore any docs at
+`/home/occ/Projects/Nib/CLAUDE.md` describing it). Source: `/home/occ/Projects/Nib/ComponetsNib/nib_components/`.
+Built on the sibling animation package `nib_motion` (`../../MotionNib/motion`, wired
+in as a `path:` dependency pre-publish).
+
+## Core Conventions
+
+**Installation.** `flutter pub add nib_components` — this also pulls in `nib_motion`,
+which every component's animation is built on. Import everything via the single public
+barrel: `import 'package:nib_components/nib_components.dart';`. The barrel
+(`lib/nib_components.dart`) re-exports every file under `lib/src/<component>/` except
+the internal `lib/src/overlay/` support directory (shared anchored-overlay positioning
+logic used by several overlay components — not part of the public API, see Known
+Pitfalls).
+
+**Theming — zero-config with opt-in customization.** Every component reads colors and
+border radii exclusively through `NibTheme.of(context)`, never hardcoded hex values.
+`NibTheme` is a `ThemeExtension<NibTheme>`; if the host app never registers it on
+`ThemeData.extensions`, `NibTheme.of` falls back to the built-in `NibTheme.light` /
+`NibTheme.dark` constant, chosen by the ambient `Theme.of(context).brightness`. To
+customize, register the extension (typically `NibTheme.light`/`.dark` with
+`.copyWith(...)` overrides) on both `theme:` and `darkTheme:`:
+
+```dart
+MaterialApp(
+  theme: ThemeData(extensions: const [NibTheme.light]),
+  darkTheme: ThemeData(extensions: const [NibTheme.dark]),
+  home: const MyHome(),
+);
+```
+
+**Stateful-by-default + optional controller.** Every component is a `StatefulWidget`
+whose public constructor takes plain, simple parameters — no controller required for
+basic use. All bookkeeping (loading/selection/sort/expansion/open-closed/etc.) lives in
+the private `State` class. Components that benefit from external/programmatic control
+additionally expose an optional `<Component>Controller` constructor parameter (a
+`ChangeNotifier` subclass, e.g. `NibDataTableController`, `NibTabsController`,
+`NibAccordionController`). When no controller is passed, the widget creates and owns
+one internally and disposes it on unmount; when a controller *is* passed, the caller
+owns it and is responsible for disposing it — the widget does not dispose a
+caller-supplied controller. Passing a new controller instance to an already-mounted
+widget (`didUpdateWidget`) correctly swaps and disposes the old internally-owned one if
+applicable. Overlay-style APIs exposed as top-level `show...` functions (`showNibDialog`,
+`showNibAlertDialog`, `showNibBottomSheet`, `showNibContextMenu`, `showNibToast`) are the
+exception to "StatefulWidget with a controller" — they are imperative, `Future`-returning
+functions similar to Flutter's own `showDialog`/`showModalBottomSheet`, not widgets
+placed in the tree.
+
+**Motion — `animated` + `transition`, built on `nib_motion`.** Every component that has
+any enter/exit/state-change animation exposes `animated: bool = false` and, where more
+than one visual transition style makes sense, a `transition: NibTransition?` parameter.
+All animation routes exclusively through `nib_motion`'s primitives (`NibMotion`,
+`NibShimmer`, etc.) — never Flutter's implicit-animation widgets
+(`AnimatedContainer`/`AnimatedOpacity`/etc.). **When `animated: false`, the component
+builds zero `NibMotion`-family widgets at all** — this is a hard architectural
+invariant (verified in the source test suite with `find.byType(NibMotion), findsNothing`),
+not merely "animation configured off." Treat `animated: true` as changing which widget
+subtree gets built, not just a flag consumed by an animated widget that's always present.
+
+**Responsive by default.** Components must not silently clip, overflow, or squish
+content when the viewport is narrower than the content's natural size. The canonical
+pattern (set by `NibDataTable`) is a `LayoutBuilder` that compares available width
+against intrinsic content width and falls back to a scrollable axis
+(`SingleChildScrollView`) rather than compressing content below a usable size. Expect
+this pattern in table/tabs/toggle-group/breadcrumb-style components with
+potentially-wide content.
+
+**Naming.** All public widgets are `Nib`-prefixed PascalCase (`NibButton`, `NibCard`,
+`NibDataTable`). Controllers: `Nib<Component>Controller`. Variant/type enums: no `Nib`
+prefix by convention in some places but check per-component (this package is more
+consistent about prefixing than the historical registry docs — verify exact enum names
+in the Component Reference below, don't assume). Supporting value types are `Nib`-prefixed
+(`NibDataColumn`, `NibSelectOption`, `NibBreadcrumbItem`, etc.).
+
+## Component Reference
+
+### accordion
+
+Vertically stacked expandable sections with built-in single-open coordination (opening one closes the others, unlike `ExpansionTile`).
+
+`NibAccordion(StatefulWidget)` constructor:
+- `items: List<NibAccordionItem>` (required) — the sections
+- `controller: NibAccordionController? = null` — external controller; internal one created/owned/disposed when null
+- `allowMultipleOpen: bool = false` — allow more than one section open at once
+- `defaultOpenIndex: int? = null` — index to start expanded (respects `allowMultipleOpen`)
+- `animated: bool = false` — opt-in height reveal + chevron rotation via nib_motion
+- `transition: NibTransition? = null` — null → `NibTransition(duration: Duration(milliseconds: 220))`
+- `onExpansionChanged: void Function(int index, bool isOpen)? = null` — fired on user tap
+
+`NibAccordionItem` (data class, not a widget):
+- `title: Widget` (required)
+- `content: Widget` (required)
+- `leading: Widget? = null`
+- `enabled: bool = true`
+
+Controller — `NibAccordionController extends ChangeNotifier`:
+- constructor: `NibAccordionController({Set<int>? initialOpen, bool allowMultiple = false})`
+- `allowMultiple: bool` (mutable field, kept in sync with widget's `allowMultipleOpen`)
+- `openIndices` (getter) — unmodifiable `Set<int>` snapshot of open sections
+- `isOpen(int index) -> bool`
+- `open(int index)` — opens; in single-open mode closes all others
+- `close(int index)` — no-op if already closed
+- `toggle(int index)`
+- `openAll(int count)` — no-op unless `allowMultiple`
+- `closeAll()`
+
+Animation: `animated: true` wraps only the chevron icon in `NibMotion` (keyed by `open` state, rotating between `NibAnim(rotate: ±math.pi)` and `NibAnim.identity`); the height reveal itself is driven by a plain `AnimationController`/`ClipRect`+`Align(heightFactor:)`, not by NibMotion (height can't route through NibMotion's transform/opacity model). `animated: false` → chevron just snaps via `Transform.rotate`, zero `NibMotion` built.
+
+Usage (adapted from `accordion_examples.dart`):
+```dart
+NibAccordion(
+  allowMultipleOpen: true,
+  animated: true,
+  defaultOpenIndex: 0,
+  items: const [
+    NibAccordionItem(
+      leading: Icon(Icons.local_shipping_outlined),
+      title: Text('Shipping'),
+      content: Text('Free standard shipping on orders over \$50.'),
+    ),
+    NibAccordionItem(
+      leading: Icon(Icons.assignment_return_outlined),
+      title: Text('Returns'),
+      content: Text('30-day free returns.'),
+    ),
+  ],
+)
+
+// External controller
+final controller = NibAccordionController(allowMultiple: true);
+NibAccordion(controller: controller, allowMultipleOpen: true, items: faqItems);
+controller.openAll(faqItems.length);
+controller.closeAll();
+```
+
+---
+
+### alert
+
+Imperative confirm/alert popup (Flutter `AlertDialog` equivalent), built on `showNibDialog`. Not a placed widget — call the function to show a modal with title/message and Cancel/OK actions.
+
+`Future<bool?> showNibAlertDialog(BuildContext context, { ... })` parameters:
+- `title: String? = null`
+- `description: String? = null`
+- `content: Widget? = null` — replaces the built-in title/description/icon body; at least one of title/description/content is required (asserted)
+- `severity: NibAlertSeverity? = null` — drives default icon + accent color
+- `icon: Widget? = null` — overrides severity's default icon
+- `iconColor: Color? = null`
+- `titleTextStyle: TextStyle? = null`
+- `descriptionTextStyle: TextStyle? = null`
+- `confirmText: String = 'OK'`
+- `cancelText: String? = 'Cancel'` — pass `null` for a single-button informational alert
+- `onConfirm: VoidCallback? = null`
+- `onCancel: VoidCallback? = null`
+- `cancelVariant: NibButtonVariant = NibButtonVariant.outline`
+- `confirmVariant: NibButtonVariant? = null` — null → `destructive` if `severity == error`, else `primary`
+- `buttonPadding: EdgeInsetsGeometry? = null`
+- `buttonWidth: double? = null` — forces both buttons to identical width
+- `cancelFirst: bool = true` — left-to-right order
+- `actions: List<Widget>? = null` — fully replaces the default Cancel/OK `OverflowBar` row; use `NibDialogScope.of(ctx).close(result)` inside each action
+- `actionsAlignment: MainAxisAlignment = MainAxisAlignment.end`
+- `actionsSpacing: double = 12`
+- `actionsOverflowAlignment: OverflowBarAlignment = OverflowBarAlignment.end`
+- `actionsOverflowDirection: VerticalDirection = VerticalDirection.down`
+- `barrierDismissible: bool = true`
+- `adaptive: bool = false` — iOS/macOS Cupertino-style presentation (centered text, full-width divided text actions) when running on iOS/macOS; Material otherwise regardless of platform
+- `animated: bool = false`
+- `transition: NibTransition? = null`
+
+Returns: `true` on confirm tap, `false` on cancel tap, `null` if dismissed via barrier/Escape.
+
+No controller (imperative function API — the returned `Future` plays that role).
+
+`animated`/`transition` forward directly into `showNibDialog`'s own animation.
+
+Related types — `nib_alert_types.dart`:
+- `enum NibAlertSeverity { info, success, warning, error }`
+- extension `NibAlertSeverityX on NibAlertSeverity`: `defaultIcon() -> IconData`, `accent(NibTheme theme) -> Color` (info→theme.accent, success→`0xFF16A34A` constant, warning→`0xFFF59E0B` constant, error→theme.destructive)
+
+Usage (adapted from `alert_examples.dart`):
+```dart
+final confirmed = await showNibAlertDialog(
+  context,
+  title: 'Delete file?',
+  description: 'This cannot be undone.',
+  severity: NibAlertSeverity.error,
+  confirmText: 'Delete',
+  buttonWidth: 110,
+);
+if (confirmed == true) { /* delete */ }
+
+// Single-button informational alert
+await showNibAlertDialog(
+  context,
+  title: 'Update available',
+  description: 'Version 2.0 is ready to install.',
+  severity: NibAlertSeverity.info,
+  cancelText: null,
+);
+
+// Custom actions row
+final confirmed = await showNibAlertDialog(
+  context,
+  title: 'Replace existing file?',
+  description: 'A file with this name already exists.',
+  actions: [
+    Builder(builder: (ctx) => NibButton(
+      label: 'Keep both',
+      variant: NibButtonVariant.ghost,
+      onPressed: () => NibDialogScope.of(ctx).close(false),
+    )),
+    Builder(builder: (ctx) => NibButton(
+      label: 'Replace',
+      variant: NibButtonVariant.destructive,
+      onPressed: () => NibDialogScope.of(ctx).close(true),
+    )),
+  ],
+);
+```
+
+---
+
+### bottom_sheet
+
+Modal bottom sheet with optional multi-height "snap points" and drag-to-dismiss, offered as both a declarative trigger widget (`NibBottomSheet`) and an imperative function (`showNibBottomSheet`)/lower-level primitive (`openNibBottomSheet`).
+
+**`NibBottomSheet` (StatefulWidget)** — declarative trigger, matches `NibDialog`/`NibSelect` house style:
+- `trigger: Widget? = null` — tapping opens the sheet; omit and drive via `controller` instead
+- `controller: NibBottomSheetController? = null`
+- `content: Widget` (required)
+- `title: String? = null`
+- `snapPoints: List<double>? = null` — fractions (0..1) of available height; omit for a content-sized sheet
+- `initialSnap: int? = null` — index into `snapPoints`; defaults to the most-open snap
+- `onSnapChanged: ValueChanged<int>? = null`
+- `dismissible: bool = true`
+- `showDragHandle: bool = true`
+- `barrierColor: Color? = null` — default `Color(0x73000000)`
+- `animated: bool = false`
+- `transition: NibTransition? = null`
+- `onClose: VoidCallback? = null`
+
+**`showNibBottomSheet<T>(BuildContext context, { ... }) -> Future<T?>`** — imperative, fire-and-forget, returns a future resolving with the result (`null` if dismissed):
+- `content: Widget` (required)
+- `title: String? = null`
+- `snapPoints: List<double>? = null`
+- `initialSnap: int? = null`
+- `onSnapChanged: ValueChanged<int>? = null`
+- `dismissible: bool = true`
+- `showDragHandle: bool = true`
+- `barrierColor: Color? = null`
+- `animated: bool = false`
+- `transition: NibTransition? = null`
+- `onClose: VoidCallback? = null`
+
+**`openNibBottomSheet<T>(BuildContext context, { same params as showNibBottomSheet }) -> NibBottomSheetHandle<T>`** — lower-level primitive both of the above are built on; inserts into the root `Overlay` and returns a handle instead of a bare future. Prefer `showNibBottomSheet` unless you need `snapTo`/`close` from outside the content.
+
+`NibBottomSheetHandle<T>`:
+- `closed: Future<T?>` (getter)
+- `isOpen: bool` (getter)
+- `close([Object? result])`
+- `snapTo(int index)`
+
+Controller — `NibBottomSheetController extends ChangeNotifier`:
+- `isOpen: bool` (getter)
+- `pendingSnap: int?` (getter) — snap index requested but not yet consumed
+- `open()` — no-op if already open
+- `close()` — no-op if already closed
+- `snapTo(int index)` — requests an open sheet animate to snap `index`
+- `consumePendingSnap()` — called by the surface once acted on
+
+`NibBottomSheetScope` (`InheritedWidget`, accessed via `NibBottomSheetScope.of(context)`) — exposed to `content` subtree so buttons inside can dismiss/snap without a controller:
+- `close: void Function([Object? result])`
+- `snapTo: void Function(int index)`
+- `isOpen: bool`
+
+`animated`/`transition`: only the scrim/barrier's enter/exit fade routes through `NibMotion`/`NibPresence` (`animated: true` builds it, `false` builds none). The sheet's own position (enter/drag/snap/exit) is driven by an internal `AnimationController` + `SpringSimulation`, not `NibMotion` directly (can't wrap a continuously drag-controlled transform in NibMotion's declarative enter/animate/exit without fighting the gesture) — but its settle physics use `transition.spring` when animated.
+
+Related types — `nib_bottom_sheet_types.dart` (pure math, no widgets):
+- `kNibSheetMinExtent = 0.05`, `kNibSheetFlingVelocity = 2.0` (constants)
+- `normalizeSnapExtents(List<double>? snapPoints) -> List<double>?`
+- `clampInitialSnapIndex(int count, int? initialSnap) -> int`
+- `resolveSnapTarget({required double currentExtent, required List<double> extents, required double velocity, required bool dismissible, double flingVelocity}) -> int?`
+
+Usage (adapted from `bottom_sheet_examples.dart`):
+```dart
+// Imperative, content-sized
+ElevatedButton(
+  onPressed: () => showNibBottomSheet<void>(
+    context,
+    title: 'Share',
+    content: Builder(
+      builder: (sctx) => Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(
+          leading: const Icon(Icons.link),
+          title: const Text('Copy link'),
+          onTap: () => NibBottomSheetScope.of(sctx).close(),
+        ),
+      ]),
+    ),
+  ),
+  child: const Text('Open sheet'),
+);
+
+// Snap points
+showNibBottomSheet<void>(
+  context,
+  title: 'Nearby places',
+  snapPoints: const [0.25, 0.5, 0.9],
+  initialSnap: 1,
+  animated: true,
+  onSnapChanged: (i) => setState(() => snap = i),
+  content: myList,
+);
+
+// Declarative + controller
+final controller = NibBottomSheetController();
+NibBottomSheet(
+  controller: controller,
+  title: 'Filters',
+  snapPoints: const [0.4, 0.85],
+  animated: true,
+  transition: NibTransition.springGentle,
+  trigger: const Text('Edit filters'),
+  content: Builder(builder: (sctx) => TextButton(
+    onPressed: () => NibBottomSheetScope.of(sctx).close(),
+    child: const Text('Apply'),
+  )),
+);
+controller.open();
+```
+
+---
+
+### breadcrumb
+
+Navigation trail that auto-collapses its middle items into an ellipsis overflow popover menu when there are too many crumbs or the viewport is too narrow.
+
+`NibBreadcrumb(StatefulWidget)` constructor:
+- `items: List<NibBreadcrumbItem>` (required) — trail root → current; the **last** item is the current page
+- `maxVisibleItems: int? = null` — collapse once trail exceeds this count; `null` ⇒ collapse only when it doesn't fit the available width
+- `itemsBeforeCollapse: int = 1` — leading crumbs kept when collapsed
+- `itemsAfterCollapse: int = 1` — trailing crumbs kept when collapsed
+- `separator: Widget? = null` — defaults to a chevron `›` icon
+- `disabled: bool = false` — disables links, dims the trail (opacity 0.5)
+- `overflowPlacement: NibPopoverPlacement = NibPopoverPlacement.bottom`
+- `linkColor: Color? = null` — default `theme.mutedForeground`
+- `currentColor: Color? = null` — default `theme.foreground`
+- `separatorColor: Color? = null` — default `theme.mutedForeground`
+- `fontSize: double? = null` — default `14`
+- `itemPadding: EdgeInsetsGeometry? = null` — default `EdgeInsets.symmetric(horizontal: 4)`
+- `gap: double? = null` — icon↔label spacing, default `6`
+- `animated: bool = false` — crumbs slide+fade in, staggered (`NibAnim(x: -8, opacity: 0)` → identity, delay += 40ms per position)
+- `transition: NibTransition? = null` — null → `NibTransition(duration: Duration(milliseconds: 220))`
+- `semanticLabel: String? = null` — default `'Breadcrumb'`
+
+No controller. Falls back to a horizontal `SingleChildScrollView` as a last-resort overflow guard even after collapsing.
+
+Related types — `nib_breadcrumb_types.dart`:
+- `NibBreadcrumbItem` (data class): `label: String` (required), `icon: Widget? = null`, `onTap: VoidCallback? = null` — a non-null `onTap` on a non-last item renders a focusable link; the last item is always plain/current regardless of `onTap`
+- `breadcrumbVisibleIndices({required int count, required bool collapsed, int before = 1, int after = 1}) -> List<int?>` — pure helper; `null` entries mark the ellipsis slot
+
+Usage (adapted from `breadcrumb_examples.dart`):
+```dart
+NibBreadcrumb(
+  items: [
+    NibBreadcrumbItem(label: 'Home', onTap: () {}),
+    NibBreadcrumbItem(label: 'Docs', onTap: () {}),
+    const NibBreadcrumbItem(label: 'Breadcrumb'), // current page
+  ],
+)
+
+// Long trail, collapsing, animated
+NibBreadcrumb(
+  maxVisibleItems: 4,
+  animated: true,
+  items: [
+    NibBreadcrumbItem(label: 'Home', onTap: () {}),
+    NibBreadcrumbItem(label: 'Workspace', onTap: () {}),
+    NibBreadcrumbItem(label: 'Projects', onTap: () {}),
+    NibBreadcrumbItem(label: 'nib_components', onTap: () {}),
+    NibBreadcrumbItem(label: 'lib', onTap: () {}),
+    const NibBreadcrumbItem(label: 'nib_breadcrumb.dart'),
+  ],
+)
+```
+
+---
+
+### button
+
+Native, token-driven button with five visual variants, three size presets, loading/disabled states, and opt-in tap-pop animation. All variants share identical box geometry for a given size.
+
+`NibButton(StatefulWidget)` constructor:
+- `label: String? = null` — `null` renders icon-only (requires `semanticLabel`)
+- `onPressed: VoidCallback?` (required) — `null` renders disabled
+- `variant: NibButtonVariant = NibButtonVariant.primary`
+- `size: NibButtonSize = NibButtonSize.md`
+- `height: double? = null` — overrides size preset height (≥48 tap target still preserved independently)
+- `width: double? = null` — `null` ⇒ content-sized (square if icon-only, full-width if `expand`)
+- `padding: EdgeInsetsGeometry? = null` — `null` ⇒ size preset's horizontal padding (zero if icon-only)
+- `borderRadius: BorderRadius? = null` — `null` ⇒ pill radius if `pill`, else default radius; overrides `pill` when set
+- `loading: bool = false` — shows `NibCircularLoader` in place of content, blocks taps
+- `disabled: bool = false`
+- `leadingIcon: Widget? = null`
+- `trailingIcon: Widget? = null`
+- `content: Widget? = null` — fully custom child replacing built-in icon/label layout; button still owns tap/ripple/focus/shape/sizing/padding/loading overlay
+- `expand: bool = false` — stretch to parent's full width
+- `pill: bool = false`
+- `tooltip: String? = null`
+- `semanticLabel: String? = null` — required when `label == null`
+- `toggled: bool? = null` — `SemanticsFlag.isToggled` for toggle-like controls (e.g. `NibToggleGroup` segments); `null` omits the flag
+- `focusNode: FocusNode? = null`
+- `autofocus: bool = false`
+- `animated: bool = false` — opt-in tap scale-pop (`NibAnim(scale: 0.94)` → identity, keyed by tap count)
+- `transition: NibTransition? = null` — null → `NibTransition(duration: Duration(milliseconds: 120))`
+- `loadingWidget: Widget? = null` — replaces the default spinner while `loading`
+- `loadingText: String? = null` — text beside the loading indicator
+
+Constructor asserts: needs content/label/an icon to render; icon-only (no label, no content) requires `semanticLabel`.
+
+No controller (state is just an internal tap counter for animation replay + focus).
+
+`animated`: wraps the whole button box in `NibMotion` keyed by tap count, tap = `NibAnim(scale: 0.94)` → `NibAnim.identity`; native ripple/hover/press feedback work regardless of `animated` (not motion-based).
+
+Related types — `nib_button_types.dart`:
+- `enum NibButtonVariant { primary, secondary, outline, ghost, destructive }`
+- `enum NibButtonSize { sm, md, lg }` (sm ~36px/13px text, md ~44px/14px default, lg ~52px/16px)
+- `NibButtonSizeMetrics` (data class): `height`, `fontSize`, `horizontalPadding`, `iconSize`, `gap` (all `double`); static `NibButtonSizeMetrics.of(NibButtonSize size)`
+
+Usage (adapted from `button_examples.dart`):
+```dart
+NibButton(label: 'Click me', onPressed: () {})
+
+NibButton(
+  label: 'Delete',
+  variant: NibButtonVariant.destructive,
+  leadingIcon: const Icon(Icons.delete_outline),
+  onPressed: () {},
+)
+
+NibButton(
+  label: 'Save',
+  loading: isLoading,
+  loadingText: 'Saving…',
+  onPressed: save,
+)
+
+NibButton(onPressed: () {}, semanticLabel: 'Add', leadingIcon: const Icon(Icons.add))
+
+NibButton(label: 'Pop', animated: true, onPressed: () {})
+```
+
+---
+
+### card
+
+Two distinct widgets: `NibCard` (generic content container with header/footer slots) and `NibFlipCard` (a two-face 3D flip card) — separate identities, not variants of one widget.
+
+**`NibCard` (StatefulWidget)** constructor:
+- `child: Widget? = null`
+- `header: Widget? = null` — separated from `child`/`footer` by a `Divider`
+- `footer: Widget? = null` — separated by a `Divider`
+- `padding: EdgeInsetsGeometry? = null` — default `EdgeInsets.all(16)`, applies to `child` only
+- `borderRadius: BorderRadius? = null` — default `theme.radiusLg`
+- `backgroundColor: Color? = null` — default `theme.card`
+- `borderColor: Color? = null` — default `theme.border`
+- `interactive: bool = false` — makes it tappable via internal `InkWell` (native ripple/hover/focus); `false` is a plain static container, zero gesture wrapper
+- `onTap: VoidCallback? = null` — only used when `interactive`; `null` renders disabled
+- `disabled: bool = false` — dims + disables regardless of `onTap`
+- `semanticLabel: String? = null`
+- `animated: bool = false` — opt-in press scale-pop, **only when `interactive`**
+- `transition: NibTransition? = null` — null → `NibTransition(duration: Duration(milliseconds: 150))`
+
+Constructor asserts at least one of `child`/`header`/`footer` is set. No controller. `animated && interactive`: wraps the box in `NibMotion` keyed by tap count, `NibAnim(scale: 0.97)` → identity, replayed each tap.
+
+**`NibFlipCard` (StatefulWidget)** constructor:
+- `front: Widget` (required)
+- `back: Widget` (required)
+- `isFlipped: bool? = null` — external control; `null` (default) ⇒ internally managed uncontrolled state
+- `onFlippedChanged: ValueChanged<bool>? = null` — called on every tap (both controlled/uncontrolled) with the next state
+- `flipAxis: Axis = Axis.horizontal` — `horizontal` rotates around vertical (Y) axis; `vertical` rotates around horizontal (X) axis
+- `duration: Duration? = null` — default `Duration(milliseconds: 600)`
+- `tappable: bool = true` — set `false` to drive purely via `isFlipped` externally
+- `padding: EdgeInsetsGeometry? = null` — default `EdgeInsets.all(16)`
+- `borderRadius: BorderRadius? = null` — default `theme.radiusLg`
+- `frontColor: Color? = null` — default `theme.card`
+- `backColor: Color? = null` — default `theme.card`
+- `borderColor: Color? = null` — default `theme.border`
+- `frontSemanticLabel: String? = null`
+- `backSemanticLabel: String? = null`
+
+No `animated`/`transition` params — the flip itself always animates via `nib_motion`'s `NibFlip` widget (`front`/`back`/`flipAxis`/`duration`/`isFlipped` forwarded directly to it); there is no unanimated mode. No controller (same `expanded: bool?`-style controlled/uncontrolled pattern as `NibAccordion`, driven by `isFlipped`/`onFlippedChanged` instead of a `ChangeNotifier`).
+
+Usage (adapted from `card_examples.dart`):
+```dart
+// Plain NibCard
+const NibCard(child: Text('Plain content'))
+
+// Interactive, animated, header+footer
+NibCard(
+  interactive: true,
+  animated: true,
+  onTap: () => setState(() => taps++),
+  header: Row(children: [Icon(Icons.notifications_outlined), Text('Settings')]),
+  footer: const Text('Manage in Settings'),
+  child: Text('Tapped $taps times.'),
+)
+
+// Flip card, uncontrolled
+const NibFlipCard(
+  front: Center(child: Text('Tap to flip')),
+  back: Center(child: Text('This is the back!')),
+)
+
+// Flip card, controlled externally
+bool flipped = false;
+NibFlipCard(
+  isFlipped: flipped,
+  tappable: false,
+  front: const Center(child: Text('Front')),
+  back: const Center(child: Text('Back')),
+);
+NibButton(label: 'Flip', onPressed: () => setState(() => flipped = !flipped));
+```
+
+---
+
+### carousel
+
+Swipeable carousel of slides built on a native `PageView`, with an optional dots/line page indicator, auto-play (paused during user interaction), a "peek" of adjacent slides, and infinite loop scrolling.
+
+`NibCarousel(StatefulWidget)` constructor:
+- `items: List<Widget>` (required)
+- `controller: NibCarouselController? = null`
+- `height: double = 220`
+- `autoPlay: bool = false` — pauses while dragging; stops at last slide when `loop == false`
+- `autoPlayInterval: Duration = const Duration(seconds: 4)`
+- `loop: bool = false` — infinite wraparound scrolling
+- `peekExtent: double = 0` — logical pixels of neighbouring slides revealed each side; converted to a `PageView.viewportFraction`; ignored if `viewportFraction` set
+- `viewportFraction: double? = null` — explicit override (`1.0` = full width), takes precedence over `peekExtent`
+- `indicatorStyle: NibCarouselIndicatorStyle = NibCarouselIndicatorStyle.dots`
+- `padEnds: bool = true` — forwarded to `PageView.padEnds`
+- `onPageChanged: ValueChanged<int>? = null` — called with the new logical index
+- `animated: bool = false` — animates the active indicator dot
+- `transition: NibTransition? = null` — null → `NibTransition(duration: Duration(milliseconds: 220))`
+
+Also exports `NibCarouselDot` (`StatelessWidget`, public so tests can count them) — one per page indicator mark: `active: bool`, `color: Color`, `inactiveColor: Color`, `radius: double = 9999`, `style: NibCarouselIndicatorStyle = dots`, `animated: bool = false`, `transition: NibTransition? = null`.
+
+Controller — `NibCarouselController extends ChangeNotifier`:
+- `page: int` (getter) — current logical page index (0-based, independent of loop wrapping)
+- `nextPage()` — advances one slide (wraps if looping; no-op at last slide otherwise)
+- `previousPage()` — goes back one slide (wraps if looping; no-op at first slide otherwise)
+- `animateToPage(int page)`
+- `jumpToPage(int page)` — no animation
+
+`animated`: only the active `NibCarouselDot` animates via `NibMotion` (keyed by `active`, `NibAnim(scale: 0.5, opacity: 0.4)` → identity when becoming active, replayed each page change); the `PageView` itself always uses native page-turn physics (`Curves.easeOutCubic`, 320ms), not NibMotion.
+
+Related type — `enum NibCarouselIndicatorStyle { dots, line, none }` (dots = round, active wider+accent-coloured; line = short pills, active elongated; none = no indicator).
+
+Usage (adapted from `carousel_examples.dart`):
+```dart
+NibCarousel(items: [Slide1(), Slide2(), Slide3()])
+
+NibCarousel(
+  items: slides,
+  autoPlay: true,
+  autoPlayInterval: const Duration(seconds: 3),
+  loop: true,
+  peekExtent: 32,
+  animated: true,
+  indicatorStyle: NibCarouselIndicatorStyle.line,
+)
+
+// External controller
+final controller = NibCarouselController();
+NibCarousel(items: slides, controller: controller, loop: true, indicatorStyle: NibCarouselIndicatorStyle.none);
+controller.previousPage();
+controller.nextPage();
+Text('Page ${controller.page + 1} of ${slides.length}');
+```
+### checkbox
+
+Tri-state (`false`/`true`/`null`) checkbox mirroring Flutter's `Checkbox` contract, with optional built-in label/description for a full-row tap target. `NibCheckbox` is a `StatelessWidget` — no internal mutable state, no controller.
+
+`NibCheckbox` constructor:
+- `value: bool?` (required) — must be non-null unless `tristate` is true
+- `onChanged: ValueChanged<bool?>?` — null renders disabled
+- `tristate: bool = false` — cycles `false → true → null → false` on tap when true
+- `label: String?` — extends tap target to full row
+- `description: String?` — secondary line under `label`
+- `disabled: bool = false`
+- `size: double?` — box side length, default 20
+- `activeColor: Color?` — checked/indeterminate fill, default `NibTheme.primary`
+- `contentPadding: EdgeInsetsGeometry?` — default `EdgeInsets.symmetric(vertical: 8, horizontal: 4)`, only used when `label` is set
+- `animated: bool = false`
+- `transition: NibTransition?` — default ~150ms ease
+- `semanticLabel: String?` — defaults to `label`
+- `focusNode: FocusNode?`
+- `autofocus: bool = false`
+
+No `NibCheckboxController` exists — the component has no persistent internal state to control externally (it's fully driven by `value`/`onChanged` like Flutter's own `Checkbox`).
+
+`animated`/`transition`: only the check mark / dash icon inside the box is wrapped in `NibMotion` (`initial: NibAnim(scale: 0)`, `animate: NibAnim(scale: 1)`) when `animated` is true; `false` builds zero `NibMotion`.
+
+Usage (adapted from `checkbox_examples.dart`):
+```dart
+bool checked = false;
+NibCheckbox(value: checked, onChanged: (v) => setState(() => checked = v!));
+
+// Tristate "select all" coordinating child checkboxes
+NibCheckbox(
+  value: allValue, // bool? computed from children
+  tristate: true,
+  label: 'Select all',
+  description: 'Toggles every item below',
+  onChanged: setAll,
+);
+
+// Animated, custom color/size
+NibCheckbox(
+  value: value, // bool?
+  tristate: true,
+  animated: true,
+  size: 26,
+  activeColor: NibTheme.of(context).accent,
+  label: 'Sync across devices',
+  onChanged: (v) => setState(() => value = v),
+);
+```
+
+No related enums/data classes.
+
+---
+
+### combobox
+
+A text field fused with a filtered, keyboard-navigable dropdown of options — supports type-to-filter, single/multi-select (chips in-field), free-text commit, and sync or async (debounced) data sources.
+
+`NibCombobox<T>` constructor:
+- `options: List<NibComboboxOption<T>> = const []` — sync data source, ignored when `asyncOptionsLoader` is set
+- `asyncOptionsLoader: NibComboboxOptionsLoader<T>?` — `Future<List<NibComboboxOption<T>>> Function(String query)`, debounced
+- `multiSelect: bool = false`
+- `allowFreeText: bool = false` — commit (Enter) unmatched text via `onFreeTextSubmitted`; if false, unmatched text reverts on close
+- `debounceDuration: Duration = Duration(milliseconds: 300)`
+- `onChanged: ValueChanged<T?>?` — single-select convenience, fires new value or null on clear
+- `onSelectionChanged: ValueChanged<List<T>>?` — fires full selection in both modes
+- `onFreeTextSubmitted: ValueChanged<String>?`
+- `loading: bool = false` — consumer-forced loading indicator (independent of `asyncOptionsLoader`)
+- `filter: NibComboboxFilter<T>?` — default `defaultComboboxFilter` (case-insensitive substring on label/subtitle); unused on async path
+- `noResultsBuilder: WidgetBuilder?` — default muted "No results" row
+- `placeholder: String = 'Select…'`
+- `clearable: bool = true` — shows trailing ✕ when there's query or selection
+- `disabled: bool = false`
+- `animated: bool = false`
+- `transition: NibTransition?` — default short fade+scale+slide (~140ms)
+- `maxDropdownHeight: double = 280`
+- `controller: NibComboboxController<T>?`
+
+`NibComboboxController<T> extends ChangeNotifier` (optional, owned internally if not passed):
+- `selectedValues: List<T>` (unmodifiable, selection order)
+- `selectedValue: T?` (first selected, or null)
+- `query: String` (read-only mirror of field text)
+- `isOpen: bool`
+- `open()`, `close()`
+- `selectOnly(T value)` — replaces whole selection (single-select)
+- `toggle(T value)` — add/remove (multi-select)
+- `clear()`
+- `setQuery(String value, {bool notify = false})`
+
+`animated`/`transition`: wraps the dropdown overlay `Material` card in `NibMotion` (`initial: NibAnim(opacity: 0, scale: 0.98, y: ±8)`, `animate: NibAnim(opacity: 1, scale: 1, y: 0)`) when true; `false` renders the card directly.
+
+Usage (adapted from `combobox_examples.dart`):
+```dart
+// Minimal single-select
+NibCombobox<String>(
+  options: const [
+    NibComboboxOption(value: 'apple', label: 'Apple', subtitle: 'Crisp and sweet'),
+    NibComboboxOption(value: 'banana', label: 'Banana'),
+  ],
+  placeholder: 'Search fruit…',
+  onChanged: (value) => print(value),
+);
+
+// Multi-select + async loader
+NibCombobox<String>(
+  multiSelect: true,
+  placeholder: 'Type to search countries…',
+  asyncOptionsLoader: (query) async {
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    return [for (final c in countries) if (c.toLowerCase().contains(query.toLowerCase())) NibComboboxOption(value: c, label: c)];
+  },
+  onSelectionChanged: (values) => debugPrint('$values'),
+);
+
+// Free text + controller + animated
+final controller = NibComboboxController<String>();
+NibCombobox<String>(
+  controller: controller,
+  options: fruits,
+  allowFreeText: true,
+  animated: true,
+  onChanged: (v) => setState(() => committed = v),
+  onFreeTextSubmitted: (text) => setState(() => committed = '"$text" (custom)'),
+  noResultsBuilder: (context) => const Text('No preset match — press Enter.'),
+);
+```
+
+Related types:
+- `NibComboboxOption<T>` — `value: T`, `label: String`, `subtitle: String?`, `icon: Widget?`, `disabled: bool = false`
+- `NibComboboxFilter<T>` — `typedef bool Function(NibComboboxOption<T> option, String query)`
+- `NibComboboxOptionsLoader<T>` — `typedef Future<List<NibComboboxOption<T>>> Function(String query)`
+- `defaultComboboxFilter<T>(option, query)` — case-insensitive substring match on label/subtitle
+- `filterOptions<T>(options, query, filter)` — helper applying a filter
+
+---
+
+### command_palette
+
+A `Cmd+K`/`Ctrl+K`-triggered (or programmatic) centered overlay wrapping a `child`, showing a searchable, keyboard-navigable, groupable, drill-down action list.
+
+`NibCommandPalette` constructor:
+- `child: Widget` (required) — wrapped subtree, never rebuilt by open/close (overlay is separate)
+- `actions: List<NibCommandAction>` (required) — root-level action list
+- `openShortcut: ShortcutActivator?` — default `NibCommandPalette.defaultOpenShortcut()` (Cmd+K on macOS/iOS, else Ctrl+K); fires regardless of focus
+- `filter: NibCommandActionFilter?` — default `defaultCommandActionFilter`
+- `placeholder: String = 'Type a command or search…'`
+- `onActionSelected: ValueChanged<NibCommandAction>?` — fires for every leaf selection, in addition to that action's own `onSelected`
+- `showRecent: bool = true` — shows "Recent" section at root level when query empty and history non-empty
+- `maxRecent: int = 5`
+- `animated: bool = false`
+- `transition: NibTransition?` — default short fade+scale (~160ms)
+- `controller: NibCommandPaletteController?`
+
+Static: `NibCommandPalette.defaultOpenShortcut()` returns the platform-aware `SingleActivator`.
+
+`NibCommandPaletteController extends ChangeNotifier` (optional, owned internally):
+- `isOpen: bool`
+- `recentActionIds: List<String>` (unmodifiable, most-recent-first)
+- `open()`, `close()`, `toggle()`
+- `recordUsed(String id, int maxRecent)` — moves id to front, trims to maxRecent
+
+`animated`/`transition`: the palette content card (`NibCommandPaletteContent`, internal) wraps in `NibMotion` (`initial: NibAnim(opacity: 0, scale: 0.96, y: -8)`, `animate: identity`) when true.
+
+Keyboard (built into `NibCommandPaletteContent`, not configurable): ↑/↓ move highlight, Enter/numpad-Enter activate, Escape pops one drill-down level or closes at root.
+
+Usage (adapted from `command_palette_examples.dart`):
+```dart
+NibCommandPalette(
+  actions: const [
+    NibCommandAction(id: 'new-file', label: 'New File'),
+    NibCommandAction(id: 'open-file', label: 'Open File'),
+  ],
+  onActionSelected: (action) => print(action.label),
+  child: const Center(child: Text('Press Cmd+K / Ctrl+K')),
+);
+
+// Grouped, icons, shortcut hints, external controller-driven trigger button
+final controller = NibCommandPaletteController();
+NibCommandPalette(
+  controller: controller,
+  actions: const [
+    NibCommandAction(id: 'new-file', label: 'New File', icon: Icon(Icons.note_add_outlined), shortcutLabel: '⌘N', group: 'File'),
+    NibCommandAction(id: 'toggle-sidebar', label: 'Toggle Sidebar', icon: Icon(Icons.view_sidebar_outlined), group: 'View'),
+  ],
+  child: OutlinedButton(onPressed: controller.open, child: const Text('Open')),
+);
+
+// Nested branch + custom filter + animated
+NibCommandPalette(
+  animated: true,
+  filter: (action, query) => action.label.toLowerCase().startsWith(query.toLowerCase()),
+  actions: [
+    NibCommandAction(
+      id: 'change-theme', label: 'Change Theme', group: 'Preferences',
+      children: [
+        NibCommandAction(id: 'theme-light', label: 'Light', onSelected: () {}),
+        NibCommandAction(id: 'theme-dark', label: 'Dark', onSelected: () {}),
+      ],
+    ),
+  ],
+  child: const SizedBox(height: 120),
+);
+```
+
+Related types:
+- `NibCommandAction` — `id: String`, `label: String`, `subtitle: String?`, `icon: Widget?`, `shortcutLabel: String?` (display-only hint), `group: String?`, `children: List<NibCommandAction> = const []` (non-empty makes it a branch — selecting drills in instead of firing), `onSelected: VoidCallback?`, `disabled: bool = false`; `hasChildren` getter
+- `NibCommandActionFilter` — `typedef bool Function(NibCommandAction action, String query)`
+- `NibCommandActionBucket` — record `({String? group, List<NibCommandAction> actions})`
+- `defaultCommandActionFilter`, `filterActions`, `findActionById` (recursive id lookup incl. children), `groupActions` (clusters consecutive same-group runs)
+
+---
+
+### context_menu
+
+Right-click (desktop/web) or long-press (touch) context menu positioned at the pointer, clamped to viewport, with nested submenus.
+
+`NibContextMenu` (wrapper widget) constructor:
+- `items: List<NibMenuEntry>` (required)
+- `child: Widget` (required) — the widget the menu attaches to
+- `onItemSelected: ValueChanged<NibMenuItem>?`
+- `enableSecondaryTap: bool = true` — right-click trigger
+- `enableLongPress: bool = true` — touch trigger
+- `animated: bool = false`
+- `transition: NibTransition?`
+
+`showNibContextMenu` function signature (imperative overlay API):
+```dart
+Future<NibMenuItem?> showNibContextMenu(
+  BuildContext context, {
+  required Offset globalPosition,
+  required List<NibMenuEntry> items,
+  ValueChanged<NibMenuItem>? onItemSelected,
+  bool animated = false,
+  NibTransition? transition,
+})
+```
+Returns a future completing with the chosen `NibMenuItem`, or `null` when dismissed. `NibContextMenu` is implemented on top of this.
+
+No controller — the menu is fully imperative/transient (its state lives in an internal `_MenuSession`/`_MenuPanel` per open call).
+
+`animated`/`transition`: each menu-level card wraps in `NibMotion` (`initial: NibAnim(opacity: 0, scale: 0.96)`, `animate: NibAnim.identity`) when true; default transition when unset is ~140ms. `false` skips `NibMotion` entirely.
+
+Keyboard (built-in, active once open): ↑/↓ move, → or Enter open/activate (Enter also selects a leaf), ← or Esc back one level (Esc at root closes).
+
+Usage (adapted from `context_menu_examples.dart`):
+```dart
+// Declarative wrapper
+NibContextMenu(
+  onItemSelected: (item) => toast(item.label),
+  items: const [
+    NibMenuItem(label: 'Copy', icon: Icon(Icons.copy)),
+    NibMenuItem(label: 'Paste', icon: Icon(Icons.paste)),
+    NibMenuDivider(),
+    NibMenuItem(label: 'Delete', icon: Icon(Icons.delete_outline), destructive: true),
+  ],
+  child: const SizedBox(width: 280, height: 140),
+);
+
+// Submenu + section + disabled item, animated
+NibContextMenu(
+  animated: true,
+  transition: NibTransition.springSnappy,
+  items: const [
+    NibMenuSection('Edit'),
+    NibMenuItem(label: 'Undo', icon: Icon(Icons.undo), trailing: Text('⌘Z')),
+    NibMenuItem(label: 'Redo', enabled: false, trailing: Text('⇧⌘Z')),
+    NibMenuDivider(),
+    NibMenuItem(label: 'Share to', submenu: [
+      NibMenuItem(label: 'Messages'),
+      NibMenuItem(label: 'Mail'),
+    ]),
+  ],
+  child: const SizedBox(width: 280, height: 140),
+);
+
+// Imperative, at an arbitrary tap point
+GestureDetector(
+  onTapDown: (d) async {
+    final choice = await showNibContextMenu(
+      context,
+      globalPosition: d.globalPosition,
+      animated: true,
+      items: const [
+        NibMenuItem(label: 'New file', icon: Icon(Icons.insert_drive_file_outlined)),
+        NibMenuDivider(),
+        NibMenuItem(label: 'Refresh', icon: Icon(Icons.refresh)),
+      ],
+    );
+    if (context.mounted && choice != null) toast('Chose: ${choice.label}');
+  },
+  child: const SizedBox(width: 280, height: 140),
+);
+```
+
+Related types (`NibMenuEntry` sealed hierarchy):
+- `NibMenuItem extends NibMenuEntry` — `label: String`, `icon: Widget?`, `onSelected: VoidCallback?`, `submenu: List<NibMenuEntry>?` (non-empty/non-null makes it a submenu parent), `trailing: Widget?` (ignored if submenu), `enabled: bool = true`, `destructive: bool = false`; `hasSubmenu` getter
+- `NibMenuDivider extends NibMenuEntry` — no fields, horizontal rule
+- `NibMenuSection extends NibMenuEntry` — `label: String`, non-interactive header
+
+---
+
+### data_table
+
+A virtualized (`CustomScrollView`/`SliverFixedExtentList`), sortable, selectable data table with a sticky header, loading skeleton, and responsive horizontal-scroll fallback.
+
+`NibDataTable<T>` constructor:
+- `columns: List<NibDataColumn<T>>` (required)
+- `rows: List<T>` (required) — sorted internally unless `onSort` is set (caller then owns ordering, e.g. server-side)
+- `rowKey: Key Function(T row)?` — default `ValueKey<T>(row)`; important when `animated` since rows are keyed
+- `selectionMode: NibDataTableSelectionMode = NibDataTableSelectionMode.none`
+- `onSelectionChanged: ValueChanged<Set<T>>?`
+- `onSort: void Function(int columnIndex, NibSortDirection direction)?` — if null, table sorts `rows` itself using `NibDataColumn.sortValue`; if set, table only tracks/displays the indicator
+- `onRowTap: ValueChanged<T>?` — fires regardless of `selectionMode`
+- `loading: bool = false` — shows 8 skeleton rows instead of `rows`
+- `emptyState: Widget?` — shown when `rows` is empty and not loading; default centered "No data"
+- `rowHeight: double = 48`
+- `headerHeight: double = 48` (48x48 min tap target for sortable headers)
+- `stickyHeader: bool = true`
+- `controller: NibDataTableController<T>?`
+- `animated: bool = false`
+- `transition: NibTransition?` — default 220ms ease-in-out fade/slide
+- `semanticLabel: String?`
+
+`NibDataTableController<T> extends ChangeNotifier`:
+```dart
+NibDataTableController({NibDataTableSort sort = const NibDataTableSort(), Set<T>? selected})
+```
+Note: the constructor's `sort` param is manually assigned to the private `_sort` field rather than using an initializing formal, which triggers the analyzer's `prefer_initializing_formals` info-lint — this is a documented, intentional/locked design choice, not a bug, so it should not be "fixed."
+- `sort: NibDataTableSort` (getter)
+- `selected: Set<T>` (unmodifiable getter)
+- `setSort(NibDataTableSort sort)`
+- `setSelected(Set<T> rows)`
+- `toggleSelected(T row)`
+- `clearSelection()`
+
+`animated`/`transition`: each row wraps in `NibMotion` (`initial: NibAnim(opacity: 0, y: 6)`, `animate: NibAnim(opacity: 1, y: 0)`), keyed by `rowKey`, when `widget.animated` is true. Loading skeleton rows wrap in `NibShimmer(enabled: true, ...)` when `animated` is true (otherwise plain static skeleton blocks). `false` builds neither.
+
+Responsive: a `LayoutBuilder` compares `constraints.maxWidth` against the sum of all `column.width ?? column.minWidth` (+48 for a multi-select checkbox column); if too narrow, wraps the whole table in a horizontal `SingleChildScrollView` at its intrinsic width instead of compressing columns.
+
+Usage (adapted from `data_table_examples.dart`):
+```dart
+NibDataTable<Employee>(
+  columns: [
+    NibDataColumn(label: 'Name', cellBuilder: (context, row) => Text(row.name), sortValue: (row) => row.name),
+    NibDataColumn(label: 'Role', cellBuilder: (context, row) => Text(row.role), sortValue: (row) => row.role),
+  ],
+  rows: employees,
+  selectionMode: NibDataTableSelectionMode.single,
+);
+
+// Multi-select + controller + animated + loading toggle
+final controller = NibDataTableController<Employee>();
+NibDataTable<Employee>(
+  columns: columns,
+  rows: employees,
+  selectionMode: NibDataTableSelectionMode.multi,
+  controller: controller,
+  loading: isLoading,
+  animated: true,
+  onSelectionChanged: (selection) => print('${selection.length} selected'),
+);
+```
+
+Related types:
+- `NibDataColumn<T>` — `label: String`, `cellBuilder: NibCellBuilder<T>` (`typedef Widget Function(BuildContext, T row)`), `sortValue: NibSortValueGetter<T>?` (`typedef Comparable<Object?> Function(T row)`; null = not sortable), `width: double?` (fixed; null = flex), `minWidth: double = 96` (flex weight / scroll-fallback floor); `sortable` getter
+- `NibDataTableSort` — `columnIndex: int?`, `direction: NibSortDirection = NibSortDirection.none`; `copyWith(...)`
+- `NibSortDirection` enum — `none`, `ascending`, `descending`
+- `NibDataTableSelectionMode` enum — `none`, `single` (tap replaces selection, no checkbox column), `multi` (leading checkbox column + header select-all)
+
+---
+
+### date_picker
+
+A calendar/date picker with single/range/multi selection, month+year quick navigation, min/max bounds, disabled-day predicate, locale-aware labels, and three display modes (inline/popover/dialog).
+
+`NibDatePicker` constructor:
+- `mode: NibDatePickerMode = NibDatePickerMode.single`
+- `displayMode: NibDatePickerDisplayMode = NibDatePickerDisplayMode.inline`
+- `selectedDate: DateTime?` — initial single-mode selection (ignored if `controller` set)
+- `selectedRange: NibDateRange?` — initial range-mode selection (ignored if `controller` set)
+- `selectedDates: List<DateTime>?` — initial multi-mode selection (ignored if `controller` set)
+- `initialMonth: DateTime?` — default: month of current selection, else today
+- `minDate: DateTime?`
+- `maxDate: DateTime?`
+- `disabledDayPredicate: NibDisabledDayPredicate?`
+- `locale: Locale?` — overrides ambient `Localizations` locale for month/weekday names and first-day-of-week
+- `onDateChanged: ValueChanged<DateTime?>?`
+- `onRangeChanged: ValueChanged<NibDateRange?>?`
+- `onDatesChanged: ValueChanged<List<DateTime>>?`
+- `placeholder: String = 'Select date'` — trigger text for popover/dialog modes when empty
+- `disabled: bool = false`
+- `closeOnSelect: bool = true` — single mode closes on any pick; range closes when complete; multi never auto-closes
+- `cellShape: NibDateCellShape = NibDateCellShape.circle` — ignored when `dayBuilder` set
+- `dayBuilder: NibCalendarDayBuilder?` — full custom cell content; calendar still owns tap target/44px sizing
+- `animated: bool = false`
+- `transition: NibTransition?`
+- `controller: NibDatePickerController?`
+
+`NibDatePickerController extends ChangeNotifier`:
+```dart
+NibDatePickerController({DateTime? selectedDate, NibDateRange? selectedRange, List<DateTime>? selectedDates, DateTime? displayedMonth})
+```
+- `selectedDate: DateTime?`, `selectedRange: NibDateRange?`, `selectedDates: List<DateTime>` (unmodifiable) — only the getter matching the picker's `mode` is meaningful
+- `isOpen: bool`
+- `displayedMonth: DateTime` (always first-of-month)
+- `minSelectable: DateTime?`, `maxSelectable: DateTime?` — runtime bounds, take precedence over widget's `minDate`/`maxDate` when set
+- `setSelectableBounds(DateTime? min, DateTime? max)` — pass both null to clear
+- `open()`, `close()`
+- `showMonth(DateTime month)`
+- `clear()` — clears selection across all modes
+- `setSingle(DateTime? day)`, `setRange(NibDateRange? range)`, `setMulti(List<DateTime> days)` — mode-specific setters used internally by the widget on tap
+
+`animated`/`transition`: multiple independent motions, all gated by `animated`:
+- Overlay entrance (popover/dialog only, not inline): card wraps in `NibMotion` (`initial: NibAnim(opacity: 0, scale: 0.97, y: -6)`, default 150ms).
+- Month change (all display modes): the days-grid body wraps in `NibMotion` keyed by `displayedMonth` (`initial: NibAnim(opacity: 0, x: ±28)`, default 180ms), sliding in from nav direction.
+- Single-select mode only, no custom `dayBuilder`: an animated "puck" (moving selection highlight) using `NibMotion` with explicit `NibKeyframe`s — slides between near cells, arcs/hops between far ones (distance > 100), lands with a small pop.
+- Multi/range mode, no `dayBuilder`: a newly-selected cell pops via `NibMotion(keyframes: NibAnimPresets.pulse)`, keyed by day+selected state.
+`false` builds none of the above.
+
+Usage (adapted from `date_picker_examples.dart`):
+```dart
+// Inline single-date, animated puck
+NibDatePicker(animated: true, onDateChanged: (d) => setState(() => selected = d));
+
+// Range in a popover, bounded, animated
+NibDatePicker(
+  mode: NibDatePickerMode.range,
+  displayMode: NibDatePickerDisplayMode.popover,
+  animated: true,
+  minDate: DateTime(now.year, now.month, 5),
+  maxDate: DateTime(now.year, now.month, 25),
+  placeholder: 'Pick a date range',
+  onRangeChanged: (r) => setState(() => range = r),
+);
+
+// Multi-select dialog, weekends disabled, external controller
+final controller = NibDatePickerController();
+NibDatePicker(
+  mode: NibDatePickerMode.multi,
+  displayMode: NibDatePickerDisplayMode.dialog,
+  controller: controller,
+  animated: true,
+  disabledDayPredicate: (d) => d.weekday == DateTime.saturday || d.weekday == DateTime.sunday,
+  onDatesChanged: (d) => setState(() => dates = d),
+);
+// controller.showMonth(DateTime.now()); controller.clear();
+
+// Fully custom day cell
+NibDatePicker(
+  dayBuilder: (context, state) => state.selected
+      ? Transform.rotate(angle: math.pi / 4, child: Container(width: 32, height: 32, color: theme.primary))
+      : Text('${state.date.day}'),
+  onDateChanged: (_) {},
+);
+```
+
+Related types:
+- `NibDatePickerMode` enum — `single`, `range`, `multi`
+- `NibDatePickerDisplayMode` enum — `inline`, `popover`, `dialog`
+- `NibDisabledDayPredicate` — `typedef bool Function(DateTime day)`
+- `NibDateCellShape` enum — `circle` (default), `rounded`, `square`, `pill`
+- `NibCalendarDayState` — immutable: `date`, `selected`, `inRange`, `isRangeStart`, `isRangeEnd`, `today`, `outOfMonth`, `disabled`
+- `NibCalendarDayBuilder` — `typedef Widget Function(BuildContext, NibCalendarDayState)`
+- `NibDateRange` — immutable: `start: DateTime` (required), `end: DateTime?`; `isComplete` getter (`end != null`)
+- Pure helpers in `nib_calendar_math.dart` (no Flutter dep, unit-testable): `isSameDay`, `dateOnly`, `firstOfMonth`, `daysInMonth`, `addMonths` (clamps day-of-month), `calendarDays` (42-day grid), `isInRange`, `isDayDisabled`, `nextRange` (range-selection reducer), `toggleDate` (multi-select reducer)
+
+---
+
+### dialog
+
+A modal dialog: declarative (`NibDialog`, trigger-based) and imperative (`showNibDialog`, fire-and-forget with a result future) faces over a shared `openNibDialog` overlay primitive. Provides a focus trap, Tab-wraps within the dialog, Escape/barrier dismissal, and stacking (each dialog its own overlay entry, topmost holds focus).
+
+`NibDialog` constructor:
+- `trigger: Widget?` — tapping opens the dialog; omit to drive via `controller` only
+- `controller: NibDialogController?`
+- `title: String?`
+- `description: String?`
+- `header: Widget?` — full override of default title/description/close-button header
+- `content: Widget` (required)
+- `footer: Widget?`
+- `size: NibDialogSize = NibDialogSize.md`
+- `width: double?` — overrides `size`'s width ceiling
+- `barrierDismissible: bool = true`
+- `showCloseButton: bool = true`
+- `barrierColor: Color?` — default `Color(0x73000000)`
+- `animated: bool = false`
+- `animation: NibDialogAnimation = NibDialogAnimation.fadeScale`
+- `transition: NibTransition?` — default 160ms
+- `onClose: VoidCallback?` — called on any close (barrier, Esc, close button, or controller)
+
+`showNibDialog` function signature (imperative overlay API):
+```dart
+Future<T?> showNibDialog<T>(
+  BuildContext context, {
+  String? title,
+  String? description,
+  Widget? header,
+  required Widget content,
+  Widget? footer,
+  NibDialogSize size = NibDialogSize.md,
+  double? width,
+  bool barrierDismissible = true,
+  bool showCloseButton = true,
+  Color? barrierColor,
+  bool animated = false,
+  NibDialogAnimation animation = NibDialogAnimation.fadeScale,
+  NibTransition? transition,
+  VoidCallback? onClose,
+})
+```
+Returns a future completing with the result passed to `NibDialogScope.of(context).close(result)` (or `null` if dismissed). A lower-level `openNibDialog<T>(...)` (same params) returns a `NibDialogHandle<T>` (`.closed` future, `.isOpen`, `.close([result])`) instead of just the future — used internally by both `NibDialog` and `showNibDialog`.
+
+`NibDialogController extends ChangeNotifier` (optional, owned internally by `NibDialog`):
+- `isOpen: bool`
+- `open()`, `close()`
+(No controller for `showNibDialog` — its returned `Future`/`NibDialogHandle` plays that role.)
+
+`animated`/`transition`: gated by `animated && animation != NibDialogAnimation.none`. When active, the scrim wraps in `NibMotion` (`initial: NibAnim(opacity: 0)`) and the card wraps in `NibMotion` with `initial` resolved from `animation` via `resolveNibDialogEnter`, both inside `NibPresence` (so removal is deferred until the exit motion completes — estimated via `transition.duration + delay + 40ms`, or ~450ms+overhead for a spring). `false`/`NibDialogAnimation.none` skip all of this and remove immediately on close.
+
+Inside dialog content, use `NibDialogScope.of(context).close([result])` to dismiss without a controller:
+```dart
+NibDialogScope.of(context).close(true);
+```
+
+Usage (adapted from `dialog_examples.dart`):
+```dart
+// Imperative, simple
+showNibDialog<void>(
+  context,
+  title: 'Welcome to Nib',
+  description: 'A native Flutter component library.',
+  content: const Text('Tap outside, press Esc, or use the × to close.'),
+  footer: Builder(
+    builder: (dctx) => FilledButton(
+      onPressed: () => NibDialogScope.of(dctx).close(),
+      child: const Text('Got it'),
+    ),
+  ),
+);
+
+// Imperative, returns a result
+final confirmed = await showNibDialog<bool>(
+  context,
+  size: NibDialogSize.sm,
+  animated: true,
+  title: 'Delete file?',
+  description: 'This action cannot be undone.',
+  content: const Text('"report.pdf" will be permanently removed.'),
+  footer: Builder(
+    builder: (dctx) => Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      TextButton(onPressed: () => NibDialogScope.of(dctx).close(false), child: const Text('Cancel')),
+      FilledButton(onPressed: () => NibDialogScope.of(dctx).close(true), child: const Text('Delete')),
+    ]),
+  ),
+);
+
+// Declarative, trigger-based, large + custom header
+NibDialog(
+  size: NibDialogSize.lg,
+  animated: true,
+  trigger: const Text('Review terms'),
+  header: Builder(
+    builder: (dctx) => Row(children: [
+      const Expanded(child: Text('Terms of Service')),
+      IconButton(icon: const Icon(Icons.close), onPressed: () => NibDialogScope.of(dctx).close()),
+    ]),
+  ),
+  content: const Text('...'),
+  footer: Builder(
+    builder: (dctx) => FilledButton(onPressed: () => NibDialogScope.of(dctx).close(), child: const Text('I agree')),
+  ),
+);
+
+// Fullscreen, slide-up
+showNibDialog<void>(
+  context,
+  size: NibDialogSize.fullscreen,
+  animated: true,
+  animation: NibDialogAnimation.slideUp,
+  title: 'Fullscreen',
+  content: const Text('...'),
+);
+```
+
+Related types:
+- `NibDialogSize` enum — `sm` (~380px ceiling), `md` (~512px, default), `lg` (~720px), `fullscreen` (fills viewport, no border/elevation, top-aligned)
+- `NibDialogAnimation` enum — `none`, `fade` (opacity only), `scale` (`NibAnim(scale: 0.96)`), `fadeScale` (default: `NibAnim(opacity: 0, scale: 0.97)`), `slideUp` (`NibAnim(opacity: 0, y: 16)`, sheet-like)
+- `NibDialogScope extends InheritedWidget` — `close: void Function([Object? result])`, `isOpen: bool`; `NibDialogScope.of(context)` (asserts if called outside a dialog)
+- `NibDialogHandle<T>` — `closed: Future<T?>`, `isOpen: bool`, `close([Object? result])`
+### hover_card
+
+Non-modal floating panel revealed on pointer hover over a trigger (with tap-to-toggle fallback for touch), positioned via the shared anchored-overlay core (auto-flip + viewport clamp).
+
+Main widget: `NibHoverCard` (`lib/src/hover_card/nib_hover_card.dart`).
+
+- `trigger: Widget? = null` — the hoverable/tappable widget. `null` renders `SizedBox.shrink()`; drive via `controller` instead.
+- `controller: NibHoverCardController? = null` — external open/closed controller.
+- `content: Widget` (required) — the floating panel's content.
+- `placement: NibHoverCardPlacement = NibHoverCardPlacement.bottom` — preferred side; auto-flips/clamps.
+- `showDelay: Duration = Duration(milliseconds: 700)` — hover-intent delay before opening.
+- `hideDelay: Duration = Duration(milliseconds: 300)` — grace period after pointer exit before closing (lets pointer cross `gap` onto the card).
+- `gap: double = 8` — distance between trigger and content.
+- `maxWidth: double = 320` — ceiling width of the content panel.
+- `openOnTap: bool = true` — tapping the trigger toggles the card (touch fallback). `false` makes it hover-only.
+- `animated: bool = false` — opt-in nib_motion enter/exit.
+- `transition: NibTransition? = null` — timing/curve/spring for the animation; `null` → `NibTransition(duration: Duration(milliseconds: 140))`.
+- `enterFrom: NibAnim? = null` — raw override for the "from" state animated in/out of, overriding the default fade+scale+slide (`NibAnim(opacity: 0, scale: 0.97, x/y: ±6 depending on side)`).
+- `onOpen: VoidCallback? = null`
+- `onClose: VoidCallback? = null`
+- `semanticLabel: String? = null` — accessibility label for the trigger.
+
+Related enum: `NibHoverCardPlacement { bottom, top, start, end }`.
+
+Controller: `NibHoverCardController extends ChangeNotifier` (`lib/src/hover_card/nib_hover_card_controller.dart`). Never required — created/owned/disposed internally when omitted.
+- `bool get isOpen`
+- `void open()` — no-op if already open.
+- `void close()` — no-op if already closed.
+- `void toggle()`
+
+`animated`/`transition` behavior: when `animated: true`, the overlay content is wrapped in `NibPresence` + `NibMotion` (`initial`/`exit` = `enterFrom` or a direction-aware default fade+scale+slide, `animate: NibAnim.identity`); when `false`, the overlay is removed immediately on close with zero `NibMotion`/`NibPresence` built. Card removal (unmount) is deferred by an estimated exit duration (`transition.duration` or ~450ms for a spring, plus `transition.delay` plus 40ms) when animated.
+
+Usage (adapted from `hover_card_examples.dart`):
+
+```dart
+NibHoverCard(
+  placement: NibHoverCardPlacement.top,
+  showDelay: const Duration(milliseconds: 250),
+  animated: true,
+  maxWidth: 300,
+  trigger: const Text('Ada Lovelace'),
+  content: const SizedBox(
+    width: 260,
+    child: Text('Wrote the first algorithm.'),
+  ),
+)
+```
+
+Advanced (hover-only, spring transition, controller not needed since state lives in trigger's own tree):
+
+```dart
+NibHoverCard(
+  placement: NibHoverCardPlacement.end,
+  openOnTap: false,
+  animated: true,
+  transition: NibTransition.springSnappy,
+  showDelay: const Duration(milliseconds: 200),
+  hideDelay: const Duration(milliseconds: 500),
+  trigger: const Text('Preview'),
+  content: const Text('Interactive content'),
+)
+```
+
+---
+
+### input
+
+A native, token-driven single-line text field, `FormField<String>`-based so it works inside a `Form` exactly like `TextFormField`.
+
+Main widget: `NibInput` (`lib/src/input/nib_input.dart`), `extends FormField<String>`.
+
+- `controller: TextEditingController? = null` — external controller; mutually exclusive with `initialValue` (asserted).
+- `initialValue: String? = null` — seeds an internally-owned controller.
+- `onChanged: ValueChanged<String>? = null`
+- `onSubmitted: ValueChanged<String>? = null`
+- `focusNode: FocusNode? = null` — external focus node; internal one created/owned if omitted.
+- `autofocus: bool = false`
+- `label: String? = null` — shown above the field.
+- `placeholder: String? = null` — hint text.
+- `helperText: String? = null` — shown below field; replaced by error text when present.
+- `errorText: String? = null` — forced error message (passed to `FormField.forceErrorText`), takes precedence over `validator`'s computed error; tints border/focus ring `destructive`.
+- `validator: NibValidator? = null` — computes an error from current text; see `NibValidators` (`email`, `password`, `name`, `required`, ...) and `NibValidators.compose([...])`.
+- `autovalidateMode: AutovalidateMode = AutovalidateMode.onUserInteraction`
+- `onSaved` (super param, from `FormField`)
+- `onReset` (super param, from `FormField`)
+- `prefixIcon: Widget? = null`
+- `suffixIcon: Widget? = null` — shown before the clear button if both present.
+- `clearable: bool = false` — shows a built-in "×" once the field has text.
+- `obscureText: bool = false`
+- `keyboardType: TextInputType? = null`
+- `textInputAction: TextInputAction? = null`
+- `disabled: bool = false` — disables interaction, dims the field (maps to `FormField.enabled = !disabled`).
+- `padding: EdgeInsetsGeometry? = null` — default `EdgeInsets.symmetric(horizontal: 12, vertical: 12)`.
+- `borderRadius: BorderRadius? = null` — default `BorderRadius.circular(theme.radiusDefault)`.
+- `style: TextStyle? = null` — merged onto default text style.
+- `labelStyle: TextStyle? = null`
+- `hintStyle: TextStyle? = null`
+- `helperStyle: TextStyle? = null`
+- `errorStyle: TextStyle? = null`
+- `labelSpacing: double? = null` — default `6`.
+- `footerSpacing: double? = null` — default `6`.
+- `animated: bool = false` — opt-in nib_motion fade+slide when the helper/error row appears or its text changes. `false` builds zero `NibMotion`.
+- `transition: NibTransition? = null` — default `NibTransition(duration: Duration(milliseconds: 150))`.
+
+No `NibInputController` — state (focus, controller ownership, length tracking for the clear button) lives in `_NibInputState extends FormFieldState<String>`; use `controller: TextEditingController` directly for external drive, or a `GlobalKey<FormFieldState>` for `validate()`/`save()`/`reset()`.
+
+`animated`/`transition`: only the helper/error text row is animated (`NibMotion` with `initial: NibAnim(opacity: 0, y: 4)`, `animate: NibAnim.identity`, keyed by `'$hasError:$message'`). The field box itself never animates.
+
+Usage (adapted from `input_examples.dart`):
+
+```dart
+NibInput(
+  label: 'Name',
+  placeholder: 'Ada Lovelace',
+  onChanged: (v) {},
+)
+
+NibInput(
+  placeholder: 'Search components…',
+  prefixIcon: const Icon(Icons.search),
+  clearable: true,
+)
+
+NibInput(
+  label: 'Password',
+  obscureText: true,
+  animated: true,
+  validator: NibValidators.compose([
+    NibValidators.required(),
+    NibValidators.password(),
+  ]),
+  helperText: 'Use a mix of upper/lowercase letters and a number.',
+  borderRadius: BorderRadius.circular(16),
+)
+```
+
+---
+
+### liquid_glass
+
+An "Apple Liquid Glass"-style container — real refraction/dispersion via `nib_motion`'s `NibGlass` shader engine (frosted-blur fallback where Impeller/the shader is unavailable), plus ergonomic theme defaults, pointer-tracked specular highlight, and a press-scale animation.
+
+Main widget: `NibLiquidGlass` (`lib/src/liquid_glass/nib_liquid_glass.dart`).
+
+- `child: Widget` (required) — content painted on top of the glass.
+- `width: double? = null`
+- `height: double? = null`
+- `padding: EdgeInsetsGeometry = EdgeInsets.all(20)`
+- `borderRadius: BorderRadius? = null` — ignored if `clipper` set; default rounded 24px.
+- `clipper: CustomClipper<Path>? = null` — custom shape (capsule/blob/arbitrary path); overrides `borderRadius`.
+- `blurSigma: double = 1` — backdrop blur; near-zero by default (edge refraction carries the look, not frosting).
+- `tint: Color? = null` — defaults to a very subtle brightness-aware white sheen (`0x0AFFFFFF` dark / `0x0DFFFFFF` light).
+- `thickness: double = 24` — glass dome depth in logical px (shader path only).
+- `refractiveIndex: double = 1.2` — index of refraction, 1.0 = no bending (shader path only).
+- `chromaticAberration: double = 0.03` — red/blue dispersion at the rim, 0 disables (shader path only).
+- `saturation: double = 1.3` — backdrop saturation boost seen through glass (shader path only).
+- `highlight: double = 0.5` — rim-highlight intensity, 0..1.
+- `showBorder: bool = true` — strokes a subtle glass rim (`Color(0x26FFFFFF)`, width 1) on top of the surface.
+- `interactive: bool = true` — pointer drives highlight direction; a press scales the glass slightly.
+- `restLightDirection: Offset = Offset(-0.4, -1)` — highlight direction at rest (no pointer).
+- `animated: bool = false` — opt-in press-scale animation via nib_motion. `false` builds zero `NibMotion`.
+- `transition: NibTransition? = null` — default `NibTransition(duration: Duration(milliseconds: 140))`.
+
+No `NibLiquidGlassController` — internal state is just `_light: Offset` (highlight direction, tracked via `MouseRegion`/`Listener` pointer events, pure function `glassLightFromPointer(pointer, size)`) and `_pressed: bool`.
+
+`animated`/`transition`: when `true`, wraps the built `NibGlass` in `NibMotion(initial: NibAnim.identity, animate: NibAnim(scale: _pressed ? 0.98 : 1.0), transition: ...)`. When `false`/`interactive: false`, no pointer tracking or motion wrapper is built.
+
+Usage patterns (from `liquid_glass_examples.dart`, `liquid_glass_showcase.dart`, `music_player.dart`):
+
+```dart
+// Minimal, non-interactive card over a busy backdrop
+NibLiquidGlass(
+  width: 260,
+  height: 150,
+  interactive: false,
+  child: const Center(child: Text('Liquid Glass')),
+)
+
+// Interactive, animated with a spring transition
+NibLiquidGlass(
+  width: 280,
+  height: 160,
+  animated: true,
+  transition: NibTransition.springGentle,
+  thickness: 32,
+  highlight: 0.6,
+  child: const Icon(Icons.touch_app),
+)
+
+// Custom capsule clip + live control inside
+NibLiquidGlass(
+  width: 320,
+  height: 96,
+  clipper: MyCapsuleClipper(),
+  tint: const Color(0x40FFFFFF),
+  blurSigma: 18,
+  highlight: 0.7,
+  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+  child: Slider(value: value, onChanged: (v) {}),
+)
+```
+
+Real-world composition (`music_player.dart`, `liquid_glass_showcase.dart`): a full glass UI is built by scattering many `NibLiquidGlass` panels — most set `interactive: false` for static rows/tiles/cards (album art, seek bar, controls, playlist rows) with only borderRadius/padding/tint varied per-panel, while a `NibNavBar` (from `nib_motion`, not this component — configured with `NibNavBarStyle(glass: true, glassTint:, glassBlur:, glassHighlight:)`) provides the glass bottom nav. Needs an Impeller backend (`flutter run -d linux --enable-impeller`, or Android) for true shader refraction; otherwise falls back to frosted blur.
+
+---
+
+### loader
+
+A custom-painted indeterminate circular loader: a soft full-circle track with a rotating gradient sweep (fades transparent→color, comet-tail look) and rounded caps, with an optional centered child.
+
+Main widget: `NibCircularLoader` (`lib/src/loader/nib_circular_loader.dart`).
+
+- `size: double = 44` — overall diameter.
+- `strokeWidth: double = 4` — thickness of ring and sweep.
+- `color: Color? = null` — sweep colour; defaults to `theme.primary`.
+- `trackColor: Color? = null` — faint full-circle track; defaults to `color` at 0.15 alpha.
+- `child: Widget? = null` — centered inside the ring.
+- `duration: Duration = Duration(milliseconds: 1100)` — time for one full rotation.
+- `sweep: double = 0.72` — fraction of the circle the moving arc spans (asserted `0 < sweep < 1`).
+
+No controller, no `animated`/`transition` params — this component uses a raw `AnimationController` (`SingleTickerProviderStateMixin`, `..repeat()`) internally, not `nib_motion`, since it's a continuous indeterminate spinner rather than a discrete state transition. Used internally by `NibOtpInput`'s on-screen keypad confirm slot while `loading: true`.
+
+Usage:
+
+```dart
+NibCircularLoader(size: 56, child: Icon(Icons.lock_outline))
+```
+
+---
+
+### navigation_menu
+
+A native, recursive, multi-level navigation menu: horizontal orientation opens cascading flyout submenus (via the shared anchored-overlay primitive), vertical orientation expands submenus inline. Horizontal mode auto-packs items into a "More" overflow flyout when the available width is too narrow.
+
+Main widget: `NibNavigationMenu` (`lib/src/navigation_menu/nib_navigation_menu.dart`).
+
+- `items: List<NibNavItem>` (required) — top-level item tree; each item may nest further `children` of arbitrary depth.
+- `orientation: NibNavMenuOrientation = NibNavMenuOrientation.horizontal` — `horizontal` (Row, cascading flyouts) or `vertical` (Column, inline expand).
+- `activeItemId: String? = null` — purely visual current-selection marker, decoupled from open/closed submenu state.
+- `onItemSelected: ValueChanged<String>? = null` — fired when a leaf item (or a branch's label, distinct from its expand affordance) is tapped.
+- `allowMultipleOpen: bool = false` — vertical mode only: whether more than one sibling submenu can be expanded at once; `false` closes other open siblings at the same depth when one opens.
+- `animated: bool = false` — opt-in entrance animation for opened submenus via nib_motion. `false` allocates zero `NibMotion`.
+- `transition: NibTransition? = null` — used for animated submenu entrances/exits; default short fade+scale (flyouts, 160ms) / fade+slide (inline, 180ms).
+- `controller: NibNavMenuController? = null` — external open-submenu-state controller.
+- `semanticLabel: String? = null` — accessibility label for the whole menu.
+
+Related type: `NibNavItem` (`lib/src/navigation_menu/nib_nav_item.dart`), a plain data class:
+- `id: String` (required, must be unique across the whole tree — keys overlay/focus/open-state tracking)
+- `label: String` (required)
+- `icon: Widget? = null`
+- `disabled: bool = false`
+- `badge: Widget? = null`
+- `children: List<NibNavItem> = const []`
+- `bool get hasChildren` — `children.isNotEmpty`
+
+Related enum: `NibNavMenuOrientation { horizontal, vertical }` (`lib/src/navigation_menu/nib_navigation_menu_types.dart`).
+
+Controller: `NibNavMenuController extends ChangeNotifier` (`lib/src/navigation_menu/nib_navigation_menu_controller.dart`). Constructor: `NibNavMenuController({List<String> openChain = const [], Set<String>? openIds})`.
+- `List<String> get openChain` — unmodifiable; horizontal mode's chain of open flyout ids, root to deepest.
+- `Set<String> get openIds` — unmodifiable; vertical mode's set of currently-expanded item ids.
+- `void openChainTo(List<String> path)` — replaces the open chain.
+- `void closeFromDepth(int depth)` — truncates the chain to length `depth`; no-op if already shorter/equal.
+- `void closeAll()` — empties the chain; no-op (no notify) if already empty.
+- `void toggleOpenId(String id, {Set<String>? exclusiveSiblings})` — vertical mode: toggles `id`; if `exclusiveSiblings` given, all of them are closed simultaneously (single-open coordination).
+
+`animated`/`transition` behavior: horizontal flyouts wrap their content in `NibMotion(initial: NibAnim(opacity: 0, scale: 0.95), animate: NibAnim(opacity: 1, scale: 1))` only when `widget.animated`; vertical inline submenus wrap in `NibPresence` + `NibMotion(initial: NibAnim(opacity: 0, y: -6), animate: NibAnim(opacity: 1, y: 0), exit: NibAnim(opacity: 0, y: -6))` when animated, else a plain `SizedBox.shrink()`/child swap.
+
+Flyouts are positioned via `NibAnchoredOverlay.show` (from `lib/src/overlay/`) with `placement: NibOverlayPlacement.bottom` at depth 0 and `.end` for nested depths; only the depth-0 flyout installs a dismiss barrier (`withBarrier: depth == 0`) so a single outside tap collapses the whole cascade. Escape key (via `Shortcuts`/`Actions`) closes the open flyout chain in horizontal mode.
+
+Usage (adapted from `navigation_menu_examples.dart`):
+
+```dart
+// Minimal
+NibNavigationMenu(
+  items: const [
+    NibNavItem(id: 'home', label: 'Home'),
+    NibNavItem(id: 'about', label: 'About'),
+  ],
+  onItemSelected: (id) {},
+)
+
+// Cascading multi-level flyout with active-item indicator
+NibNavigationMenu(
+  activeItemId: activeId,
+  items: const [
+    NibNavItem(id: 'home', label: 'Home'),
+    NibNavItem(
+      id: 'products',
+      label: 'Products',
+      children: [
+        NibNavItem(id: 'widgets', label: 'Widgets'),
+        NibNavItem(id: 'hardware', label: 'Hardware', children: [
+          NibNavItem(id: 'sensors', label: 'Sensors'),
+        ]),
+      ],
+    ),
+  ],
+  onItemSelected: (id) => setState(() => activeId = id),
+)
+
+// Vertical, controller-driven, animated
+NibNavigationMenu(
+  orientation: NibNavMenuOrientation.vertical,
+  controller: controller,
+  animated: true,
+  allowMultipleOpen: false,
+  items: const [
+    NibNavItem(id: 'products', label: 'Products', children: [
+      NibNavItem(id: 'widgets', label: 'Widgets'),
+      NibNavItem(id: 'gadgets', label: 'Gadgets', disabled: true),
+    ]),
+  ],
+  onItemSelected: (id) {},
+)
+```
+
+---
+
+### otp_input
+
+A one-time-code / PIN entry field: a row of `length` single-character cells that auto-advance as the user types. Built on one hidden native `TextField` behind the cells, so paste-splitting and SMS autofill (`AutofillHints.oneTimeCode`) work for free. Optionally replaces the OS keyboard with a built-in on-screen numeric keypad.
+
+Main widget: `NibOtpInput` (`lib/src/otp_input/nib_otp_input.dart`).
+
+- `length: int = 6` — number of cells / expected code length.
+- `controller: NibOtpController? = null` — external value controller.
+- `keyboard: NibOtpKeyboard = NibOtpKeyboard.system` — `system` (device keyboard, supports paste/SMS autofill) or `onScreen` (built-in numeric keypad, no OS keyboard, no paste/autofill).
+- `obscureText: bool = false` — masks each entered digit as `●`.
+- `enabled: bool = true` — `false` greys cells and ignores input.
+- `loading: bool = false` — verification-in-progress: cells/keypad grey out, stop accepting input, keypad's confirm slot shows a `NibCircularLoader`.
+- `autoFocus: bool = false`
+- `errorText: String? = null` — all cells switch to destructive-border error visual; message shown below.
+- `onChanged: ValueChanged<String>? = null` — fired on every change.
+- `onCompleted: ValueChanged<String>? = null` — fired once when the last cell fills (dedup'd via `_lastCompleted`); typical spot to kick off verification and flip `loading` true.
+- `onConfirm: ValueChanged<String>? = null` — fired when the keypad's confirm key is tapped (`onScreen` keyboard, `showConfirmButton: true`, no custom `confirmButton` handling its own tap).
+- `keypadStyle: NibOtpKeypadStyle? = null` — styling for the on-screen keypad.
+- `confirmButton: Widget? = null` — custom widget replacing the default check-mark key in the confirm slot; wire its own tap. Ignored while `loading`.
+- `showConfirmButton: bool = true` — whether the on-screen keypad shows a confirm key at all.
+- `animated: bool = false` — opt-in nib_motion pop-in of each cell's glyph as it fills. `false` builds zero `NibMotion`.
+- `transition: NibTransition? = null` — default `NibTransition(duration: Duration(milliseconds: 180))`.
+- `cellWidth: double = 44`
+- `cellHeight: double = 52`
+- `spacing: double = 10` — gap between cells.
+- `semanticLabel: String? = null` — default `'One-time code'`.
+
+Related type: `NibOtpKeypadStyle` (`lib/src/otp_input/nib_otp_input.dart`) — all fields optional, fall back to theme:
+- `keyColor: Color? = null`
+- `keyTextStyle: TextStyle? = null`
+- `keyTextColor: Color? = null`
+- `iconColor: Color? = null` — backspace icon colour.
+- `confirmColor: Color? = null` — default confirm key background.
+- `confirmIconColor: Color? = null`
+- `keyWidth: double = 68`
+- `keyHeight: double = 54`
+- `keyRadius: double? = null` — default `theme.radiusDefault`.
+- `horizontalSpacing: double = 12`
+- `verticalSpacing: double = 12`
+- `maxWidth: double = 280` — ceiling width of the whole keypad.
+
+Related enum: `NibOtpKeyboard { system, onScreen }`.
+
+Related public leaf widgets (rarely constructed directly, but exported for reuse/testing): `NibOtpCell` (one cell: `char`, `active`, `theme` required; `obscured`, `error`, `enabled`, `animated`, `transition`, `width`, `height`) and `NibOtpKeypad` (the 1-9/confirm/0/backspace grid: `onDigit`, `onBackspace`, `theme` required; `onConfirm`, `confirmButton`, `showConfirmButton`, `loading`, `enabled`, `style`) and `NibOtpKey` (single key: `onTap`, `theme` required; `label` or `icon` required, `enabled`, `color`, `textStyle`, `textColor`, `iconColor`, `width`, `height`, `radius`).
+
+Controller: `NibOtpController extends ChangeNotifier` (`lib/src/otp_input/nib_otp_controller.dart`). Never required — owned internally when omitted.
+- `String get value` — current entered digits.
+- `void setValue(String value)` — no-op if unchanged; the widget still enforces its own length/digit sanitization when applying it.
+- `void clear()` — `setValue('')`.
+
+`animated`/`transition` behavior: only each cell's filled glyph pops in — `NibMotion(key: ValueKey(char), initial: NibAnim(scale: 0.4, opacity: 0), animate: NibAnim.identity, transition: ...)`. No animation on the cell border/box itself.
+
+Usage (adapted from `otp_input_examples.dart`):
+
+```dart
+// Minimal
+NibOtpInput(
+  length: 6,
+  autoFocus: true,
+  onCompleted: (v) => setState(() => code = v),
+)
+
+// Obscured PIN, animated
+const NibOtpInput(length: 4, obscureText: true, animated: true)
+
+// On-screen keypad, controller-driven, auto-verify with loader
+NibOtpInput(
+  length: 5,
+  controller: controller,
+  keyboard: NibOtpKeyboard.onScreen,
+  obscureText: true,
+  animated: true,
+  loading: loading,
+  onCompleted: verify,
+  onConfirm: verify,
+)
+
+// Controller-driven with validation/error + programmatic fill
+NibOtpInput(
+  length: 4,
+  controller: controller,
+  animated: true,
+  errorText: error,
+  onCompleted: (code) {
+    if (code != '2468') {
+      setState(() => error = 'Incorrect code — try 2468');
+      controller.clear();
+    }
+  },
+)
+// elsewhere: controller.setValue('2468');  controller.clear();
+```
+
+---
+
+### Internal: overlay positioning (not public API)
+
+`lib/src/overlay/` provides the shared anchored-overlay infrastructure used internally by popover, hover_card, context_menu, navigation_menu, date_picker, and bottom_sheet — it is not exported from `lib/nib_components.dart`.
+
+`NibAnchoredOverlay` (`nib_anchored_overlay.dart`) is a static-only class: `NibAnchoredOverlay.show(context, {required LayerLink link, required RenderBox targetRenderBox, required WidgetBuilder contentBuilder, NibOverlayPlacement placement = NibOverlayPlacement.bottom, VoidCallback? onDismissed, bool withBarrier = true})` inserts an `OverlayEntry` that measures `contentBuilder`'s output (via `MeasureSize`), resolves its final position with `resolveOverlayGeometry` (from `overlay_positioning.dart`) once measured, and follows the target via a `CompositedTransformFollower` bound to `link`. It returns a `NibAnchoredOverlayHandle` with an idempotent `remove()`. `withBarrier: true` installs a full-screen opaque `GestureDetector` that calls `onDismissed` on outside tap; when chaining several `show()` calls into one cascade (nested flyouts), only the outermost call should set `withBarrier: true` — a barrier at every level would prevent taps from reaching sibling content at shallower levels. `resolveOverlayGeometry` (pure function) picks the concrete side (preferred `placement`, else the opposite if it fits, else whichever has more room), positions the content `gap` px off the target aligned on leading edges, and clamps both axes inside the viewport minus `safeInsets` (status bar/notch/system nav/keyboard, via `nibOverlaySafeInsets(MediaQueryData)`) minus a `margin` (default 8). `MeasureSize` (a `SingleChildRenderObjectWidget`) reports a child's laid-out size via `onChange` after each layout pass that changes it, without affecting the child's constraints/paint — used to defer positioning until content is measured.
+### pagination
+
+`NibPagination` — a page navigator with two layouts: numbered (with ellipsis collapsing) or a compact prev/label/next row. Every cell is a `NibButton`.
+
+Constructor (`NibPagination`):
+- `currentPage: int` (required) — the active page, 1-based
+- `totalPages: int` (required) — total number of pages
+- `onPageChanged: ValueChanged<int>?` (required) — called with the target page; `null` disables the whole control
+- `variant: NibPaginationVariant = NibPaginationVariant.numbered` — `numbered` or `compact`
+- `siblingCount: int = 1` — pages shown either side of `currentPage` (numbered)
+- `boundaryCount: int = 1` — pages pinned at each end (numbered)
+- `showPrevNext: bool = true` — show prev/next chevrons
+- `showFirstLast: bool = false` — show jump-to-first/last chevrons (numbered)
+- `disabled: bool = false`
+- `compactLabelBuilder: String Function(int current, int total)?` — defaults to `'Page $current of $total'`
+- `itemSize: double?` — cell square size, default 44 (actual footprint floors at 48 for tap target)
+- `gap: double?` — spacing between cells, default 4 (doc comment says 6 but code default is 4)
+- `activeColor: Color?` — default `NibTheme.primary`
+- `itemBorderRadius: BorderRadius?` — default theme's default radius
+- `animated: bool = false` — sliding active pill + pop on the newly-selected page number; zero `NibMotion` when false
+- `transition: NibTransition?` — default `NibTransition(duration: 180ms)`
+- `semanticLabel: String?` — default `'Pagination'`
+
+No controller — fully controlled via `currentPage`/`onPageChanged`.
+
+`animated`/`transition`: when `true`, the active pill is wrapped in `NibMotion(initial: NibAnim(x: left), animate: NibAnim(x: left), transition: ...)` (slides on page change) and the active page number pops in via `NibMotion(initial: NibAnim(scale: 0.9), animate: NibAnim.identity)`. Compact variant's label also pops via the same scale animation, keyed on `currentPage`.
+
+Related types (`nib_pagination_types.dart`):
+- `enum NibPaginationVariant { numbered, compact }`
+- `List<int?> paginationRange({required int currentPage, required int totalPages, int siblingCount = 1, int boundaryCount = 1})` — computes visible page slots; `null` entries are ellipses. Exported helper, MUI `usePagination`-style algorithm.
+
+Usage (adapted from `pagination_examples.dart`):
+```dart
+int page = 8;
+NibPagination(
+  currentPage: page,
+  totalPages: 50,
+  siblingCount: 2,
+  showFirstLast: true,
+  animated: true,
+  onPageChanged: (p) => setState(() => page = p),
+)
+
+// Compact variant
+NibPagination(
+  currentPage: page,
+  totalPages: 12,
+  variant: NibPaginationVariant.compact,
+  animated: true,
+  onPageChanged: (p) => setState(() => page = p),
+)
+```
+
+---
+
+### popover
+
+`NibPopover` — a native anchored, non-modal popover: a `trigger` whose tap opens a floating `content` panel positioned next to it, auto-flipping/clamping to the viewport via the shared `NibAnchoredOverlay` positioning core.
+
+Constructor:
+- `trigger: Widget?` — tapping toggles the popover; omit to drive purely via `controller`
+- `controller: NibPopoverController?`
+- `content: Widget` (required)
+- `placement: NibPopoverPlacement = NibPopoverPlacement.bottom` — `bottom | top | start | end`; auto-flips/clamps
+- `gap: double = 8` — distance between trigger and content
+- `dismissOnOutsideTap: bool = true` — `false` omits the invisible tap-catching barrier, keeping the app behind interactive; close only via `controller`/`NibPopoverScope`
+- `showArrow: bool = false` — draws a small triangle pointing at the trigger
+- `barrierColor: Color?` — optional scrim over the app while open; default transparent
+- `maxWidth: double = 320`
+- `animated: bool = false` — enter/exit via `NibMotion`/`NibPresence`; zero overhead when false
+- `transition: NibTransition?` — default `NibTransition(duration: 140ms)`
+- `enterFrom: NibAnim?` — raw escape hatch overriding the default fade+scale+slide-toward-trigger entrance
+- `onOpen: VoidCallback?`
+- `onClose: VoidCallback?`
+- `semanticLabel: String?` — accessibility label for the trigger
+
+`NibPopoverController extends ChangeNotifier`:
+- `bool get isOpen`
+- `void open()` — no-op if already open
+- `void close()` — no-op if already closed
+- `void toggle()`
+
+`animated`/`transition`: default enter state depends on resolved side (`NibOverlaySide`) — `NibAnim(opacity: 0, scale: 0.97, x/y: ±6)` sliding away from the trigger edge; wrapped via `NibMotion(initial: from, animate: NibAnim.identity, exit: from, transition: ...)` inside `NibPresence`. Escape key (via `Shortcuts`/`Actions`) always closes regardless of `dismissOnOutsideTap`.
+
+Related types:
+- `enum NibPopoverPlacement { bottom, top, start, end }`
+- `NibPopoverScope` — `InheritedWidget` exposing `close: VoidCallback` and `isOpen: bool` to the `content` subtree; `NibPopoverScope.of(context).close()` lets content dismiss the popover without a controller. Asserts if used outside a `NibPopover`.
+
+Usage (adapted from `popover_examples.dart`):
+```dart
+NibPopover(
+  placement: NibPopoverPlacement.end,
+  showArrow: true,
+  animated: true,
+  transition: NibTransition.springSnappy,
+  trigger: const Icon(Icons.chevron_right),
+  content: Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: const [
+      Text('Shipping', style: TextStyle(fontWeight: FontWeight.w600)),
+      SizedBox(height: 4),
+      Text('Arrives in 2–3 business days.'),
+    ],
+  ),
+)
+
+// Controller-driven, only closable from inside content:
+final controller = NibPopoverController();
+NibPopover(
+  controller: controller,
+  dismissOnOutsideTap: false,
+  content: Builder(
+    builder: (ctx) => TextButton(
+      onPressed: () => NibPopoverScope.of(ctx).close(),
+      child: const Text('Done'),
+    ),
+  ),
+)
+```
+
+---
+
+### radio_group
+
+`NibRadioGroup<T>` — a single-select group of radio options with roving-tabindex keyboard navigation (one tab stop for the whole group; arrow keys move+select between options, matching native `<input type="radio">` groups). Fully controlled — no separate controller class.
+
+Constructor:
+- `options: List<NibRadioOption<T>>` (required)
+- `value: T?` (required) — currently selected value, or `null`
+- `onChanged: ValueChanged<T>?` — `null` disables the whole group
+- `direction: Axis = Axis.vertical` — vertical stack or horizontal `Wrap`
+- `disabled: bool = false` — disables every option regardless of each option's own `disabled`
+- `spacing: double?` — gap between options, default 12
+- `dotSize: double?` — diameter of the radio dot, default 20
+- `activeColor: Color?` — default `NibTheme.primary`
+- `contentPadding: EdgeInsetsGeometry?` — default `EdgeInsets.symmetric(vertical: 8, horizontal: 4)`
+- `optionBuilder: NibRadioOptionBuilder<T>?` — replaces the default dot+label row; group still owns tap/ripple/focus/keyboard/shape
+- `animated: bool = false` — the selected dot pops in via `NibMotion`; zero `NibMotion` when false
+- `transition: NibTransition?` — default `NibTransition(duration: 150ms)`
+- `semanticLabel: String?`
+- `autofocus: bool = false` — autofocuses the group's single tab stop (selected option, or first enabled)
+
+No controller — `value`/`onChanged` is the entire state.
+
+`animated`/`transition`: only the inner selected dot (`_buildInnerDot`) animates — `NibMotion(initial: NibAnim(scale: 0), animate: NibAnim(scale: 1), transition: ...)`; the rest (ring color, row) is unanimated regardless.
+
+Related types (`nib_radio_group_types.dart`):
+- `NibRadioOption<T>({required T value, required String label, String? description, Widget? leading, bool disabled = false})`
+- `typedef NibRadioOptionBuilder<T> = Widget Function(BuildContext, NibRadioOption<T> option, bool selected, bool disabled)`
+
+Usage (adapted from `radio_group_examples.dart`):
+```dart
+String? plan = 'free';
+NibRadioGroup<String>(
+  options: const [
+    NibRadioOption(value: 'free', label: 'Free'),
+    NibRadioOption(value: 'pro', label: 'Pro'),
+    NibRadioOption(
+      value: 'team',
+      label: 'Team',
+      description: 'For larger orgs',
+      disabled: true,
+    ),
+  ],
+  value: plan,
+  animated: true,
+  onChanged: (v) => setState(() => plan = v),
+)
+```
+
+---
+
+### resizable_panels
+
+`NibResizablePanels` + `NibResizablePanel` — a horizontal or vertical group of resizable panels with draggable, keyboard-resizable, min/max-constrained dividers. Requires bounded constraints in both axes (wrap in `SizedBox`/`Expanded`). Backed internally by a custom `RenderObject` (`NibResizablePanelsRenderObject`/`NibResizablePanelsLayout`, a `MultiChildRenderObjectWidget`) — internal, not part of the public API.
+
+`NibResizablePanel` (data class, not a widget — passed into `panels`):
+- `child: Widget` (required)
+- `minSize: double = 0.1` — minimum fraction (0.0–1.0) of the group's main-axis extent
+- `maxSize: double = 1.0` — maximum fraction
+- `initialSize: double?` — starting fraction; `null` shares the remaining space evenly among other panels that also omit it
+- Asserts: `0<=minSize<=1`, `0<=maxSize<=1`, `minSize<=maxSize`, `initialSize` within `0..1` if set
+
+`NibResizablePanels` constructor:
+- `direction: Axis` (required) — `horizontal` (left-to-right) or `vertical` (top-to-bottom)
+- `panels: List<NibResizablePanel>` (required) — must have >= 2 entries (asserted)
+- `controller: NibResizablePanelsController?`
+- `onLayoutChanged: ValueChanged<List<double>>?` — called with the full sizes list when a drag/keyboard-nudge/double-tap-reset finishes (not per-frame)
+- `handleThickness: double = 1.0` — visible divider line thickness
+- `animated: bool = false` — handle hover/active color change animates via `NibMotion`
+- `transition: NibTransition?` — default `NibTransition(duration: 120ms)` (used by the handle)
+
+Narrow-viewport fallback: below `panels.length * kNibResizablePanelsNarrowFallbackPanelExtent` (160px/panel) logical pixels along the main axis, renders a scrollable, handle-less vertical `Column` stack of full-size panels instead — always vertical regardless of `direction` (a horizontal group pivots axis).
+
+`NibResizablePanelsController extends ChangeNotifier`:
+- `NibResizablePanelsController({List<double>? initialSizes})`
+- `List<double> get sizes` — unmodifiable, sums to 1.0 once seeded
+- `void attach(List<NibResizablePanel> panels)` — seeds `sizes` from panels' `initialSize`s the first time, or when panel count changes; no-op otherwise (called automatically by the widget on every build)
+- `void setSizes(List<double> sizes)` — replaces all sizes, normalized to sum to 1.0
+- `void applyDelta(List<NibResizablePanel> panels, int handleIndex, double deltaFraction)` — applies a drag/keyboard delta to the panel pair adjacent to `handleIndex`, clamped to each panel's own min/max; pair's combined size never changes ("stop at limit, no cascade")
+- `void resetPanelPair(int handleIndex)` — resets the pair adjacent to `handleIndex` to their original initial-size ratio
+- `void resetAll()` — resets every panel to its original initial-size fraction
+
+Handle interaction (internal `NibResizablePanelsHandle`, not public): drag (horizontal/vertical depending on `direction`), arrow-key nudge (`kNibResizablePanelsKeyboardStep = 0.02` per press), Home/End jump to `-1.0`/`+1.0` delta (clamped), double-tap/double-click resets the pair via `onReset`.
+
+`animated`/`transition`: only the handle's hover/active line color animates (`NibMotion(animate: NibAnim(color: color), transition: ...)`); panel content and drag-resize itself are never animated (drag always follows the pointer 1:1).
+
+No related enums beyond `Axis` (from Flutter).
+
+Usage (adapted from `resizable_panels_examples.dart`):
+```dart
+SizedBox(
+  height: 320,
+  child: NibResizablePanels(
+    direction: Axis.horizontal,
+    panels: [
+      NibResizablePanel(initialSize: 0.2, minSize: 0.12, child: Sidebar()),
+      NibResizablePanel(initialSize: 0.6, minSize: 0.3, child: Editor()),
+      NibResizablePanel(initialSize: 0.2, minSize: 0.12, child: Inspector()),
+    ],
+  ),
+)
+
+// External controller + reset button
+final controller = NibResizablePanelsController();
+NibResizablePanels(
+  direction: Axis.vertical,
+  controller: controller,
+  animated: true,
+  onLayoutChanged: (sizes) => debugPrint('$sizes'),
+  panels: [
+    NibResizablePanel(initialSize: 0.65, child: TopContent()),
+    NibResizablePanel(initialSize: 0.35, child: BottomContent()),
+  ],
+)
+// elsewhere: OutlinedButton(onPressed: controller.resetAll, child: Text('Reset layout'))
+```
+
+---
+
+### select
+
+`NibSelect<T>` — a native single/multi select: a button-style trigger opening an anchored, keyboard-navigable dropdown of `NibSelectOption`s. Flips above the trigger and clamps height when there's no room below; matches trigger width; supports in-list search, grouped section headers, and disabled options.
+
+Constructor:
+- `options: List<NibSelectOption<T>>?` — flat list; mutually exclusive with `groups` (asserted exactly one of the two is non-null)
+- `groups: List<NibSelectGroup<T>>?` — grouped, section-header rendering; mutually exclusive with `options`
+- `value: T?` — initial single-select value, applied to the internally-owned controller on first build only; ignored if external `controller` supplied
+- `values: List<T>?` — initial multi-select values, same caveat
+- `multiSelect: bool = false` — picks toggle, dropdown stays open, trigger shows comma-joined labels (ellipsised)
+- `searchable: bool = false` — in-list search field filtering by label/subtitle
+- `clearable: bool = false` — trailing ✕ clear button on the trigger when there's a selection
+- `onChanged: ValueChanged<T?>?` — single-select convenience; fires new value or `null` on clear
+- `onSelectionChanged: ValueChanged<List<T>>?` — fires the full selection list in both modes
+- `placeholder: String = 'Select…'`
+- `searchPlaceholder: String = 'Search…'`
+- `noResultsBuilder: NibSelectNoResultsBuilder?` — `Widget Function(BuildContext)`; default is a muted "No results" row
+- `disabled: bool = false`
+- `loading: bool = false` — forces a spinner in the dropdown body in place of the option list
+- `animated: bool = false` — zero `NibMotion`/`NibPresence` overhead when false
+- `animation: NibSelectAnimation = NibSelectAnimation.fadeScale` — preset entrance/exit shape; ignored if `enterFrom` set or `animated: false`
+- `enterFrom: NibAnim?` — raw override of the dropdown's animate-from state
+- `staggerOptions: bool = false` — cascades option rows in individually instead of the whole panel moving as one block; builds all visible rows eagerly (no virtualization) — for modest option counts only
+- `transition: NibTransition?` — default `NibTransition(duration: 140ms)`; controls timing only, shape comes from `animation`/`enterFrom`
+- `maxDropdownHeight: double = 280`
+- `semanticLabel: String?` — defaults to `placeholder`
+- `controller: NibSelectController<T>?`
+
+Constructor asserts exactly one of `options`/`groups` is provided.
+
+`NibSelectController<T> extends ChangeNotifier`:
+- `List<T> get selectedValues` — unmodifiable, in selection order
+- `T? get selectedValue` — first selected value or `null` (single-select convenience)
+- `bool get isOpen`
+- `void open()` / `void close()`
+- `void selectOnly(T value)` — replaces whole selection with just `value` (single-select semantics)
+- `void toggle(T value)` — adds if absent, removes if present (multi-select semantics)
+- `void clear()`
+- `void setSelection(List<T> values)` — replaces whole selection (e.g. to seed initial selection); no-op if unchanged
+
+`animated`/`animation`/`transition`/`enterFrom`: dropdown open/close plays via `NibMotion`+`NibPresence`, keyed `'nib-select-card'`; `_animatedDropdown` is true only when `animated` and (`enterFrom != null` or `animation != NibSelectAnimation.none`). The enter/exit "from" state resolves via `resolveNibSelectEnter(animation, openUp: ...)` (direction-aware — slides away from whichever edge it opens toward). Exit keeps the overlay mounted for an estimated duration (spring ⇒ ~450ms, else `transition.duration`) plus `transition.delay + 40ms` before removal.
+
+Related types:
+- `NibSelectOption<T>({required T value, required String label, String? subtitle, Widget? icon, bool disabled = false})` — value-equality on value/label/subtitle/disabled
+- `NibSelectGroup<T>({required String label, required List<NibSelectOption<T>> options})` — a labelled section, value-equality on label/options
+- `enum NibSelectAnimation { none, fade, slide, scale, fadeScale, slideFade }` (`nib_select_animation.dart`) — `fadeScale` is the default entrance when `animated: true`
+- `typedef NibSelectNoResultsBuilder = Widget Function(BuildContext context)`
+
+Usage (adapted from `select_examples.dart`):
+```dart
+const fruits = [
+  NibSelectOption(value: 'apple', label: 'Apple'),
+  NibSelectOption(value: 'banana', label: 'Banana'),
+  NibSelectOption(value: 'date', label: 'Date', disabled: true),
+];
+NibSelect<String>(
+  options: fruits,
+  placeholder: 'Choose a fruit…',
+  onChanged: (value) => debugPrint('Selected: $value'),
+)
+
+// Multi-select, searchable, animated, controller-driven
+final controller = NibSelectController<String>();
+NibSelect<String>(
+  controller: controller,
+  options: permissions,
+  multiSelect: true,
+  searchable: true,
+  clearable: true,
+  animated: true,
+  staggerOptions: true,
+  animation: NibSelectAnimation.slideFade,
+  onSelectionChanged: (values) => debugPrint('$values'),
+)
+```
+
+---
+
+### skeleton
+
+`NibSkeleton` — wraps `child` and, while `loading`, renders an automatically-detected bone/shimmer version of the same widget tree instead of a hand-rebuilt parallel skeleton tree ("one authored tree" rule).
+
+Constructor:
+- `loading: bool` (required) — renders shaded bones instead of `child` when `true`
+- `child: Widget` (required) — the real tree; rendered untouched when `loading: false` and `animated: false`
+- `animated: bool = false` — adds a shimmer sweep on the bones + an opacity dissolve when `loading` flips; `false` builds zero `NibMotion`/`NibShimmer`/`NibPresence` (bone/real swap is instant)
+- `transition: NibTransition?` — default `NibTransition(duration: 220ms)`, for the dissolve
+- `baseColor: Color?` — bone fill color, default `NibTheme.muted`
+- `shimmerColor: Color?` — shimmer highlight color, default `Color.lerp(baseColor, theme.foreground, 0.12)`
+- `fallbackWidth: double = 80` / `fallbackHeight: double = 16` — size of the fallback bone box for any node the detector can't identify (a `StatefulWidget` not otherwise recognized, a custom-painted widget)
+- `borderRadius: BorderRadius?` — overrides corner radius on generic box bones (text-line bones are always fully rounded, `CircleAvatar`-derived bones always circular — this override doesn't affect those)
+- `boneSpacing: double = 0` — extra gap inserted between each pair of consecutive children in a shaded `Row`/`Column`/`Flex`, on top of real spacing already present
+
+No controller — `loading` is the entire state, driven externally.
+
+`animated`/`transition`: when `false`, `loading: true` just wraps the shaded tree in `IgnorePointer`, no motion. When `true`, both the bone tree and the real `child` are each wrapped in a keyed `NibMotion(initial: NibAnim(opacity: 0), animate: NibAnim(opacity: 1), exit: NibAnim(opacity: 0), transition: ...)` inside a `NibPresence`, so the swap cross-fades; additionally each bone box gets its own `NibShimmer` (shimmer is per-box, not once around the whole tree, since `NibShimmer` paints as one solid rect over its own bounds).
+
+Related types (`nib_skeleton_types.dart`):
+- `enum NibSkeletonShape { rectangle, circle }`
+- `NibSkeletonBone({required Widget child, double? width, double? height, NibSkeletonShape shape = NibSkeletonShape.rectangle})` — explicit bone-shape override for a subtree the auto-detector can't shape correctly; renders the given box while loading, `child` otherwise
+- `NibSkeletonIgnore({required Widget child})` — marks `child` as always rendered as-is (loading or not) — e.g. a static icon; the shader does not recurse into it
+
+Internal plumbing (not part of the public widget API, summarized only):
+- `nib_skeleton_shade.dart` — `NibSkeletonPalette` (resolved colors/radii/fallback sizing for one shade pass) and `shadeWidget()`/`buildBoneBox()`: walks the widget tree, dispatch order is explicit overrides (`NibSkeletonIgnore`/`NibSkeletonBone`) → recognized "leaf" widgets (Text, CircleAvatar, Container/DecoratedBox with no child, etc. → sized bone box) → recognized "structural" widgets (Row/Column/Padding/etc. → same widget type rebuilt with children individually shaded) → auto-expand any other `StatelessWidget` by calling its own `build()` and recursing → route `StatefulWidget`s through `NibSkeletonRenderMount` → flat fallback bone box for anything else.
+- `nib_skeleton_render_mount.dart` — `NibSkeletonRenderMount`/`RenderNibSkeletonMount`: mounts a `StatefulWidget` subtree completely normally (real `initState`, real tickers/lifecycle) but paints `computeBonePaintCommands()`'s decision (bone box / real decoration / real paint-through / recurse) instead of the child's real pixels at paint time — this is how `NibCard`/`NibButton` (themselves `StatefulWidget`s) get boned while preserving their own chrome (`DecoratedBox`/`PhysicalShape`) underneath. `BonePaintCommand` is a plain data class (not a direct `Canvas` call) for testability. When `animated`, a ticker drives a `MotionValue` for the shimmer sweep, repainting without a widget rebuild.
+
+Usage (adapted from `skeleton_examples.dart`):
+```dart
+bool loading = true;
+NibSkeleton(
+  loading: loading,
+  animated: true,
+  child: Row(
+    children: [
+      const CircleAvatar(radius: 28, child: Icon(Icons.person)),
+      const SizedBox(width: 12),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text('Ada Lovelace', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text('@ada'),
+        ],
+      ),
+    ],
+  ),
+)
+
+// Explicit override + always-real icon
+NibSkeleton(
+  loading: loading,
+  animated: true,
+  child: Row(
+    children: [
+      const NibSkeletonIgnore(child: Icon(Icons.star, color: Colors.amber)),
+      const SizedBox(width: 12),
+      NibSkeletonBone(
+        width: 140,
+        height: 48,
+        child: MyCustomChart(),
+      ),
+    ],
+  ),
+)
+```
+
+---
+
+### slider
+
+`NibSlider` — a native, token-driven slider with an optional two-thumb range mode, tick marks, a draggable value-label bubble, and vertical/horizontal axis. Drag and track-fill always follow the pointer 1:1 (never animated); only cosmetic touches (thumb press-pop, label fade-in) are opt-in via `animated`.
+
+Two named constructors sharing one widget class:
+
+`NibSlider(...)` — single-thumb:
+- `value: double` (required)
+- `onChanged: ValueChanged<double>?`
+- `onChangeStart: ValueChanged<double>?`
+- `onChangeEnd: ValueChanged<double>?`
+- plus all shared params below
+
+`NibSlider.range(...)` — two-thumb range (thumbs clamp against each other, never cross):
+- `values: NibRangeValues` (required)
+- `onChanged: ValueChanged<NibRangeValues>?`
+- `onChangeStart: ValueChanged<NibRangeValues>?`
+- `onChangeEnd: ValueChanged<NibRangeValues>?`
+- plus all shared params below
+
+Shared params (both constructors):
+- `min: double = 0`, `max: double = 1` (asserts `min < max`)
+- `divisions: int?` — snaps to `divisions + 1` evenly-spaced ticks and paints tick marks; step defaults to `(max-min)/100` when `null`
+- `showValueLabel: bool = false` — value-label bubble above the active thumb while dragging
+- `valueLabelFormatter: String Function(double value)?` — defaults to the rounded value
+- `axis: Axis = Axis.horizontal` — vertical puts `min` at the bottom
+- `disabled: bool = false`
+- `trackHeight: double?` — default 4
+- `thumbSize: double?` — default 20
+- `activeColor: Color?` — default `NibTheme.primary`
+- `inactiveColor: Color?` — default `NibTheme.border`
+- `thumbColor: Color?` — default `NibTheme.primary`
+- `tickColor: Color?` — default `NibTheme.mutedForeground`
+- `trackRadius: BorderRadiusGeometry?` — default pill (`trackHeight/2`)
+- `padding: EdgeInsetsGeometry?`
+- `thumbBuilder: NibSliderThumbBuilder?` — fully custom thumb; slider still owns positioning/gestures/focus/press-pop
+- `animated: bool = false` — thumb press-pop while dragging + value-label fade-in; zero `NibMotion` when false (drag/fill still work)
+- `transition: NibTransition?` — default `NibTransition(duration: 120ms)`
+- `label: String?` — accessible name announced per thumb
+- `focusNode: FocusNode?` — external focus node for the first thumb
+- `autofocus: bool = false`
+
+No `NibSliderController` — fully controlled via `value`/`values` + `onChanged`.
+
+Related types (`nib_slider_types.dart`):
+- `NibRangeValues(double start, double end)` — immutable pair for `.range` mode; `clamp(min, max)` clamps both into range and restores `start <= end`; `copyWith({start, end})`
+- `NibSliderThumbState({required double value, required bool dragging, required bool focused, required double size})` — passed to a custom thumb builder
+- `typedef NibSliderThumbBuilder = Widget Function(BuildContext, NibSliderThumbState state)`
+
+Usage (adapted from `slider_examples.dart`):
+```dart
+double value = 40;
+NibSlider(
+  value: value,
+  min: 0,
+  max: 100,
+  divisions: 10,
+  showValueLabel: true,
+  valueLabelFormatter: (v) => '${v.round()}%',
+  animated: true,
+  onChanged: (v) => setState(() => value = v),
+)
+
+// Range mode
+NibRangeValues range = const NibRangeValues(200, 700);
+NibSlider.range(
+  values: range,
+  min: 0,
+  max: 1000,
+  divisions: 20,
+  showValueLabel: true,
+  valueLabelFormatter: (v) => '\$${v.round()}',
+  animated: true,
+  onChanged: (r) => setState(() => range = r),
+)
+```
+### switch
+
+A boolean on/off switch with an optional async `loading` state and fully customizable thumb (shape/icons/custom builder). Stateless widget (no internal State class — it's a `StatelessWidget`; the caller owns `value`).
+
+`NibSwitch` constructor:
+- `value: bool` (required) — whether the switch is on.
+- `onChanged: ValueChanged<bool>?` — called with next value; `null` renders disabled.
+- `loading: bool = false` — shows spinner in thumb, blocks interaction (for async-confirmed toggles).
+- `disabled: bool = false` — disables + dims regardless of `onChanged`.
+- `label: String?` — label beside track, extends tap target to full row.
+- `description: String?` — secondary line under `label`.
+- `activeColor: Color?` — "on" track color; default `NibTheme.primary`.
+- `trackWidth: double?` — default 44.
+- `trackHeight: double?` — default 24.
+- `thumbShape: ShapeBorder?` — default `CircleBorder()`.
+- `onThumbIcon: Widget?` — icon/image centered in thumb when `value` true; ignored while `loading` or when `thumbBuilder` set.
+- `offThumbIcon: Widget?` — same for `value` false.
+- `thumbBuilder: NibSwitchThumbBuilder?` — replaces built-in thumb entirely (shape/color/icon/spinner); switch still owns position/size/glide.
+- `contentPadding: EdgeInsetsGeometry?` — default `EdgeInsets.symmetric(vertical: 8, horizontal: 4)`, only used when `label` set.
+- `animated: bool = false` — thumb glides between positions via `NibMotion`; `false` still jumps to correct side, builds zero `NibMotion`.
+- `transition: NibTransition?` — default `NibTransition(duration: Duration(milliseconds: 150))`.
+- `semanticLabel: String?` — defaults to `label`.
+- `focusNode: FocusNode?` — passed to inner `InkWell`.
+- `autofocus: bool = false` — passed to inner `InkWell`.
+
+No `NibSwitchController` exists — the widget is fully controlled (`value`/`onChanged` only).
+
+`animated`/`transition`: when `animated: true`, the thumb's `left` position is wrapped in a persisted (unkeyed) `NibMotion(initial: NibAnim(x: left), animate: NibAnim(x: left), transition: _transition)` at a fixed tree position (so it glides across rebuilds instead of hopping). When `false`, thumb is a plain `Positioned` with no `NibMotion` built.
+
+Usage (adapted from `switch_examples.dart`):
+```dart
+bool wifiOn = true, confirming = false;
+
+NibSwitch(
+  value: wifiOn,
+  animated: true,
+  label: 'Wi-Fi',
+  description: 'Connect to known networks automatically',
+  onChanged: (v) => setState(() => wifiOn = v),
+)
+
+// Async-confirmed toggle
+NibSwitch(
+  value: syncing,
+  loading: confirming,
+  animated: true,
+  label: 'Sync across devices',
+  description: confirming ? 'Confirming…' : null,
+  onChanged: (next) async {
+    setState(() => confirming = true);
+    await api.setSync(next);
+    setState(() { confirming = false; syncing = next; });
+  },
+)
+```
+
+Related types (`nib_switch_types.dart`):
+- `NibSwitchThumbState { value: bool, enabled: bool, loading: bool, size: double }` — passed to `thumbBuilder`.
+- `typedef NibSwitchThumbBuilder = Widget Function(BuildContext, NibSwitchThumbState)`.
+
+---
+
+### tabs
+
+A tab set that avoids nested-scroll traps: `NibTabs` owns exactly one vertical scroll (`CustomScrollView`) — a `header` scrolls away, the bar pins, the active panel scrolls as part of the same scroll, then `footer` scrolls in. Swiping/tapping between panels separates them by `panelGap` and reflows the pager height smoothly. `StatefulWidget`.
+
+`NibTabs` constructor:
+- `tabs: List<NibTab>` (required, non-empty) — the tabs in bar order.
+- `initialIndex: int = 0` — first shown tab; ignored if `controller` is supplied (controller's `index` wins).
+- `controller: NibTabsController?` — optional external controller; `NibTabs` owns one internally when `null`.
+- `header: Widget?` — content above the bar; scrolls away.
+- `footer: Widget?` — content below the panel; scrolls in after, separated by `panelGap`.
+- `scrollable: bool = false` — `true`: intrinsic-width tabs in a horizontal scroll, active tab kept in view; `false`: tabs share width equally.
+- `indicatorStyle: NibTabsIndicatorStyle = NibTabsIndicatorStyle.underline` — how the active indicator is drawn.
+- `panelGap: double = 16` — gutter between adjacent panels during switch, and margin before `footer`.
+- `swipeable: bool = true` — whether horizontal swipe on the panel changes tab (tapping the bar always works).
+- `animated: bool = false` — opt-in `nib_motion` fade/scale-pop on the newly-shown tab label and panel; `false` builds zero `NibMotion`. (Indicator glide / pager slide / height reflow always animate regardless — those are gesture/layout-driven `AnimationController`s, not `nib_motion`.)
+- `transition: NibTransition?` — default `NibTransition(duration: Duration(milliseconds: 250))`.
+- `onChanged: ValueChanged<int>?` — called with new index whenever selected tab changes.
+- `backgroundColor: Color?` — bar background; default `NibTheme.background`; pass `Colors.transparent` for no fill.
+- `indicatorColor: Color?` — default `NibTheme.primary`.
+- `selectedColor: Color?` — active tab label+icon color; default `NibTheme.primary` (or `primaryForeground` for `pill` style).
+- `unselectedColor: Color?` — idle tab color; default `NibTheme.mutedForeground`.
+- `barHeight: double = 44`.
+- `labelPadding: EdgeInsetsGeometry = EdgeInsets.symmetric(horizontal: 16)`.
+- `showDivider: bool = true` — 1px divider under the bar.
+- `dividerColor: Color?` — default `NibTheme.border`.
+
+`NibTab` (not the widget itself — an item in `tabs`):
+- `label: String` (required).
+- `icon: IconData?` — shown before label.
+- `builder: WidgetBuilder` (required) — lazily builds the panel body, called the first time the tab is shown.
+
+`NibTabsIndicatorStyle` enum: `underline` (default, short bar under active tab), `pill` (filled rounded pill behind label), `none`.
+
+`NibTabsController extends ChangeNotifier`:
+- `NibTabsController({int initialIndex = 0})`.
+- `index: int` (getter) — currently selected tab.
+- `animateOnChange: bool` — whether the most recent programmatic change asked to animate (read by `NibTabs`, not typically used by apps).
+- `animateTo(int index)` — selects with glide.
+- `jumpTo(int index)` — selects instantly.
+- `syncIndex(int index)` — internal: `NibTabs` reports a swipe/tap-settled index back to the controller without retriggering a drive; apps should use `animateTo`/`jumpTo` instead.
+
+Usage (adapted from `tabs_examples.dart`):
+```dart
+NibTabs(
+  tabs: [
+    NibTab(
+      label: 'Account',
+      builder: (_) => const Padding(
+        padding: EdgeInsets.all(20),
+        child: Text('Manage your account details, email, and password here.'),
+      ),
+    ),
+    NibTab(
+      label: 'Notifications',
+      icon: Icons.notifications_none,
+      builder: (_) => const Padding(
+        padding: EdgeInsets.all(20),
+        child: Text('Choose which notifications you receive and how.'),
+      ),
+    ),
+  ],
+  scrollable: true,
+  indicatorStyle: NibTabsIndicatorStyle.pill,
+  animated: true,
+)
+```
+
+Contract note: put "content above" in `header`/"content below" in `footer`; do not wrap `NibTabs` in another vertical `ListView`/`SingleChildScrollView`. Expects bounded height (fills parent like any scroll view).
+
+---
+
+### textarea
+
+A native, token-driven multi-line text field that extends `FormField<String>` — works inside a Flutter `Form` exactly like `TextFormField`. Grows from `minLines` to `maxLines` as the user types, then scrolls; optional label/helper/error/counter chrome.
+
+`NibTextarea` constructor (all named; extends `FormField<String>`):
+- `controller: TextEditingController?` — external controller; owns its own when `null`, seeded with `initialValue`. (Assert: cannot pass both `controller` and `initialValue`.)
+- `initialValue: String?` — passed as positional-ish named param, forwarded to `FormField.initialValue`.
+- `onChanged: ValueChanged<String>?` — fires on every text change.
+- `focusNode: FocusNode?` — external focus node; owns its own when `null`.
+- `autofocus: bool = false`.
+- `label: String?` — shown above the field.
+- `placeholder: String?` — hint text while empty.
+- `helperText: String?` — shown below field; replaced by error text when present.
+- `errorText: String?` — forced error message (passed as `FormField.forceErrorText`), overrides `helperText` and any `validator` error; use for errors not expressible as a pure function of current text (e.g. server-side/async validation).
+- `validator: NibValidator?` — computes error from current text (see `NibValidators`); also runs on ancestor `Form.validate()`/`save()`.
+- `autovalidateMode: AutovalidateMode = AutovalidateMode.onUserInteraction`.
+- `onSaved: FormFieldSetter<String>?` — fires on `Form.save()`.
+- `onReset: VoidCallback?` — fires on field/`Form` reset.
+- `minLines: int = 3`.
+- `maxLines: int?` — height ceiling in lines; `null` = unbounded growth; must be `>= minLines` when set (assert).
+- `maxLength: int?` — caps character count; `null` = unlimited.
+- `showCounter: bool = false` — shows `current/max` (or just `current` if `maxLength` null) below field.
+- `disabled: bool = false` (constructor param named `disabled`; internally stored as field `disabled`, and forwarded to `FormField.enabled` as `!disabled`).
+- `padding: EdgeInsetsGeometry?` — default `EdgeInsets.symmetric(horizontal: 12, vertical: 10)`.
+- `borderRadius: BorderRadius?` — default `NibTheme.radiusDefault`.
+- `style: TextStyle?` — merged onto default text style.
+- `labelStyle: TextStyle?`, `hintStyle: TextStyle?`, `helperStyle: TextStyle?`, `errorStyle: TextStyle?`, `counterStyle: TextStyle?` — each merged onto their default.
+- `labelSpacing: double?` — default 6, gap between label and field.
+- `footerSpacing: double?` — default 6, gap between field and helper/error/counter row.
+- `animated: bool = false` — opt-in `nib_motion` fade+slide (`NibAnim(opacity: 0, y: 4)` → identity) when the helper/error row appears or its text changes; `false` builds zero `NibMotion`.
+- `transition: NibTransition?` — default `NibTransition(duration: Duration(milliseconds: 150))`.
+
+No `NibTextareaController` — uses plain `TextEditingController` (Flutter's own) via the `controller` param; state (focus, length, error) lives in the private `_NibTextareaState extends FormFieldState<String>`.
+
+Usage (adapted from `textarea_examples.dart` and `form_examples.dart`):
+```dart
+NibTextarea(
+  label: 'Tweet',
+  placeholder: "What's happening?",
+  minLines: 2,
+  maxLines: 6,
+  maxLength: 140,
+  showCounter: true,
+  helperText: 'Keep it punchy.',
+)
+
+// With validation, inside a Form
+NibTextarea(
+  label: 'Bio',
+  placeholder: 'Optional — tell us a bit about yourself',
+  minLines: 2,
+  animated: true,
+  validator: NibValidators.minLength(10, 'Use at least 10 characters, or leave it empty.'),
+)
+```
+
+---
+
+### toast
+
+A function-based, context-free toast/overlay API. `showNibToast(...)` shows a toast over the app's `Overlay` and returns its `id`; toasts are grouped and stacked by `position` (each position is an independent FIFO stack, capped at `_NibToastManager.maxVisible = 5` — the oldest is auto-dismissed past the cap). Not a widget placed in a tree — it's driven from anywhere (services, callbacks) once wrapped in `NibToaster`.
+
+`showNibToast` function signature:
+- `context: BuildContext?` — optional; if omitted, resolves the `Overlay` registered by an ancestor `NibToaster`. Asserts (in debug) if no overlay is found anywhere.
+- `id: String?` — explicit id for dedup/dismiss targeting; auto-generated (`__nib_toast_<n>`) if omitted.
+- `title: String?`, `message: String?` — default content (ignored if `content` is set).
+- `content: Widget?` — fully custom body, replacing title/message layout.
+- `variant: NibToastVariant = NibToastVariant.normal`.
+- `icon: IconData?` — overrides `variant`'s default icon.
+- `position: NibToastPosition = NibToastPosition.bottomRight`.
+- `duration: Duration = Duration(seconds: 4)` — auto-dismiss delay; `Duration.zero` keeps it until manually dismissed.
+- `actionLabel: String?` + `onAction: VoidCallback?` — optional inline action button; tapping it calls `onAction` then dismisses.
+- `showCloseButton: bool = true`.
+- `dismissible: bool = true` — enables horizontal swipe-to-dismiss.
+- `onDuplicateTrigger: NibToastDuplicateBehavior = NibToastDuplicateBehavior.shake` — behavior when `id` is already showing.
+- `animated: bool = false` — opt-in `nib_motion` enter/exit slide+fade (`NibPresence`/`NibMotion`) plus a size/height collapse reflow; `false` shows/hides instantly (still keeps drag-swipe transform and duplicate-shake wobble, which are plain `AnimationController`s, not `nib_motion`).
+- `transition: NibTransition?` — default `NibTransition(duration: Duration(milliseconds: 220))`.
+- `onDismiss: VoidCallback?` — fires when the toast is actually removed.
+- `padding: EdgeInsetsGeometry?` — default `EdgeInsets.fromLTRB(14, 12, 8, 12)`.
+- `borderRadius: BorderRadiusGeometry?` — default `NibTheme.radiusLg`.
+- `backgroundColor: Color?` — default `NibTheme.card`.
+- Returns `String` (the resolved `id`).
+
+Other public functions/widgets:
+- `dismissNibToast(String id)` — dismisses one toast (no-op if not showing).
+- `dismissAllNibToasts()` — dismisses every visible toast.
+- `NibToaster({required Widget child})` — `StatefulWidget` wrapping the whole app (typically via `MaterialApp.builder`) so `showNibToast` works without a `context` anywhere. It hosts its own `Overlay` (app as base layer) and registers it with the internal manager singleton.
+
+No public `NibToastController` — the internal `_NibToastManager` (a private singleton `ChangeNotifier`) is the de-facto controller but is not exported; all interaction goes through `showNibToast`/`dismissNibToast`/`dismissAllNibToasts`.
+
+Duplicate-id behavior (`NibToastDuplicateBehavior`): `shake` (bump the existing toast's shake animation + restart its dismiss timer), `ignore` (no-op, return existing id), `replace` (overwrite all content fields on the existing toast + restart timer).
+
+Usage (adapted from `toast_examples.dart`; requires wrapping the app):
+```dart
+MaterialApp(
+  builder: (context, child) => NibToaster(child: child!),
+  home: const HomePage(),
+);
+
+// anywhere, no context needed
+showNibToast(
+  title: 'Saved',
+  message: 'Your changes are stored.',
+  variant: NibToastVariant.success,
+  animated: true,
+);
+
+// persistent with action
+showNibToast(
+  id: 'undo-delete',
+  title: 'Item deleted',
+  actionLabel: 'Undo',
+  onAction: () => restoreItem(),
+  position: NibToastPosition.bottomCenter,
+  duration: Duration.zero,
+  animated: true,
+);
+```
+
+Related types (`nib_toast_types.dart`):
+- `NibToastVariant` enum: `normal, success, error, warning, info`. Extension `NibToastVariantX`: `defaultIcon()` (null for `normal`; `check_circle_rounded`/`error_rounded`/`warning_amber_rounded`/`info_rounded` for the rest), `accent(NibTheme theme)` (foreground/success-green `0xFF16A34A`/destructive/warning-amber `0xFFF59E0B`/accent respectively).
+- `NibToastPosition` enum: `topLeft, topCenter, topRight, bottomLeft, bottomCenter, bottomRight`. Extension `NibToastPositionX`: `isTop` (bool), `alignment` (maps to `Alignment.*`), `enterOffset` (the slide-in `Offset` — left/right positions slide horizontally ±40px, centered positions slide vertically ±16px).
+- `NibToastDuplicateBehavior` enum: `shake, ignore, replace`.
+
+---
+
+### toggle_group
+
+A row of toggleable segments (single- or multi-select) where each segment is a `NibButton`, giving it focus/ripple/tap-target/semantics for free. Uses a roving-tabindex keyboard model: one tab stop for the group, arrow keys move focus between segments (wrapping, skipping disabled) without changing selection; Enter/Space/tap toggles the focused segment. `StatefulWidget`, generic over `T`.
+
+`NibToggleGroup<T>` has two named constructors:
+
+`NibToggleGroup<T>({...})` (single-select):
+- `options: List<NibToggleOption<T>>` (required).
+- `value: T?` (required) — current selection; tapping the already-selected segment deselects it to `null`.
+- `onChanged: ValueChanged<T?>?`.
+- `direction: Axis = Axis.horizontal`.
+- `disabled: bool = false` — disables every segment regardless of per-option `disabled`.
+- `size: NibButtonSize = NibButtonSize.md`.
+- `itemWidth: double?` — fixed width per segment; `null` sizes to content.
+- `spacing: double?` — default 8.
+- `animated: bool = false`.
+- `transition: NibTransition?`.
+- `semanticLabel: String?` — accessible name for the whole group.
+- `autofocus: bool = false` — autofocuses the group's single tab stop.
+
+`NibToggleGroup<T>.multiple({...})` (multi-select) — same params except:
+- `values: Set<T>` (required, replaces `value`) — each segment toggles independently.
+- `onChanged: ValueChanged<Set<T>>?` (replaces single `onChanged`).
+
+- `direction: Axis = Axis.horizontal` — vertical stacks with wrapping instead of overflowing at narrow widths (horizontal uses `Wrap`).
+- `animated: bool = false` — opt-in `nib_motion`: a newly-selected segment pops in via `NibMotion(initial: NibAnim(scale: 0.9), animate: NibAnim.identity)`; `false` builds zero `NibMotion`.
+- `transition: NibTransition?` — default `NibTransition(duration: Duration(milliseconds: 150))`.
+
+No `NibToggleGroupController` — fully controlled via `value`/`values` + `onChanged`.
+
+Usage (adapted from `toggle_group_examples.dart`):
+```dart
+// Single-select, deselectable
+String? align;
+NibToggleGroup<String>(
+  options: const [
+    NibToggleOption(value: 'left', icon: Icon(Icons.format_align_left), semanticLabel: 'Align left'),
+    NibToggleOption(value: 'center', icon: Icon(Icons.format_align_center), semanticLabel: 'Align center'),
+    NibToggleOption(value: 'right', icon: Icon(Icons.format_align_right), semanticLabel: 'Align right'),
+  ],
+  value: align,
+  onChanged: (v) => setState(() => align = v),
+)
+
+// Multi-select toolbar
+Set<String> styles = {'bold'};
+NibToggleGroup<String>.multiple(
+  options: const [
+    NibToggleOption(value: 'bold', label: 'Bold'),
+    NibToggleOption(value: 'italic', label: 'Italic'),
+    NibToggleOption(value: 'strike', label: 'Strikethrough', disabled: true),
+  ],
+  values: styles,
+  animated: true,
+  onChanged: (v) => setState(() => styles = v),
+)
+```
+
+Related types (`nib_toggle_group_types.dart`):
+- `NibToggleOption<T> { value: T, label: String?, icon: Widget?, disabled: bool = false, semanticLabel: String? }` — requires `label` and/or `icon`; requires `semanticLabel` when `label` is null (icon-only, asserted).
+
+---
+
+### validation
+
+A supporting API of predefined `NibValidator` factory functions for `NibInput`/`NibTextarea` (and any `FormField<String>`), plus `compose` to chain several. `typedef NibValidator = String? Function(String? value)` — matches Flutter's `FormFieldValidator<String>` signature exactly, so they're interchangeable. Every format validator except `required` treats an empty value as valid (pair with `required` via `compose` for mandatory fields). All members live on `abstract final class NibValidators` (static-only, uninstantiable).
+
+`NibValidators` static members:
+- `compose(List<NibValidator> validators) → NibValidator` — runs validators in order, returns first non-null error or `null`.
+- `required([String message = 'This field is required.']) → NibValidator` — fails on `null`, empty, or whitespace-only.
+- `minLength(int length, [String? message]) → NibValidator` — fails when non-empty value is shorter than `length`. Default message: `'Must be at least $length characters.'`.
+- `maxLength(int length, [String? message]) → NibValidator` — fails when value longer than `length`. Default message: `'Must be no more than $length characters.'`.
+- `email([String message = 'Enter a valid email address.']) → NibValidator` — regex `^[\w.\-+%]+@[\w\-]+(\.[\w\-]+)+$`.
+- `pattern(RegExp pattern, [String message = 'Invalid format.']) → NibValidator` — fails when non-empty value doesn't match `pattern`.
+- `name([String message = 'Enter a valid name.']) → NibValidator` — regex `^[\p{L}][\p{L}'\- ]*$` (unicode), trims input first.
+- `phone([String message = 'Enter a valid phone number.']) → NibValidator` — regex `^\+?[0-9\s\-().]{7,20}$`, trims input first.
+- `password({int minLength = 8, bool requireUppercase = true, bool requireLowercase = true, bool requireNumber = true, bool requireSpecialChar = false}) → NibValidator` — checks each requirement in order, returns the first failing rule's specific message (e.g. `'Must contain an uppercase letter.'`); special-char set: `` [!@#$%^&*(),.?":{}|<>_\-+=~`\[\];/] ``.
+
+No controller/widget — pure static functions returning closures.
+
+Usage (adapted from `form_examples.dart`):
+```dart
+NibInput(
+  label: 'Email',
+  keyboardType: TextInputType.emailAddress,
+  validator: NibValidators.compose([
+    NibValidators.required(),
+    NibValidators.email(),
+  ]),
+  onSaved: (v) => email = v,
+)
+
+NibInput(
+  label: 'Password',
+  obscureText: true,
+  validator: NibValidators.compose([
+    NibValidators.required(),
+    NibValidators.password(),
+  ]),
+)
+
+NibTextarea(
+  label: 'Bio',
+  minLines: 2,
+  validator: NibValidators.minLength(10, 'Use at least 10 characters, or leave it empty.'),
+)
+```
+
+## Theme Reference
+
+`NibTheme` (`lib/src/theme/nib_theme.dart`) is an `@immutable class NibTheme extends
+ThemeExtension<NibTheme>`. All fields are `required` and `final`; it implements
+`copyWith`, `lerp`, `==`, and `hashCode`.
+
+**Color tokens** (all `Color`):
+- `background` — page/surface background
+- `foreground` — primary text
+- `card` — card surface background
+- `cardForeground` — text on card
+- `primary` — buttons, active states, links
+- `primaryForeground` — text/icon on primary
+- `secondary` — secondary button/surface background
+- `secondaryForeground` — text on secondary
+- `muted` — subtle/disabled backgrounds
+- `mutedForeground` — placeholder/hint text
+- `accent` — highlights
+- `accentForeground` — text on accent
+- `border` — borders/dividers
+- `input` — input field border/background accent
+- `ring` — focus ring color
+- `destructive` — error/danger/delete actions
+
+**Radius tokens** (all `double`):
+- `radiusSm` — small radius (4 in both presets)
+- `radiusDefault` — default radius (8 in both presets)
+- `radiusLg` — large radius (12 in both presets)
+- `radiusPill` — fully-rounded/pill radius (9999 in both presets)
+
+**`NibTheme.light`** (const):
+`background #FFFFFF, foreground #0A0A0A, card #FFFFFF, cardForeground #0A0A0A,
+primary #02569B, primaryForeground #FFFFFF, secondary #F4F8FF,
+secondaryForeground #02569B, muted #F1F5F9, mutedForeground #64748B,
+accent #54C5F8, accentForeground #02569B, border #E2E8F0, input #E2E8F0,
+ring #0175C2, destructive #EF4444`, radii `4/8/12/9999`.
+
+**`NibTheme.dark`** (const):
+`background #0A0A0A, foreground #FAFAFA, card #111111, cardForeground #FAFAFA,
+primary #54C5F8, primaryForeground #0A0A0A, secondary #1A1F2E,
+secondaryForeground #54C5F8, muted #1A1A1A, mutedForeground #94A3B8,
+accent #0175C2, accentForeground #FFFFFF, border #1E2433, input #1E2433,
+ring #54C5F8, destructive #EF4444`, radii `4/8/12/9999` (same as light).
+
+**Registration:** register on `ThemeData.extensions`:
+```dart
+MaterialApp(
+  theme: ThemeData(extensions: const [NibTheme.light]),
+  darkTheme: ThemeData(extensions: const [NibTheme.dark]),
+);
+```
+Customize by copying a preset:
+```dart
+ThemeData(extensions: [NibTheme.light.copyWith(primary: const Color(0xFF6D28D9))]);
+```
+
+**Fallback resolution — `NibTheme.of(BuildContext)`:**
+```dart
+static NibTheme of(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.extension<NibTheme>() ??
+      (theme.brightness == Brightness.dark ? dark : light);
+}
+```
+i.e.: look up the ambient `ThemeData`'s registered `NibTheme` extension; if absent,
+pick the built-in `NibTheme.dark` or `NibTheme.light` constant purely from
+`Theme.of(context).brightness` — components never need the extension registered to
+render correctly in the right light/dark palette, registration only matters for
+*custom* token values. This means a host app using plain `ThemeData.light()`/`.dark()`
+(no extensions at all) still gets fully correct Nib light/dark styling automatically.
+
+## Common Recipes
+
+**1. Sign-in form (input + checkbox + button + validation, inside a `Form`):**
+```dart
+final formKey = GlobalKey<FormState>();
+bool remember = false, loading = false;
+
+Form(
+  key: formKey,
+  child: Column(children: [
+    NibInput(
+      label: 'Email',
+      keyboardType: TextInputType.emailAddress,
+      validator: NibValidators.compose([NibValidators.required(), NibValidators.email()]),
+      onSaved: (v) => email = v,
+    ),
+    NibInput(
+      label: 'Password',
+      obscureText: true,
+      validator: NibValidators.compose([NibValidators.required(), NibValidators.password()]),
+      onSaved: (v) => password = v,
+    ),
+    NibCheckbox(value: remember, label: 'Remember me', onChanged: (v) => setState(() => remember = v!)),
+    NibButton(
+      label: 'Sign in',
+      expand: true,
+      loading: loading,
+      onPressed: () async {
+        if (!formKey.currentState!.validate()) return;
+        formKey.currentState!.save();
+        setState(() => loading = true);
+        await signIn(email, password);
+        setState(() => loading = false);
+      },
+    ),
+  ]),
+)
+```
+
+**2. Sortable, selectable data table inside a resizable panel layout:**
+```dart
+final tableController = NibDataTableController<Employee>();
+SizedBox(
+  height: 500,
+  child: NibResizablePanels(
+    direction: Axis.horizontal,
+    panels: [
+      NibResizablePanel(initialSize: 0.22, minSize: 0.15, child: FilterSidebar()),
+      NibResizablePanel(
+        initialSize: 0.78,
+        child: NibDataTable<Employee>(
+          columns: columns, // List<NibDataColumn<Employee>>
+          rows: employees,
+          controller: tableController,
+          selectionMode: NibDataTableSelectionMode.multi,
+          animated: true,
+          onSelectionChanged: (sel) => setState(() => selected = sel),
+        ),
+      ),
+    ],
+  ),
+)
+```
+
+**3. Command palette (Cmd/Ctrl+K) wrapping the app shell, plus a manual trigger button:**
+```dart
+final paletteController = NibCommandPaletteController();
+NibCommandPalette(
+  controller: paletteController,
+  animated: true,
+  actions: [
+    NibCommandAction(id: 'new-file', label: 'New File', icon: const Icon(Icons.note_add_outlined), group: 'File'),
+    NibCommandAction(id: 'goto-settings', label: 'Settings', group: 'Navigate', onSelected: openSettings),
+  ],
+  onActionSelected: (a) => paletteController.recordUsed(a.id, 5),
+  child: Scaffold(
+    appBar: AppBar(actions: [
+      IconButton(icon: const Icon(Icons.search), onPressed: paletteController.open),
+    ]),
+    body: const AppBody(),
+  ),
+)
+```
+
+**4. Themed, animated confirmation dialog (custom `NibTheme` registered at app root):**
+```dart
+MaterialApp(
+  theme: ThemeData(extensions: [NibTheme.light.copyWith(primary: const Color(0xFF6D28D9))]),
+  darkTheme: ThemeData(extensions: [NibTheme.dark.copyWith(primary: const Color(0xFFA78BFA))]),
+  home: Builder(builder: (context) => NibButton(
+    label: 'Delete account',
+    variant: NibButtonVariant.destructive,
+    onPressed: () async {
+      final ok = await showNibAlertDialog(
+        context,
+        title: 'Delete account?',
+        description: 'This cannot be undone.',
+        severity: NibAlertSeverity.error,
+        confirmText: 'Delete',
+        animated: true,
+      );
+      if (ok == true) await deleteAccount();
+    },
+  )),
+)
+```
+
+**5. Async-confirmed switch with toast feedback (requires `NibToaster` at app root):**
+```dart
+MaterialApp(builder: (context, child) => NibToaster(child: child!), home: const SettingsPage());
+
+// inside SettingsPage:
+NibSwitch(
+  value: syncOn,
+  loading: confirming,
+  animated: true,
+  label: 'Sync across devices',
+  onChanged: (next) async {
+    setState(() => confirming = true);
+    try {
+      await api.setSync(next);
+      setState(() { syncOn = next; confirming = false; });
+      showNibToast(title: 'Saved', variant: NibToastVariant.success, animated: true);
+    } catch (_) {
+      setState(() => confirming = false);
+      showNibToast(title: 'Failed to save', variant: NibToastVariant.error, animated: true);
+    }
+  },
+)
+```
+
+**6. Filter toolbar: select + combobox + toggle group driving a list:**
+```dart
+NibSelect<String>(
+  options: const [NibSelectOption(value: 'all', label: 'All statuses'), NibSelectOption(value: 'open', label: 'Open')],
+  value: status,
+  onChanged: (v) => setState(() => status = v),
+),
+NibCombobox<String>(
+  multiSelect: true,
+  options: tagOptions,
+  placeholder: 'Filter by tag…',
+  onSelectionChanged: (tags) => setState(() => selectedTags = tags),
+),
+NibToggleGroup<String>.multiple(
+  options: const [NibToggleOption(value: 'mine', label: 'Assigned to me'), NibToggleOption(value: 'starred', label: 'Starred')],
+  values: quickFilters,
+  onChanged: (v) => setState(() => quickFilters = v),
+),
+```
+
+**7. Date-range popover trigger feeding a paginated table:**
+```dart
+NibPopover(
+  placement: NibPopoverPlacement.bottom,
+  content: Builder(builder: (pctx) => NibDatePicker(
+    mode: NibDatePickerMode.range,
+    displayMode: NibDatePickerDisplayMode.inline,
+    animated: true,
+    onRangeChanged: (r) {
+      setState(() => range = r);
+      if (r?.isComplete ?? false) NibPopoverScope.of(pctx).close();
+    },
+  )),
+  trigger: NibButton(label: range == null ? 'Pick date range' : '${range!.start} – ${range!.end}', onPressed: () {}),
+),
+NibPagination(
+  currentPage: page,
+  totalPages: totalPages,
+  animated: true,
+  onPageChanged: (p) => setState(() => page = p),
+),
+```
+
+**8. OTP verification with loading state and toast on failure:**
+```dart
+NibOtpInput(
+  length: 6,
+  animated: true,
+  loading: verifying,
+  errorText: error,
+  autoFocus: true,
+  onCompleted: (code) async {
+    setState(() { verifying = true; error = null; });
+    final ok = await verifyCode(code);
+    setState(() => verifying = false);
+    if (!ok) {
+      setState(() => error = 'Incorrect code');
+      showNibToast(title: 'Verification failed', variant: NibToastVariant.error);
+    }
+  },
+)
+```
+
+## Known Pitfalls
+
+- **`animated: false` means zero `NibMotion`-family widgets are built at all** — not merely "animation configured off." This is a hard invariant across the whole library, checked in the source test suite with `find.byType(NibMotion), findsNothing`. When generating code, don't assume an unanimated component still has a (disabled) `NibMotion` in its tree — it has none.
+- **Not every visual movement is gated by `animated`.** Continuous/gesture-driven motion (drag-follows-pointer on `NibSlider`/`NibResizablePanels` handles, `NibCircularLoader`'s spin, toast swipe-to-dismiss and duplicate-shake wobble, `NibTabs`' indicator glide/pager slide/height reflow) uses a raw `AnimationController`/`SpringSimulation`, never `nib_motion`, and animates regardless of `animated`. Only *discrete state-change* animation (enter/exit, pop-in, cross-fade) routes through `nib_motion` and is what `animated` toggles.
+- **`NibFlipCard` has no `animated`/`transition` params at all** — the flip always animates via `nib_motion`'s `NibFlip`; there is no static mode. Every other component with visible motion has an opt-out.
+- **`NibCard`'s `animated` only takes effect when `interactive: true`** — a non-interactive card has no tap-driven state to animate, so `animated` alone does nothing.
+- **Controller disposal ownership**: when you omit a component's `<Component>Controller` param, the widget creates, owns, and disposes it. When you pass your own instance, the widget never disposes it — you must call `.dispose()` yourself (typically in your own `State.dispose()`). Getting this backwards either leaks a controller or double-disposes/uses-after-dispose one the widget also thinks it owns.
+- **`NibTheme.of` fallback is by ambient `Brightness`, not a fixed default.** A host app that never registers the `NibTheme` extension still renders fully correct light/dark Nib styling automatically (`NibTheme.light`/`.dark` picked from `Theme.of(context).brightness`) — registering the extension is only needed to *customize* tokens, never required for correctness.
+- **`lib/src/overlay/` (`NibAnchoredOverlay`, `overlay_positioning.dart`, `measure_size.dart`) is internal, shared plumbing — not exported from the public barrel `lib/nib_components.dart`.** It's used internally by popover, hover_card, context_menu, navigation_menu, date_picker, and bottom_sheet for viewport-aware anchored positioning. Don't reference `NibAnchoredOverlay` from generated user code; it's not part of the supported API surface even though it's technically reachable via a deep import.
+- **Two pre-existing, expected `flutter analyze` findings that are NOT bugs — don't "fix" them if seen in the source:**
+  - `invalid_dependency` on the package's `pubspec.yaml` `nib_motion: path: ...` entry — expected while `nib_components` and `nib_motion` are developed side by side pre-publish (path dependency, not yet a published version constraint).
+  - `prefer_initializing_formals` (info) on `NibDataTableController`'s constructor (`sort` param manually assigned to `_sort` rather than via `this.sort`) — a locked, intentional design choice per the original implementation plan, not an oversight.
+  - See `/home/occ/Projects/Nib/ComponetsNib/nib_components/CLAUDE.md` for the canonical statement of both.
+- **Several components assert mutually-exclusive constructor params rather than silently picking one**: `NibSelect` requires exactly one of `options`/`groups`; `NibCombobox`/`NibInput`/`NibTextarea` reject passing both `controller` and `initialValue`/seed value together. These are debug-mode `assert`s — passing both (or neither, where required) throws at construction, not a silent fallback.
+- **`NibResizablePanels` requires bounded constraints on both axes** (wrap in `SizedBox`/`Expanded`/similar) — it lays out via a custom `RenderObject` that needs a finite main-axis extent to distribute fractional panel sizes; an unbounded parent (e.g. bare `Column`) will misbehave or assert.
+- **`NibTabs` owns the single vertical scroll for its whole region** (`header` + pinned bar + active panel + `footer` in one `CustomScrollView`). Don't nest it inside another vertical `ListView`/`SingleChildScrollView` — put "content above" in `header` and "content below" in `footer` instead, per the component's own contract note.
+- **`NibSkeleton` follows a "one authored tree" rule**: wrap the real, already-built widget tree in `child` and let the auto-detector shade it — don't hand-author a parallel skeleton tree. Use `NibSkeletonBone` to override a subtree the detector can't shape correctly, and `NibSkeletonIgnore` to force a subtree to always render as-is. `StatefulWidget` children are mounted for real (real lifecycle/tickers) but their paint output is swapped for bone paint commands — this preserves chrome like `NibCard`'s `DecoratedBox` while still boning its content.
+- **`showNibToast` needs a route to the app's `Overlay`**: either wrap the app in `NibToaster` (recommended — lets you call `showNibToast` with no `context` from anywhere, e.g. a service class) or always pass a `context` explicitly. Calling it with neither, and no ancestor `NibToaster`, asserts in debug mode.
+- **Overlay-style APIs (`showNibDialog`, `showNibAlertDialog`, `showNibBottomSheet`, `showNibContextMenu`, `showNibToast`) are imperative functions, not widgets** — they don't take `controller` params the way declarative siblings (`NibDialog`, `NibBottomSheet`) do; their returned `Future`/handle is the entire control surface. Don't look for a `NibToastController`/`NibAlertController` — none exists by design.
+- **Per-component default animation durations are not globally uniform** — they range roughly 120ms (button tap-pop, resizable-panel handle) to 250ms (tabs); always check the specific component's documented default `transition` rather than assuming one shared constant.
+- **`NibDatePickerController`'s runtime `minSelectable`/`maxSelectable` take precedence over the widget's `minDate`/`maxDate`** when both are set — useful for dynamically narrowing bounds (e.g. disabling past dates after a first selection) without rebuilding the whole widget with new constructor params.

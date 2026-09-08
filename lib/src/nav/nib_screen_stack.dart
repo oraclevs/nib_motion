@@ -36,7 +36,6 @@ class _NibScreenEntry {
   final int index;
   Widget child;
   bool isActive;
-  bool isTransitioning = false;
   bool isOffstage;
   final NibMotionReplaySignal replaySignal = NibMotionReplaySignal();
 }
@@ -183,9 +182,7 @@ class _NibScreenStackState extends State<NibScreenStack>
       }
       incoming.isActive = true;
       incoming.isOffstage = false;
-      incoming.isTransitioning = true;
       outgoing.isActive = false;
-      outgoing.isTransitioning = true;
     });
     _currentIndex = newIndex;
 
@@ -194,7 +191,6 @@ class _NibScreenStackState extends State<NibScreenStack>
         .start(target: NibAnim.identity, transition: transition)
         .then((_) {
       if (!mounted) return;
-      setState(() => incoming.isTransitioning = false);
       if (widget.screenTransition.retriggerPageAnimations) {
         incoming.replaySignal
             .replay(delay: widget.screenTransition.retriggerDelay);
@@ -206,7 +202,6 @@ class _NibScreenStackState extends State<NibScreenStack>
         .then((_) {
       if (!mounted) return;
       setState(() {
-        outgoing.isTransitioning = false;
         outgoing.isOffstage = true;
         if (!widget.screens[oldIndex].keepAlive) {
           outgoing.child = const SizedBox.shrink();
@@ -224,7 +219,7 @@ class _NibScreenStackState extends State<NibScreenStack>
           Offstage(
             offstage: entry.isOffstage,
             child: IgnorePointer(
-              ignoring: !entry.isActive || entry.isTransitioning,
+              ignoring: !entry.isActive,
               child: NibMotionReplayScope(
                 signal: entry.replaySignal,
                 child: NibMotion(
