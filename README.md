@@ -49,6 +49,12 @@ Flutter animations require `AnimationController` boilerplate, tweens everywhere,
 
 **No controllers. No tweens. Just state.**
 
+Under the declarative surface is one runtime: reactive `MotionValue`s that carry
+velocity, drivers (spring / tween / inertia / drag) that hand momentum to each
+other, and render objects that repaint without rebuilding. Gestures, scroll,
+layout, presence and shaders all sit on that same model — see
+[doc/architecture.md](doc/architecture.md).
+
 ---
 
 ## Installation
@@ -84,8 +90,9 @@ NibMotion(
 | **Variants** | State-driven UI with cascading parent → child propagation |
 | **Presence** | Exit animations before unmount |
 | **Viewport** | Scroll-triggered entrance animations |
-| **Layout** | FLIP animations for reorder/resize |
-| **Motion Values** | High-performance reactive values — no widget rebuilds |
+| **Layout** | `NibMotion(layout:)` FLIP for position + size in any parent, shared `layoutId`, `NibReorderable`, `NibLayoutGroup` |
+| **Motion Values** | Reactive values with velocity, `mapRange`, lazy `MotionValue.computed` — no widget rebuilds |
+| **Physics** | Springs (mass/stiffness/damping or duration+bounce), `NibSpring` tokens, bounded inertia, independent per-axis physics (`MultiSpringSolver`), custom `Simulation`s, velocity handoff between drivers |
 | **Keyframes** | Multi-step animations with easing control |
 | **Text** | Per-char/word/line — `NibText`, `NibTypewriter`, `NibGradientText`, `NibTextReveal` |
 | **Shaders** | GPU effects — `NibShimmer`, `NibDissolve` |
@@ -96,7 +103,7 @@ NibMotion(
 | **Path** | `NibPathMotion`, `NibDrawPath` |
 | **Scroll** | `NibParallax`, `NibScrollReveal` |
 | **Debug** | `NibMotionDebugger`, `NibPerfOverlay` |
-| **Accessibility** | Automatic reduced-motion support |
+| **Accessibility** | One reduced-motion policy (`NibMotionConfig`) honoured by every animated widget |
 
 ---
 
@@ -180,7 +187,49 @@ NibLayoutGroup(
 ```dart
 NibMotion(
   animate: const NibAnim(x: 100),
-  transition: NibTransition.spring(NibSpringDescription.snappy),
+  transition: NibTransition.springSnappy,
+  child: YourWidget(),
+)
+```
+
+Springs are **interruptible**: change `animate` mid-flight and the new motion
+starts from the current position *and velocity*, whatever driver was running
+(spring, tween, inertia, drag). See [doc/interruption.md](doc/interruption.md).
+
+### Reactive Motion Values
+
+```dart
+final progress = MotionValue<double>(0);
+final boost = MotionValue<double>(1);
+
+// Single source, eager, velocity flows through the mapping:
+final opacity = progress.mapRange([0, 1], [0.2, 1]);
+
+// Several sources, lazy — evaluated when painted:
+final scale = MotionValue.computed(
+  [progress, boost],
+  () => 0.9 + progress.value * 0.1 * boost.value,
+);
+```
+
+See [doc/motion-values.md](doc/motion-values.md).
+
+### Drag with Inertia, Bounds and Snap
+
+```dart
+NibMotion(
+  drag: NibDragConfig(
+    constraints: Rect.fromLTRB(-200, 0, 200, 0),
+    releaseMode: NibDragReleaseMode.inertia, // coasts, bounces off the bounds
+  ),
+  child: YourWidget(),
+)
+
+NibMotion(
+  drag: NibDragConfig(
+    snapPoints: [Offset(0, 0), Offset(0, 300)],
+    snapProjection: Duration(milliseconds: 150), // a flick reaches the next point
+  ),
   child: YourWidget(),
 )
 ```
@@ -199,10 +248,12 @@ NibGlass(
 ### Scroll-Linked Motion
 
 ```dart
-final scrollY = ScrollMotionBridge(controller: scrollController);
+final bridge = ScrollMotionBridge(controller: scrollController);
 
 NibMotion(
-  animate: NibAnim(opacity: scrollY.mapRange([0, 200], [1, 0])),
+  motionValues: NibMotionValues(
+    opacity: bridge.scrollY.mapRange([0, 200], [1, 0]),
+  ),
   child: YourWidget(),
 )
 ```
@@ -217,7 +268,7 @@ NibMotion(
   child: YourWidget(),
 );
 
-await controller.animateTo(const NibAnim(scale: 1.2));
+await controller.start(target: const NibAnim(scale: 1.2));
 ```
 
 ### Reduced Motion

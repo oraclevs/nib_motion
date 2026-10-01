@@ -34,3 +34,23 @@ jobs:
 
       - name: Validate pub.dev publish (dry run)
         run: dart pub publish --dry-run
+
+  wasm-build:
+    name: Web (Wasm) build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: stable
+          cache: true
+
+      # The example app ships without platform folders; generate web in CI.
+      - name: Build example for web (Wasm)
+        working-directory: example
+        run: |
+          flutter create --platforms=web --project-name nib_motion_example .
+          flutter build web --wasm
