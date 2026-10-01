@@ -95,3 +95,69 @@ Procedure: run the example app in `--profile` on the target, open the
 performance overlay (`NibPerfOverlay`), and record UI/raster frame percentiles
 for: 100 transforms + opacity, FLIP reorder of 50 items, `NibShimmer`/`NibGlass`
 full-screen. Do not extrapolate flagship-device results to low-end Android.
+
+## Real-frame measurements, Linux desktop (2026-10-01)
+
+First measurements with real engine frame timings (`FrameTiming` build/raster/
+total) in a **profile-mode** Linux build, instead of the fake-clock numbers
+above. Harness: `example/perf/perf_main.dart` (12 scripted scenarios, 1.5 s
+warm-up + 6 s each, prints `PERF_RESULT` JSON lines, exits when done).
+
+Machine: Arch Linux 7.2.7, Intel UHD Graphics 620 (Kaby Lake-R GT2, integrated),
+Wayland session (`wayland-1`, `:0`), Flutter 3.47.3, renderer: **Impeller,
+OpenGLES backend** (`embedder_surface_gl_impeller`, "OpenGLESSDF"). Window size
+and refresh rate were not controlled or recorded.
+
+Reproduce:
+
+```
+cd example
+flutter build linux --profile -t perf/perf_main.dart
+./build/linux/x64/profile/bundle/nib_motion_example | grep PERF_RESULT
+```
+
+Build note: this machine has no `clang++`, which Flutter's Linux build requires
+(`flutter doctor` reports the Linux toolchain as incomplete). The build was done
+with a PATH shim mapping `clang`/`clang++` to `gcc`/`g++` in a temp directory;
+nothing in the repo or system was changed. Install clang for a supported setup.
+
+Two runs, p50 of total frame span in ms (run 1 / run 2). Run-to-run spread is
+**20-40%**, so only large differences mean anything.
+
+| Scenario | total p50 | raster p50 | frames in 6 s |
+|---|---|---|---|
+| 300 `NibMotion` springs (x + opacity) | 42.9 / 37.4 | 24.4 / 21.0 | 233 / 256 |
+| 300 `AnimationController` baseline (same visuals) | 40.4 / 40.1 | 23.5 / 23.0 | 223 / 228 |
+| 100 `NibMotion`, x only | 31.6 / 24.5 | 18.9 / 15.7 | 280 / 350 |
+| 100 + blur | 47.4 / 32.0 | 27.4 / 19.9 | 205 / 298 |
+| 100 + tint | 37.0 / 22.6 | 21.4 / 14.7 | 247 / 349 |
+| 100 + rotateY | 33.1 / 39.5 | 19.2 / 22.8 | 266 / 226 |
+| 200-item Wrap reshuffle, `layout: none` | 19.2 / 14.2 | 15.4 / 10.3 | 6 / 6 (nothing animates) |
+| 200-item Wrap reshuffle, `layout: position` FLIP | 42.0 / 30.0 | 23.6 / 17.9 | 222 / 267 |
+| `NibPresence` 100-item churn | 40.0 / 32.3 | 23.1 / 20.0 | 131 / 150 |
+| 500 `mapRange` values feeding transforms | 44.9 / 43.5 | 25.1 / 23.9 | 234 / 227 |
+| Full-screen `NibShimmer` | 2.9 / 5.5 | 0.7 / 0.8 | 359 / 359 |
+| `NibGlass` moving over a gradient | 12.0 / 9.1 | 1.8 / 1.6 | 303 / 302 |
+
+What this shows:
+- **`NibMotion` vs a hand-written `AnimationController` tween:** same frame cost
+  (42.9/37.4 vs 40.4/40.1 ms total p50). Neither is faster; the workload is
+  raster-bound on this GPU, and build time (about 8 ms p50 for 300 widgets) is
+  similar for both.
+- **Nearly every animated scenario exceeds 16.7 ms** (hundreds of dropped frames
+  per scenario, about 40 fps). Even the plain 100-box baseline does. With the
+  AnimationController baseline equally slow, the limit here is this integrated
+  GPU through Impeller-GLES (and the unrecorded window size), not `nib_motion`.
+  Do not read these as "nib_motion drops frames on a normal device".
+- **Blur / tint / rotateY / FLIP:** their p50s are inside the run-to-run spread of
+  the x-only case (e.g. blur 47.4 then 32.0; x-only 31.6 then 24.5), so this data
+  cannot separate their cost. Blur's added compositing layers (see the layer
+  counts above) remain the best-supported reason to use it sparingly.
+- `NibShimmer` and `NibGlass` frames are cheap (raster p50 under 2 ms). I did not
+  verify from the frame data alone that the shader program loaded rather than
+  falling back to painting the child; the 359 frames show its ticker was running.
+
+Not proven: any other GPU, other renderers (Skia, Vulkan, Metal), low-end
+Android, iOS, web, window-size/refresh-rate dependence, or release-mode (AOT
+profile is used here, not `--release`). Numbers are medians of one 6 s window per
+scenario per run.
