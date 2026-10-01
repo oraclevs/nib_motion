@@ -1,6 +1,7 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 
 /// Imperative handle for controlling a [NibDrawPath]'s reveal animation.
@@ -89,7 +90,7 @@ class NibDrawPath extends StatefulWidget {
 }
 
 class _NibDrawPathState extends State<NibDrawPath>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   final MotionValue<double> _progress = MotionValue<double>(0.0);
 
   Ticker? _ticker;
@@ -113,7 +114,20 @@ class _NibDrawPathState extends State<NibDrawPath>
     }
   }
 
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced && (_ticker?.isActive ?? false)) {
+      _ticker?.stop();
+      _progress.value = 1.0;
+    }
+  }
+
   void _play() {
+    if (reduceMotion) {
+      _ticker?.stop();
+      _progress.value = 1.0;
+      return;
+    }
     final ticker = _ticker ??= createTicker(_onTick);
     if (!ticker.isActive) {
       _startTime = Duration.zero;
@@ -126,8 +140,12 @@ class _NibDrawPathState extends State<NibDrawPath>
   }
 
   void _restart() {
-    _progress.value = 0.0;
     _ticker?.stop();
+    if (reduceMotion) {
+      _progress.value = 1.0;
+      return;
+    }
+    _progress.value = 0.0;
     _startTime = Duration.zero;
     (_ticker ??= createTicker(_onTick)).start();
   }

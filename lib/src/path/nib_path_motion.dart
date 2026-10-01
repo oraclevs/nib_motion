@@ -2,6 +2,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 
 /// Imperative handle for controlling a [NibPathMotion]'s traversal.
@@ -116,7 +117,7 @@ class NibPathMotion extends StatefulWidget {
 }
 
 class _NibPathMotionState extends State<NibPathMotion>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   late MotionValue<double> _progress;
   bool _ownsProgress = false;
 
@@ -161,8 +162,21 @@ class _NibPathMotionState extends State<NibPathMotion>
     }
   }
 
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced && _ownsProgress && (_ticker?.isActive ?? false)) {
+      _ticker?.stop();
+      _progress.value = 1.0;
+    }
+  }
+
   void _play() {
     if (!_ownsProgress) return; // external progress: caller drives it.
+    if (reduceMotion) {
+      _ticker?.stop();
+      _progress.value = 1.0;
+      return;
+    }
     final ticker = _ticker ??= createTicker(_onTick);
     if (!ticker.isActive) {
       _startTime = Duration.zero;
@@ -176,8 +190,12 @@ class _NibPathMotionState extends State<NibPathMotion>
 
   void _restart() {
     if (!_ownsProgress) return;
-    _progress.value = 0.0;
     _ticker?.stop();
+    if (reduceMotion) {
+      _progress.value = 1.0;
+      return;
+    }
+    _progress.value = 0.0;
     _startTime = Duration.zero;
     (_ticker ??= createTicker(_onTick)).start();
   }

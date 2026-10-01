@@ -1,6 +1,7 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 
 /// Renders [text] once, then paints an animated [gradient] sweep across it by
@@ -49,7 +50,7 @@ class NibGradientText extends StatefulWidget {
 }
 
 class _NibGradientTextState extends State<NibGradientText>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   late final MotionValue<double> _offset = MotionValue<double>(
     widget.direction == TextDirection.ltr ? -1.0 : 1.0,
   );
@@ -62,8 +63,14 @@ class _NibGradientTextState extends State<NibGradientText>
     _startTicker();
   }
 
+  @override
+  void onReducedMotionChanged(bool reduced) => _startTicker();
+
   void _startTicker() {
     _ticker?.dispose();
+    _ticker = null;
+    // Decorative loop: reduced motion leaves the gradient at its static frame.
+    if (reduceMotion) return;
     _previousElapsed = Duration.zero;
     final ticker = createTicker(_onTick);
     _ticker = ticker;

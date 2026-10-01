@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 import 'shader_loader.dart';
 
@@ -63,7 +64,7 @@ class NibDissolve extends StatefulWidget {
 }
 
 class _NibDissolveState extends State<NibDissolve>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   final MotionValue<double> _progress = MotionValue<double>(0);
   Ticker? _ticker;
   FragmentProgram? _program;
@@ -89,8 +90,28 @@ class _NibDissolveState extends State<NibDissolve>
     }
   }
 
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced && !_completed) _jumpToEnd();
+  }
+
+  /// Reduced motion: skip straight to the end state and still report
+  /// completion (after the frame, so callers never see it mid-build).
+  void _jumpToEnd() {
+    _ticker?.stop();
+    _completed = true;
+    _progress.value = _startsDissolved ? 0.0 : 1.0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onComplete?.call();
+    });
+  }
+
   void _start() {
     _completed = false;
+    if (reduceMotion) {
+      _jumpToEnd();
+      return;
+    }
     // A Ticker's callback receives elapsed time measured from the moment
     // `start()` is called, so `elapsed` is already relative to this
     // animation run — no separate "elapsed at start" bookkeeping needed.
