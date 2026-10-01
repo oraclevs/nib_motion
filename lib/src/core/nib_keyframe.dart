@@ -1,6 +1,8 @@
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 
+import '../physics/nib_spring_curve.dart';
+import '../physics/spring_description.dart';
 import 'nib_anim.dart';
 
 /// One point in a multi-step animation driven by `NibMotion.keyframes`.
@@ -10,7 +12,15 @@ import 'nib_anim.dart';
 @immutable
 class NibKeyframe {
   /// Creates a keyframe reached at progress [at].
-  const NibKeyframe({required this.at, required this.value, this.curve});
+  const NibKeyframe({
+    required this.at,
+    required this.value,
+    this.curve,
+    this.spring,
+  }) : assert(
+          curve == null || spring == null,
+          'Provide either a curve or a spring for a keyframe, not both.',
+        );
 
   /// The progress (`0.0` to `1.0`) along the keyframe animation at which
   /// [value] is reached.
@@ -25,6 +35,12 @@ class NibKeyframe {
   /// `null` falls back to the `defaultCurve` passed to
   /// [computeAnimFromKeyframes] (typically `NibTransition.curve`).
   final Curve? curve;
+
+  /// Spring feel for the segment that *arrives* at this keyframe, sampled as
+  /// a [NibSpringCurve] (unit step response stretched over the segment). An
+  /// underdamped spring overshoots this keyframe's value and settles on it at
+  /// the segment's end. Mutually exclusive with [curve].
+  final NibSpringDescription? spring;
 }
 
 /// Computes the [NibAnim] at progress [t] along [keyframes].
@@ -70,6 +86,9 @@ NibAnim computeAnimFromKeyframes(
   final from = sorted[lo];
   final to = sorted[hi];
   final segmentT = (t - from.at) / (to.at - from.at);
-  final curvedT = (to.curve ?? defaultCurve).transform(segmentT);
+  final spring = to.spring;
+  final segmentCurve =
+      spring != null ? NibSpringCurve(spring) : (to.curve ?? defaultCurve);
+  final curvedT = segmentCurve.transform(segmentT);
   return from.value.lerp(to.value, curvedT);
 }

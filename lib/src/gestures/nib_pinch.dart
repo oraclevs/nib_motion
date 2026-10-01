@@ -1,6 +1,8 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/paint_transform_hit_test.dart';
+import '../core/reduced_motion_mixin.dart';
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
 import '../values/motion_value.dart';
@@ -24,7 +26,7 @@ class _NibPinchBox extends SingleChildRenderObjectWidget {
 
 /// Paints [child] scaled uniformly around its center by [scale], reading it
 /// directly during [paint] so pinching never triggers a widget rebuild.
-class _RenderNibPinch extends RenderProxyBox {
+class _RenderNibPinch extends RenderProxyBox with PaintTransformHitTest {
   _RenderNibPinch({required MotionValue<double> scale}) : _scale = scale {
     _scale.addListener(_onChanged);
   }
@@ -44,16 +46,22 @@ class _RenderNibPinch extends RenderProxyBox {
   void _onChanged() => markNeedsPaint();
 
   @override
-  void paint(PaintingContext context, Offset offset) {
+  Matrix4 get paintMatrix {
     final scaleValue = _scale.value;
-    if (scaleValue == 1.0) {
+    if (scaleValue == 1.0) return Matrix4.identity();
+    final center = size.center(Offset.zero);
+    return Matrix4.translationValues(center.dx, center.dy, 0.0)
+      ..multiply(Matrix4.diagonal3Values(scaleValue, scaleValue, 1.0))
+      ..multiply(Matrix4.translationValues(-center.dx, -center.dy, 0.0));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final matrix = paintMatrix;
+    if (matrix.isIdentity()) {
       super.paint(context, offset);
       return;
     }
-    final center = size.center(Offset.zero);
-    final matrix = Matrix4.translationValues(center.dx, center.dy, 0.0)
-      ..multiply(Matrix4.diagonal3Values(scaleValue, scaleValue, 1.0))
-      ..multiply(Matrix4.translationValues(-center.dx, -center.dy, 0.0));
     context.pushTransform(needsCompositing, offset, matrix,
         (context, offset) => super.paint(context, offset));
   }
@@ -111,7 +119,8 @@ class NibPinch extends StatefulWidget {
   State<NibPinch> createState() => _NibPinchState();
 }
 
-class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
+class _NibPinchState extends State<NibPinch>
+    with TickerProviderStateMixin, NibReducedMotionMixin {
   late final MotionValue<double> _scale =
       MotionValue<double>(widget.initialScale);
 
@@ -148,6 +157,12 @@ class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
   void _handleScaleEnd(ScaleEndDetails details) {
     if (!widget.snapBackOnRelease) return;
 
+    if (reduceMotion) {
+      _springSolver?.stop();
+      _scale.value = widget.initialScale;
+      return;
+    }
+
     final solver = _springSolver ??=
         SpringSolver(vsync: this, value: _scale, spring: widget.spring);
     solver.spring = widget.spring;
@@ -156,12 +171,15 @@ class _NibPinchState extends State<NibPinch> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onScaleStart: _handleScaleStart,
-      onScaleUpdate: _handleScaleUpdate,
-      onScaleEnd: _handleScaleEnd,
-      child: _NibPinchBox(scale: _scale, child: widget.child),
+    return _NibPinchBox(
+      scale: _scale,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onScaleStart: _handleScaleStart,
+        onScaleUpdate: _handleScaleUpdate,
+        onScaleEnd: _handleScaleEnd,
+        child: widget.child,
+      ),
     );
   }
 }

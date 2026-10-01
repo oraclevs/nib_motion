@@ -21,6 +21,10 @@ class NibAnim {
     this.rotate,
     this.skewX,
     this.skewY,
+    this.rotateX,
+    this.rotateY,
+    this.blur,
+    this.tint,
     this.opacity,
     this.color,
     this.borderRadius,
@@ -51,6 +55,23 @@ class NibAnim {
   /// Vertical shear, in radians.
   final double? skewY;
 
+  /// Rotation around the X axis (a flip toward/away from the viewer) in
+  /// turns, drawn with perspective. Identity is `0.0`.
+  final double? rotateX;
+
+  /// Rotation around the Y axis (a turn like a door or card flip) in turns,
+  /// drawn with perspective. Identity is `0.0`.
+  final double? rotateY;
+
+  /// Gaussian blur applied to the whole widget, as a sigma in logical
+  /// pixels. Identity is `0.0` (no blur, no extra compositing layer).
+  final double? blur;
+
+  /// A colour laid over the widget's painted pixels (blended with
+  /// `BlendMode.srcATop`, so transparent areas stay transparent). Use an
+  /// alpha below `0xFF` for a wash. `null` means no tint.
+  final Color? tint;
+
   /// Opacity from `0.0` (fully transparent) to `1.0` (fully opaque,
   /// identity).
   final double? opacity;
@@ -76,6 +97,9 @@ class NibAnim {
     rotate: 0.0,
     skewX: 0.0,
     skewY: 0.0,
+    rotateX: 0.0,
+    rotateY: 0.0,
+    blur: 0.0,
     opacity: 1.0,
   );
 
@@ -97,6 +121,10 @@ class NibAnim {
       rotate: _lerpProp(rotate, other.rotate, identity.rotate!, t),
       skewX: _lerpProp(skewX, other.skewX, identity.skewX!, t),
       skewY: _lerpProp(skewY, other.skewY, identity.skewY!, t),
+      rotateX: _lerpProp(rotateX, other.rotateX, identity.rotateX!, t),
+      rotateY: _lerpProp(rotateY, other.rotateY, identity.rotateY!, t),
+      blur: _lerpProp(blur, other.blur, identity.blur!, t),
+      tint: Color.lerp(tint, other.tint, t),
       opacity: _lerpProp(opacity, other.opacity, identity.opacity!, t),
       color: Color.lerp(color, other.color, t),
       borderRadius: BorderRadius.lerp(borderRadius, other.borderRadius, t),
@@ -116,6 +144,10 @@ class NibAnim {
     double? rotate,
     double? skewX,
     double? skewY,
+    double? rotateX,
+    double? rotateY,
+    double? blur,
+    Color? tint,
     double? opacity,
     Color? color,
     BorderRadius? borderRadius,
@@ -130,6 +162,10 @@ class NibAnim {
       rotate: rotate ?? this.rotate,
       skewX: skewX ?? this.skewX,
       skewY: skewY ?? this.skewY,
+      rotateX: rotateX ?? this.rotateX,
+      rotateY: rotateY ?? this.rotateY,
+      blur: blur ?? this.blur,
+      tint: tint ?? this.tint,
       opacity: opacity ?? this.opacity,
       color: color ?? this.color,
       borderRadius: borderRadius ?? this.borderRadius,
@@ -152,6 +188,10 @@ class NibAnim {
       rotate: other.rotate ?? rotate,
       skewX: other.skewX ?? skewX,
       skewY: other.skewY ?? skewY,
+      rotateX: other.rotateX ?? rotateX,
+      rotateY: other.rotateY ?? rotateY,
+      blur: other.blur ?? blur,
+      tint: other.tint ?? tint,
       opacity: other.opacity ?? opacity,
       color: other.color ?? color,
       borderRadius: other.borderRadius ?? borderRadius,
@@ -171,6 +211,10 @@ class NibAnim {
         other.rotate == rotate &&
         other.skewX == skewX &&
         other.skewY == skewY &&
+        other.rotateX == rotateX &&
+        other.rotateY == rotateY &&
+        other.blur == blur &&
+        other.tint == tint &&
         other.opacity == opacity &&
         other.color == color &&
         other.borderRadius == borderRadius &&
@@ -187,6 +231,10 @@ class NibAnim {
         rotate,
         skewX,
         skewY,
+        rotateX,
+        rotateY,
+        blur,
+        tint,
         opacity,
         color,
         borderRadius,

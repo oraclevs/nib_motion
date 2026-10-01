@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+import '../values/motion_value.dart';
 import 'nib_anim.dart';
 import 'nib_keyframe.dart';
 import 'nib_motion_animator.dart';
+import 'nib_property.dart';
 import 'nib_transition.dart';
 
 /// A single step in a [NibMotionController.sequence].
@@ -59,6 +61,13 @@ class NibMotionSequenceStep {
 /// applies to all of them.
 class NibMotionController extends ChangeNotifier {
   final Set<NibMotionAnimator> _animators = <NibMotionAnimator>{};
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   /// Attaches this controller to [animator]. Called by `_NibMotionState`
   /// during `initState`/`didUpdateWidget`.
@@ -98,15 +107,53 @@ class NibMotionController extends ChangeNotifier {
       return animator.replayEntrance();
     });
     return Future.wait(futures).then((_) {
-      notifyListeners();
+      // Animations resolve when superseded or when their widget is disposed,
+      // which can happen after this controller itself was disposed.
+      if (!_disposed) notifyListeners();
     });
+  }
+
+  /// The live [MotionValue] behind [property] of the first attached
+  /// `NibMotion`, or `null` if none is attached yet.
+  ///
+  /// It is the widget's own value, so it carries `value` and `velocity` and
+  /// can be listened to (`addListener`) without rebuilding anything.
+  MotionValue<double>? motionValueOf(NibProperty property) {
+    for (final animator in _animators) {
+      final value = animator.motionValueOf(property);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  /// The current velocity of [property] in units per second (`0` when
+  /// nothing is attached or the property is at rest).
+  double velocityOf(NibProperty property) =>
+      motionValueOf(property)?.velocity ?? 0.0;
+
+  /// A snapshot of the velocity of every [NibProperty].
+  Map<NibProperty, double> get velocities => <NibProperty, double>{
+        for (final property in NibProperty.values)
+          property: velocityOf(property),
+      };
+
+  /// The start state of the first attached `NibMotion` (its `initial`),
+  /// merged over [NibAnim.identity]; [NibAnim.identity] if none is attached.
+  NibAnim get initialAnim {
+    for (final animator in _animators) {
+      return animator.initialAnim;
+    }
+    return NibAnim.identity;
   }
 
   /// Immediately sets every attached `NibMotion` to [target], with no
   /// animation.
-  void set(NibAnim target) {
+  ///
+  /// Each property's velocity is reset to zero unless [keepVelocity] is true,
+  /// in which case a following [start] continues the motion in progress.
+  void set(NibAnim target, {bool keepVelocity = false}) {
     for (final animator in _animators) {
-      animator.setImmediately(target);
+      animator.setImmediately(target, keepVelocity: keepVelocity);
     }
     notifyListeners();
   }

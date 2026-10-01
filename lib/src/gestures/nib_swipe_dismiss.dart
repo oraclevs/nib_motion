@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
 import '../values/motion_value.dart';
@@ -153,7 +154,7 @@ class NibSwipeDismiss extends StatefulWidget {
 }
 
 class _NibSwipeDismissState extends State<NibSwipeDismiss>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, NibReducedMotionMixin {
   final MotionValue<double> _offset = MotionValue<double>(0.0);
 
   SpringSolver? _springSolver;
@@ -217,6 +218,11 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss>
   }
 
   void _springBack(double initialVelocity) {
+    if (reduceMotion) {
+      _springSolver?.stop();
+      _offset.value = 0.0;
+      return;
+    }
     final solver = _springSolver ??=
         SpringSolver(vsync: this, value: _offset, spring: widget.spring);
     solver.spring = widget.spring;
@@ -227,6 +233,13 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss>
     final start = _offset.value;
     final direction = start >= 0 ? 1.0 : -1.0;
     final target = direction * extent * 1.5;
+
+    if (reduceMotion) {
+      _flingTicker?.stop();
+      _offset.value = target;
+      widget.onDismissed();
+      return;
+    }
 
     // A simple decelerating tween driven by a raw Ticker (no
     // AnimationController): eases from the release position/velocity to

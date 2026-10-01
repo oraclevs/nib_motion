@@ -34,6 +34,28 @@ class NibTransition {
     this.delayChildren = Duration.zero,
   });
 
+  /// A spring-driven transition using [spring] (for instance a `NibSpring`
+  /// token): `NibTransition.of(NibSpring.smooth)`.
+  ///
+  /// Equivalent to `NibTransition(spring: spring)` and to the
+  /// `spring.transition` extension.
+  static NibTransition of(NibSpringDescription spring) =>
+      NibTransition(spring: spring);
+
+  /// A spring transition described by how it should feel: [duration] is the
+  /// perceptual settling time and [bounce] is `-1..1` (`0` = no overshoot).
+  /// See [NibSpringDescription.fromDuration].
+  factory NibTransition.springWith({
+    Duration duration = const Duration(milliseconds: 500),
+    double bounce = 0.0,
+    Duration delay = Duration.zero,
+  }) =>
+      NibTransition(
+        spring: NibSpringDescription.fromDuration(
+            duration: duration, bounce: bounce),
+        delay: delay,
+      );
+
   /// A gentle spring transition (see [NibSpringDescription.gentle]).
   static const NibTransition springGentle = NibTransition(
     spring: NibSpringDescription.gentle,

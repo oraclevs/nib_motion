@@ -20,6 +20,34 @@ class NibSpringDescription {
     this.damping = 10.0,
   });
 
+  /// Creates a spring from how it should *feel* rather than raw physics.
+  ///
+  /// [duration] is the perceptual duration (roughly how long until the motion
+  /// reads as settled) and [bounce] is in `-1.0..1.0`: `0` is critically
+  /// damped (no overshoot), positive values overshoot and oscillate, negative
+  /// values are overdamped and sluggish. Mass is fixed at `1`.
+  ///
+  /// ```dart
+  /// NibSpringDescription.fromDuration(
+  ///     duration: Duration(milliseconds: 450), bounce: 0.25)
+  /// ```
+  factory NibSpringDescription.fromDuration({
+    Duration duration = const Duration(milliseconds: 500),
+    double bounce = 0.0,
+  }) {
+    assert(duration > Duration.zero, 'duration must be positive');
+    assert(bounce > -1.0 && bounce < 1.0, 'bounce must be in (-1, 1)');
+    final spring = flutter_physics.SpringDescription.withDurationAndBounce(
+      duration: duration,
+      bounce: bounce,
+    );
+    return NibSpringDescription(
+      mass: spring.mass,
+      stiffness: spring.stiffness,
+      damping: spring.damping,
+    );
+  }
+
   /// A soft, slow-settling spring with minimal overshoot.
   static const NibSpringDescription gentle = NibSpringDescription(
     mass: 1.0,
@@ -56,6 +84,17 @@ class NibSpringDescription {
 
   /// The damping coefficient. Higher values reduce oscillation.
   final double damping;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NibSpringDescription &&
+          other.mass == mass &&
+          other.stiffness == stiffness &&
+          other.damping == damping;
+
+  @override
+  int get hashCode => Object.hash(mass, stiffness, damping);
 
   /// Converts this description to a `package:flutter/physics.dart`
   /// `SpringDescription` for use with `SpringSimulation`.
