@@ -26,6 +26,14 @@ motion. All API changes are additive.
 * README examples corrected (`NibTransition.springSnappy`, `controller.start`,
   `motionValues:`).
 
+### Added/Fixed (hardening pass, from reading Cue and flutter_animate_plus source)
+* Numeric validation: springs, transitions and drivers reject NaN/infinite/zero-mass inputs (`ArgumentError` in debug, ignored in release) so a `MotionValue` can no longer be poisoned with NaN.
+* `NibMotion` reacts when reduced motion turns on mid-animation (springs, tweens, delays, keyframes, loops finish).
+* `NibShaderEffect(sampleChild: true)` feeds the child to the shader as sampler 0 (Impeller).
+* `NibVisibility` (single-child show/hide with retained exit), `NibScrubRelease` modes on `NibTimelineDragScrubber`.
+* `NibGlass`: rim refraction/highlight placed in the glass rect instead of the whole layer; non-finite `lightDirection` handled.
+* `NibLayoutGroup` now runs on the per-widget FLIP; reverse-growth slivers; `NibPageRoute(parallax:)`; `NibSharedSource`.
+
 ### Fixed (review pass)
 * Keyframe futures no longer hang when superseded/disposed; `controller.stop()` now stops keyframe and loop animations.
 * Layout frame-hook and shared-layout snapshot leaks fixed; render-object listener cleanup for `rotateX/rotateY/blur/tint` corrected.

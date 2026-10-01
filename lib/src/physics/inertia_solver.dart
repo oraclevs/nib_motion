@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../values/motion_value.dart';
 import 'driver_completer.dart';
+import 'driver_guard.dart';
 import 'spring_description.dart';
 
 /// Drives a [MotionValue<double>] with a decelerating "coast to a stop"
@@ -59,6 +60,11 @@ class InertiaSolver {
   /// animation is superseded by another [animateTo] or by [stop]/[dispose].
   Future<void> animateTo({required double velocity, double? min, double? max}) {
     assert(min == null || max == null || min <= max, 'min must be <= max');
+    if (!nibAcceptFinite('velocity', velocity) ||
+        (min != null && !nibAcceptFinite('min', min)) ||
+        (max != null && !nibAcceptFinite('max', max))) {
+      return Future.value();
+    }
     _ticker?.stop();
     final future = _completer.begin();
     _simulation = _CoastSimulation(

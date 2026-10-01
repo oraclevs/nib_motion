@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../values/motion_value.dart';
 import 'driver_completer.dart';
+import 'driver_guard.dart';
 import 'spring_description.dart';
 
 /// Drives a [MotionValue<double>] toward a target using real spring physics.
@@ -57,6 +58,11 @@ class SpringSolver {
     double? from,
     double initialVelocity = 0,
   }) {
+    if (!nibAcceptFinite('target', target) ||
+        !nibAcceptFinite('initialVelocity', initialVelocity) ||
+        (from != null && !nibAcceptFinite('from', from))) {
+      return Future.value();
+    }
     final startPosition = from ?? _value.value;
     final startVelocity = initialVelocity != 0
         ? initialVelocity

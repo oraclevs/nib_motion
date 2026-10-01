@@ -100,3 +100,29 @@ A tween interpolates every channel linearly through the curve and cannot carry
 velocity, so a spring that takes over from a tween starts at rest.
 `NibSimulationDriver` now settles on the simulation's exact end (bisected) rather
 than one frame past it.
+
+## Input validation (hardening)
+
+Bad numbers are loud in debug builds and harmless in release builds:
+
+| Input | Debug | Release |
+|---|---|---|
+| `NibSpringDescription` mass/stiffness ≤ 0, damping < 0, NaN/∞ | assert in the constructor | `toFlutter()` substitutes defaults |
+| `NibSpringDescription.unchecked(...)` | skips validation (tests, pre-validated code) | same sanitising |
+| NaN/∞ spring/inertia/multi-axis target, velocity, bounds | `ArgumentError` from `animateTo` | the request is ignored |
+| NaN/∞ written to a `MotionValue<double>` (`update`/`value =`) | `ArgumentError`, value unchanged | write ignored, value unchanged |
+| non-finite velocity passed to `MotionValue.update` | dropped to `0` | dropped to `0` |
+| `NibAnim` with a non-finite scalar (`animateTo`, `setImmediately`) | `ArgumentError` | that property is left untouched |
+| `NibTransition` with a negative duration/delay/stagger | `ArgumentError` (`validate()`) | `sanitized()` clamps to zero |
+
+`NibTransition.copyWith` and `NibTransition.validate/sanitized` are available
+for your own entry points.
+
+## `NibShaderEffect(sampleChild: true)`
+
+Feeds the child's pixels to the shader's first `sampler2D` (an
+`ImageFilter.shader`, so **Impeller only**; elsewhere the child paints
+unchanged). The shader's first uniform must be a `vec2` — the engine writes the
+texture size into it — so `includeSize` must stay `true`, and on the OpenGL ES
+backend the shader must flip the y axis. Pixel-tested with
+`flutter test --enable-impeller test/shaders`.

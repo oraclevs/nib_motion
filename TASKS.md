@@ -215,6 +215,14 @@ Done: dialog/route helpers with back-swipe + shared hand-off, sliver progress/he
 - Suite **658 pass, 0 skipped**; example 50 pass; `nib_components` 814 pass against the working copy; analyze `--fatal-infos` + format clean. Coverage 86.2% (was 82.6%); `nib_glass.dart` still 0%.
 - Still unverified: device/raster performance, on-device visuals, `NibGlass`, Cue/animate+ internals. Review suspicion not confirmed: `NibLayoutFrameHook` holds static state that nothing resets.
 
+### Sixth pass (source-level verification + remaining builds)
+- **Cue and flutter_animate_plus source were read** (cloned, ~26k lines): confirmed Cue passes velocity between tracks (normalized units, dropped on scrub), has **no** reduced motion, "coordination" is only a shared timeline scope (not variants); animate+ handles reduced motion in presence/implicit/adapters but not its core timeline. Probes found real bugs in OUR code (NaN poisoning, negative duration, reduced motion not applied mid-flight) — all fixed with tests.
+- **Device performance:** first real frame timings on Intel UHD 620 / Impeller GLES (`example/perf/perf_main.dart`, `doc/performance.md`): NibMotion ≈ AnimationController baseline; blur/tint/rotateY/FLIP differences are inside 20-40% run-to-run noise (no claim). Not covered: other GPUs, Skia/Vulkan/Metal, low-end Android, iOS, web, release mode.
+- **NibGlass:** coverage 0% → ~52%; real shader bug found and fixed (uSize overwritten by Impeller with the backdrop texture size → rim effects landed on a phantom rect); verified by rendered images in the Impeller test renderer only (**not on a device**).
+- **Built:** `NibLayoutGroup` on the per-widget mechanism (tests unchanged, `NibLayoutChannelMode.translate`), back-swipe parallax, reverse-growth slivers, `NibSharedSource`, numeric validation, reduced motion mid-flight, `NibShaderEffect(sampleChild)`, `NibVisibility`, scrub release modes.
+- Suite **736 pass** (+55 Impeller shader tests via `--enable-impeller`); example 50; `nib_components` 814; analyze/format clean.
+- **Remaining:** per-property spring tolerance and eased mid-visible `whileInView` entrance (optional); on-device visuals/perf; whole-`ListView.builder` reorders only animate built items; items re-created after leaving the cache extent don't FLIP on arrival; position FLIP assumes the widget doesn't animate its own x/y; `NibVisibility` exit settings come from the last visible build; release-mode clamp paths are untested (asserts fire in debug); Skia has no `sampleChild`.
+
 Honest caveats: tests for layout/presence were written alongside the implementation (fork reported mutation checks instead of red-first runs); blur/tint/3D have unit + layer-presence tests but no pixel or device verification; shader effect untested with a real program.
 
 ## Blocked / Needs Decision

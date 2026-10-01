@@ -33,3 +33,19 @@ ticker is left running (`transientCallbackCount == 0`).
 
 `NibTimeline` has no `BuildContext`; its entries run through `NibMotion`
 controllers, which honour the policy. Only the entry *timers* still elapse.
+
+## Switching it on while animating
+
+`NibMotion` re-checks the policy when `MediaQuery.disableAnimations` or an
+enclosing `NibMotionConfig.reducedMotion` changes (`didChangeDependencies` via
+`watchReducedMotion`). When it flips to *reduced* mid-flight, every running
+spring/tween lands on its target, pending delays apply immediately, keyframes
+jump to their last frame, a repeat loop stops at the end of its cycle, and the
+in-flight futures resolve. Turning reduced motion back off restarts nothing.
+(`test/runtime/hardening_reduced_motion_test.dart`.)
+
+## `NibVisibility`
+
+Single-child show/hide with enter/exit animation; reduced motion removes the
+child immediately, and an exiting child ignores pointers and is excluded from
+semantics and focus.

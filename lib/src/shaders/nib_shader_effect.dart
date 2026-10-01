@@ -1,4 +1,4 @@
-import 'dart:ui' show FragmentProgram, FragmentShader;
+import 'dart:ui' show FragmentProgram, FragmentShader, ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
@@ -30,6 +30,15 @@ import 'shader_loader.dart';
 /// (default) draws it on top; `srcIn` masks the shader to the child's alpha;
 /// `multiply`, `screen` etc. tint it.
 ///
+/// With [sampleChild] the shader *transforms the child's pixels* instead of
+/// drawing over them: the child is rendered into a texture that the engine
+/// binds to the shader's first `sampler2D`. This uses `ImageFilter.shader`, so
+/// it needs Impeller; elsewhere (Skia, older engines) the child is painted
+/// unchanged. The engine requires the shader's **first uniform to be a
+/// `vec2`, which it overwrites with the texture size** — so [includeSize] must
+/// stay `true`, and on the OpenGL ES backend the shader must flip the y axis
+/// (see `ImageFilter.shader`). [blendMode] is ignored in this mode.
+///
 /// Reduced motion freezes [includeTime] at `0` (no ticker); uniforms you drive
 /// yourself are unaffected.
 ///
@@ -54,11 +63,14 @@ class NibShaderEffect extends StatefulWidget {
     this.includeTime = false,
     this.includeSize = true,
     this.blendMode = BlendMode.srcOver,
+    this.sampleChild = false,
     this.enabled = true,
     this.onLoadError,
     required this.child,
-  }) : assert((program == null) != (asset == null),
-            'Provide exactly one of program or asset.');
+  })  : assert((program == null) != (asset == null),
+            'Provide exactly one of program or asset.'),
+        assert(!sampleChild || includeSize,
+            'sampleChild needs includeSize: the first uniform must be a vec2.');
 
   /// A ready fragment program.
   final FragmentProgram? program;
@@ -77,6 +89,10 @@ class NibShaderEffect extends StatefulWidget {
 
   /// How the shader composites with [child].
   final BlendMode blendMode;
+
+  /// Whether the shader receives the child's pixels as its first sampler and
+  /// replaces them (Impeller only). See the class documentation.
+  final bool sampleChild;
 
   /// When `false`, only [child] is painted and the time ticker is stopped.
   final bool enabled;
@@ -182,6 +198,7 @@ class _NibShaderEffectState extends State<NibShaderEffect>
       includeTime: widget.includeTime,
       includeSize: widget.includeSize,
       blendMode: widget.blendMode,
+      sampleChild: widget.sampleChild,
       child: widget.child,
     );
   }
@@ -195,6 +212,7 @@ class _NibShaderLayer extends SingleChildRenderObjectWidget {
     required this.includeTime,
     required this.includeSize,
     required this.blendMode,
+    required this.sampleChild,
     required Widget child,
   }) : super(child: child);
 
@@ -204,6 +222,7 @@ class _NibShaderLayer extends SingleChildRenderObjectWidget {
   final bool includeTime;
   final bool includeSize;
   final BlendMode blendMode;
+  final bool sampleChild;
 
   @override
   RenderNibShaderEffect createRenderObject(BuildContext context) =>
@@ -214,6 +233,7 @@ class _NibShaderLayer extends SingleChildRenderObjectWidget {
         includeTime: includeTime,
         includeSize: includeSize,
         blendMode: blendMode,
+        sampleChild: sampleChild,
       );
 
   @override
@@ -225,7 +245,8 @@ class _NibShaderLayer extends SingleChildRenderObjectWidget {
       ..uniforms = uniforms
       ..includeTime = includeTime
       ..includeSize = includeSize
-      ..blendMode = blendMode;
+      ..blendMode = blendMode
+      ..sampleChild = sampleChild;
   }
 }
 
@@ -240,8 +261,10 @@ class RenderNibShaderEffect extends RenderProxyBox {
     required bool includeTime,
     required bool includeSize,
     required BlendMode blendMode,
+    bool sampleChild = false,
     RenderBox? child,
   })  : _program = program,
+        _sampleChild = sampleChild,
         _time = time,
         _uniforms = List.of(uniforms),
         _includeTime = includeTime,
@@ -258,7 +281,10 @@ class RenderNibShaderEffect extends RenderProxyBox {
   bool _includeTime;
   bool _includeSize;
   BlendMode _blendMode;
+  bool _sampleChild;
   late FragmentShader _shader;
+  final LayerHandle<ImageFilterLayer> _filterLayer =
+      LayerHandle<ImageFilterLayer>();
 
   void _attach() {
     if (_includeTime) _time.addListener(markNeedsPaint);
@@ -329,6 +355,14 @@ class RenderNibShaderEffect extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  /// Whether the shader replaces the child's pixels (Impeller only).
+  bool get sampleChild => _sampleChild;
+  set sampleChild(bool value) {
+    if (_sampleChild == value) return;
+    _sampleChild = value;
+    markNeedsPaint();
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     if (child == null || size.isEmpty) {
@@ -345,6 +379,18 @@ class RenderNibShaderEffect extends RenderProxyBox {
     for (var i = 0; i < floats.length; i++) {
       _shader.setFloat(i, floats[i]);
     }
+    if (_sampleChild) {
+      if (!ImageFilter.isShaderFilterSupported) {
+        _filterLayer.layer = null;
+        super.paint(context, offset);
+        return;
+      }
+      final layer = (_filterLayer.layer ??= ImageFilterLayer());
+      layer.imageFilter = ImageFilter.shader(_shader);
+      context.pushLayer(layer, super.paint, offset);
+      return;
+    }
+    _filterLayer.layer = null;
     final rect = offset & size;
     final canvas = context.canvas;
     canvas.saveLayer(rect, Paint());
@@ -359,7 +405,11 @@ class RenderNibShaderEffect extends RenderProxyBox {
   }
 
   @override
+  bool get alwaysNeedsCompositing => _sampleChild;
+
+  @override
   void dispose() {
+    _filterLayer.layer = null;
     _detach();
     super.dispose();
   }

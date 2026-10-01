@@ -48,6 +48,7 @@ export 'src/physics/nib_spring_curve.dart';
 export 'src/physics/spring_description.dart';
 export 'src/physics/spring_solver.dart';
 export 'src/presence/nib_presence.dart';
+export 'src/presence/nib_visibility.dart';
 export 'src/presets/nib_anim_presets.dart';
 export 'src/presets/nib_bounce.dart';
 export 'src/presets/nib_flip.dart';

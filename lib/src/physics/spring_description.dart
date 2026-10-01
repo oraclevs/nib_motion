@@ -14,7 +14,27 @@ class NibSpringDescription {
   /// - [mass] affects inertia. Higher values are slower to start and stop.
   /// - [stiffness] is the spring tightness. Higher values are snappier.
   /// - [damping] is the resistance. Higher values reduce oscillation.
+  ///
+  /// [mass] and [stiffness] must be positive and finite, [damping] must be
+  /// non-negative and finite (`0` is an undamped spring). Violations fail an
+  /// assert in debug builds; in release builds [toFlutter] substitutes safe
+  /// values so a bad description can never poison a `MotionValue` with NaN.
   const NibSpringDescription({
+    this.mass = 1.0,
+    this.stiffness = 100.0,
+    this.damping = 10.0,
+  })  : assert(mass > 0 && mass < double.infinity,
+            'NibSpringDescription.mass must be positive and finite.'),
+        assert(stiffness > 0 && stiffness < double.infinity,
+            'NibSpringDescription.stiffness must be positive and finite.'),
+        assert(damping >= 0 && damping < double.infinity,
+            'NibSpringDescription.damping must be non-negative and finite.');
+
+  /// Creates a description **without** validation.
+  ///
+  /// For tests and for code that has already validated its input; invalid
+  /// values are replaced by safe defaults in [toFlutter].
+  const NibSpringDescription.unchecked({
     this.mass = 1.0,
     this.stiffness = 100.0,
     this.damping = 10.0,
@@ -99,10 +119,12 @@ class NibSpringDescription {
   /// Converts this description to a `package:flutter/physics.dart`
   /// `SpringDescription` for use with `SpringSimulation`.
   flutter_physics.SpringDescription toFlutter() {
+    // Release-mode safety net (debug builds assert in the constructor).
     return flutter_physics.SpringDescription(
-      mass: mass,
-      stiffness: stiffness,
-      damping: damping,
+      mass: mass > 0 && mass < double.infinity ? mass : 1.0,
+      stiffness:
+          stiffness > 0 && stiffness < double.infinity ? stiffness : 100.0,
+      damping: damping >= 0 && damping < double.infinity ? damping : 10.0,
     );
   }
 }

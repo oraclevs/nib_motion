@@ -41,7 +41,17 @@ class MotionValue<T> extends ChangeNotifier implements ValueListenable<T> {
   /// Listeners are notified only when the value itself changes. Used by
   /// animation drivers so momentum survives interruption; see [velocity].
   void update(T newValue, {double velocity = 0.0}) {
-    _velocity = velocity;
+    final candidate = newValue;
+    if (candidate is double && !candidate.isFinite) {
+      // A NaN/infinite position would stay in the value (and the transform
+      // built from it) forever. Loud in debug, ignored in release.
+      if (kDebugMode) {
+        throw ArgumentError.value(
+            candidate, 'newValue', 'MotionValue<double> must stay finite');
+      }
+      return;
+    }
+    _velocity = velocity.isFinite ? velocity : 0.0;
     if (_value == newValue) return;
     _value = newValue;
     notifyListeners();

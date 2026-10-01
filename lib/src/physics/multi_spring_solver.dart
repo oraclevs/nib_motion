@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import '../values/motion_converter.dart';
 import '../values/motion_value.dart';
 import 'driver_completer.dart';
+import 'driver_guard.dart';
 import 'spring_description.dart';
 
 /// Drives a [MotionValue] of a composite type (`Offset`, `Size`, `Color`, …)
@@ -70,6 +71,12 @@ class MultiSpringSolver<T> {
   }) {
     assert(initialVelocity == null ||
         initialVelocity.length == converter.channels);
+    final targetChannels = converter.normalize(target);
+    if (!targetChannels.every((c) => nibAcceptFinite('target', c)) ||
+        (initialVelocity != null &&
+            !initialVelocity.every((v) => nibAcceptFinite('velocity', v)))) {
+      return Future.value();
+    }
     _ticker?.stop();
     final future = _completer.begin();
 

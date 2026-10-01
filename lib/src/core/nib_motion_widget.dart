@@ -11,6 +11,7 @@ import '../layout/nib_layout.dart';
 import '../layout/nib_layout_defaults.dart';
 import '../layout/nib_layout_scope.dart';
 import '../physics/driver_completer.dart';
+import '../physics/driver_guard.dart';
 import '../physics/inertia_solver.dart';
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
@@ -433,6 +434,11 @@ class _NibMotionState extends State<NibMotion>
   bool _runningEntranceGateCallback = false;
   bool _deactivated = false;
   AnimationController? _keyframeController;
+  // How to land each running animation on its target immediately; used when
+  // reduced motion switches on mid-flight. Keyed like the drivers.
+  final Map<String, VoidCallback> _snapToTarget = <String, VoidCallback>{};
+  VoidCallback? _keyframeFinish;
+  bool? _wasReducedMotion;
   final DriverCompleter _keyframeCompleter = DriverCompleter();
   AnimationController? _loopController;
   bool? _wasTickerEnabled;
@@ -640,6 +646,8 @@ class _NibMotionState extends State<NibMotion>
     final controller =
         AnimationController(vsync: this, duration: transition.duration);
     _keyframeController = controller;
+    _keyframeFinish = () => setImmediately(
+        computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
     controller.addListener(() {
       setImmediately(computeAnimFromKeyframes(
           keyframes, controller.value, transition.curve));
@@ -730,6 +738,10 @@ class _NibMotionState extends State<NibMotion>
       }
       _presenceRegistration = registration;
     }
+
+    final reduced = NibMotionConfig.watchReducedMotion(context);
+    if (reduced && _wasReducedMotion == false) _finishForReducedMotion();
+    _wasReducedMotion = reduced;
 
     // ignore: deprecated_member_use, TickerMode.valuesOf requires a newer Flutter than this package's minimum.
     final tickerEnabled = TickerMode.of(context);
@@ -868,6 +880,44 @@ class _NibMotionState extends State<NibMotion>
     }
   }
 
+  /// Returns [target] with every non-finite scalar removed (so that property
+  /// is left untouched). Debug builds throw an [ArgumentError] instead.
+  NibAnim _finiteOnly(NibAnim target) {
+    bool ok(String name, double? v) => v == null || nibAcceptFinite(name, v);
+    final allFinite = ok('x', target.x) &&
+        ok('y', target.y) &&
+        ok('scale', target.scale) &&
+        ok('scaleX', target.scaleX) &&
+        ok('scaleY', target.scaleY) &&
+        ok('rotate', target.rotate) &&
+        ok('skewX', target.skewX) &&
+        ok('skewY', target.skewY) &&
+        ok('rotateX', target.rotateX) &&
+        ok('rotateY', target.rotateY) &&
+        ok('blur', target.blur) &&
+        ok('opacity', target.opacity);
+    if (allFinite) return target;
+    double? keep(double? v) => v != null && v.isFinite ? v : null;
+    return NibAnim(
+      x: keep(target.x),
+      y: keep(target.y),
+      scale: keep(target.scale),
+      scaleX: keep(target.scaleX),
+      scaleY: keep(target.scaleY),
+      rotate: keep(target.rotate),
+      skewX: keep(target.skewX),
+      skewY: keep(target.skewY),
+      rotateX: keep(target.rotateX),
+      rotateY: keep(target.rotateY),
+      blur: keep(target.blur),
+      opacity: keep(target.opacity),
+      tint: target.tint,
+      color: target.color,
+      borderRadius: target.borderRadius,
+      boxShadow: target.boxShadow,
+    );
+  }
+
   @override
   Future<void> animateTo(NibAnim target, {NibTransition? transition}) {
     // `GestureRecognizer.dispose()` can synchronously trigger
@@ -877,16 +927,24 @@ class _NibMotionState extends State<NibMotion>
     // `shouldReduceMotion`) on a deactivated element.
     if (_deactivated || !context.mounted) return Future.value();
 
+    // Bad numbers are loud in debug builds and dropped in release builds,
+    // rather than leaving NaN in a transform forever.
+    target = _finiteOnly(target);
+    var effective = transition ??
+        widget.transition ??
+        NibMotionConfig.defaultTransitionOf(context);
+    if (kDebugMode) {
+      effective.validate();
+    } else {
+      effective = effective.sanitized();
+    }
+
     if (!_runningEntranceGateCallback) _cancelEntranceGate();
 
     if (NibMotionConfig.shouldReduceMotion(context)) {
       setImmediately(target);
       return Future.value();
     }
-
-    final effective = transition ??
-        widget.transition ??
-        NibMotionConfig.defaultTransitionOf(context);
 
     _cancelPendingDelays(_propertyKeys(target));
     _stopKeyframes();
@@ -897,6 +955,7 @@ class _NibMotionState extends State<NibMotion>
       late final _PendingDelay pending;
       pending = _PendingDelay(
         _propertyKeys(target),
+        target,
         completer,
         Timer(delay, () {
           _pendingDelays.remove(pending);
@@ -971,7 +1030,8 @@ class _NibMotionState extends State<NibMotion>
       final solver = _springSolvers.putIfAbsent(
           key, () => SpringSolver(vsync: this, value: value, spring: spring));
       solver.spring = spring;
-      return solver.animateTo(target: target);
+      return _trackTarget<double>(
+          key, value, target, solver.animateTo(target: target));
     }
 
     _springSolvers[key]?.stop();
@@ -1023,7 +1083,43 @@ class _NibMotionState extends State<NibMotion>
       value.update(target);
       completer.resolve();
     });
+    return _trackTarget<T>(key, value, target, future);
+  }
+
+  /// Remembers how to snap [value] to [target] until [future] resolves.
+  Future<void> _trackTarget<T>(
+      String key, MotionValue<T> value, T target, Future<void> future) {
+    void snap() => value.update(target);
+    _snapToTarget[key] = snap;
+    future.whenComplete(() {
+      // A newer animation on the same property registered its own snap.
+      if (identical(_snapToTarget[key], snap)) _snapToTarget.remove(key);
+    });
     return future;
+  }
+
+  /// Reduced motion just switched on: land every running animation on its
+  /// target, stop loops and keyframes, and resolve their futures.
+  void _finishForReducedMotion() {
+    final snaps = _snapToTarget.values.toList();
+    final pending = List<_PendingDelay>.of(_pendingDelays);
+    final keyframeFinish =
+        (_keyframeController?.isAnimating ?? false) ? _keyframeFinish : null;
+    final loopRunning = _loopController?.isAnimating ?? false;
+
+    stopAnimations(); // also cancels pending delays and resolves futures
+    for (final snap in snaps) {
+      snap();
+    }
+    for (final delayed in pending) {
+      setImmediately(delayed.target);
+    }
+    keyframeFinish?.call();
+    if (loopRunning) {
+      // Its reduced-motion branch jumps to the end of the cycle.
+      _startRepeatLoop();
+    }
+    _snapToTarget.clear();
   }
 
   /// Stops the tween for [key] (if any) and resolves its pending future.
@@ -1216,6 +1312,7 @@ class _NibMotionState extends State<NibMotion>
 
   @override
   void setImmediately(NibAnim target, {bool keepVelocity = false}) {
+    target = _finiteOnly(target);
     void setDouble(MotionValue<double> value, String key, double? targetValue) {
       if (targetValue == null) return;
       _springSolvers[key]?.stop();
@@ -1319,6 +1416,8 @@ class _NibMotionState extends State<NibMotion>
     final controller =
         AnimationController(vsync: this, duration: effective.duration);
     _keyframeController = controller;
+    _keyframeFinish = () => setImmediately(
+        computeAnimFromKeyframes(keyframes, 1.0, effective.curve));
     controller.addListener(() {
       setImmediately(computeAnimFromKeyframes(
           keyframes, controller.value, effective.curve));
@@ -1913,9 +2012,10 @@ class _NibMotionState extends State<NibMotion>
 
 /// A delayed `animateTo` waiting for its delay to elapse.
 class _PendingDelay {
-  _PendingDelay(this.keys, this.completer, this.timer);
+  _PendingDelay(this.keys, this.target, this.completer, this.timer);
 
   final Set<String> keys;
+  final NibAnim target;
   final Completer<void> completer;
   final Timer timer;
 }

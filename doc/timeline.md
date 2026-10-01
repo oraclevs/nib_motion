@@ -74,3 +74,18 @@ that a lazy list has not built yet does not exist to measure.
 Sliver header `progress` values may be listened to with `ValueListenableBuilder`:
 writes during layout notify right after the frame (at most one frame behind);
 paint reads see the new value immediately.
+
+## Drag-scrubber release modes
+
+`NibTimelineDragScrubber(release: …)` decides what happens when the finger lifts:
+
+| `NibScrubRelease` | Behaviour |
+|---|---|
+| `stay` (default) | progress stays put |
+| `snapToNearest` | spring (`releaseSpring`, default `snappy`) to `0` or `1`, whichever the scrub is heading for (position + ~120 ms of release velocity) |
+| `momentum` | continue with the release velocity and decelerate, bounded to `0..1` |
+| `springBack` | spring back to where the scrub began |
+
+Velocity is the release velocity along the scrub axis in progress/second
+(RTL- and `reverse`-aware). A new drag cancels a running release; with reduced
+motion the release jumps to its resting progress.
