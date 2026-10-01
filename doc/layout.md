@@ -2,8 +2,9 @@
 
 `NibMotion(layout: …)` animates its own layout changes — FLIP (First, Last,
 Invert, Play) — in **any parent**: `Column`, `Row`, `Wrap`, `Stack`, grids,
-custom render objects. `NibLayoutGroup` (a keyed `Column`) still exists and is
-unchanged.
+custom render objects. `NibLayoutGroup` (a keyed `Column`) is the same
+mechanism: each child is a `NibMotion(layout: NibLayout.position,
+layoutChannelMode: NibLayoutChannelMode.translate)` inside a `NibLayoutScope`.
 
 ```dart
 NibLayoutScope(                       // optional: defines the coordinate space
@@ -114,9 +115,13 @@ on the same axis, holding the dragged item within 56 px of its edge scrolls it
   not layout movement, while inserting, removing or resizing items above a
   visible one FLIPs it. Limits: items that scroll out of the cache extent are
   disposed, and one scrolled back in is a new widget (no FLIP on arrival);
-  reverse-growth slivers (`center` slivers before the viewport origin) are not
-  handled; a reorder of a whole `ListView.builder` only animates the items
-  that are built.
+  a reorder of a whole `ListView.builder` only animates the items
+  that are built. Reversed lists (`reverse: true`, either axis), reverse-growth
+  slivers before a `center`, and RTL grids are handled: sliver offsets are
+  mapped to screen-oriented content space (`layoutOffset` runs from the
+  bottom/right edge in a reversed list, so it is mirrored; a grid's
+  `crossAxisOffset` is already physical), so a FLIP always travels the visible
+  way and a centre-keyed sliver that did not move never animates.
 * **`RepaintBoundary` (one frame late).** A `ListView` wraps every item in a
   `RepaintBoundary`, and an outer relayout can move a boundary's subtree
   without painting it, so the widget's own `paint` (where movement is
@@ -126,13 +131,13 @@ on the same axis, holding the dragged item within 56 px of its edge scrolls it
   animated, but the FLIP starts one frame late, so the new position shows for
   a single frame first. Pass `addRepaintBoundaries: false` (lists) to get the
   flash-free path.
-* **`NibLayoutGroup` still uses its own controller-based FLIP**, not the
-  per-widget mechanism (re-checked: still infeasible without weakening tests).
-  Its tests assert the controller channel (`translateY`/`translateX`) on the
-  widget's `RenderNibMotion`, while the per-widget mechanism keeps the
-  inversion in dedicated layout channels, so a rewrite would have meant
-  changing those assertions for no user-visible gain. Prefer
-  `NibMotion(layout:)` in new code.
+* **`NibLayoutGroup` is built on the per-widget mechanism**, through
+  `NibLayoutChannelMode.translate`: in that mode the position part of the FLIP
+  is stored directly in the widget's own `translateX`/`translateY` (rather than
+  in separate layout channels), which is exactly what `NibLayoutGroup`'s
+  children expose (and what its tests assert). The widget must not animate its
+  own `x`/`y` in that mode. Use the default `channels` mode for anything that
+  also animates position (`animate:`, gestures, variants).
 * **Without a scope**, a container that moves *relative to the top of its box
   ancestors* (not scrolling) animates its children too; add a `NibLayoutScope`
   to exclude that.

@@ -55,6 +55,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
     required this.boxShadow,
     required this.layout,
     required this.layoutSizeMode,
+    required this.layoutChannelMode,
     required this.layoutChannels,
     required this.layoutId,
     required this.layoutScope,
@@ -64,6 +65,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
 
   final NibLayout layout;
   final NibLayoutSizeMode layoutSizeMode;
+  final NibLayoutChannelMode layoutChannelMode;
   final NibLayoutChannels? layoutChannels;
   final Object? layoutId;
   final NibLayoutScopeData? layoutScope;
@@ -105,6 +107,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
       boxShadow: boxShadow,
       layout: layout,
       layoutSizeMode: layoutSizeMode,
+      layoutChannelMode: layoutChannelMode,
       layoutChannels: layoutChannels,
       layoutId: layoutId,
       layoutScope: layoutScope,
@@ -132,6 +135,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
       ..boxShadow = boxShadow
       ..layoutMode = layout
       ..layoutSizeMode = layoutSizeMode
+      ..layoutChannelMode = layoutChannelMode
       ..layoutChannels = layoutChannels
       ..layoutId = layoutId
       ..layoutScope = layoutScope
@@ -174,6 +178,7 @@ class NibMotion extends StatefulWidget {
     this.exitTransition,
     this.layout = NibLayout.inherit,
     this.layoutSizeMode = NibLayoutSizeMode.scale,
+    this.layoutChannelMode = NibLayoutChannelMode.channels,
     this.layoutId,
     this.layoutTransition,
     this.onLayoutAnimationStart,
@@ -337,6 +342,13 @@ class NibMotion extends StatefulWidget {
   /// [NibLayoutSizeMode.scale] stretches the child, [NibLayoutSizeMode.clip]
   /// lays it out at its final size and reveals it through a growing clip.
   final NibLayoutSizeMode layoutSizeMode;
+
+  /// Where the position part of a layout FLIP is kept: in dedicated channels
+  /// ([NibLayoutChannelMode.channels], default) or directly in this widget's
+  /// `translateX`/`translateY` ([NibLayoutChannelMode.translate], what
+  /// `NibLayoutGroup` uses). In translate mode this widget must not animate its
+  /// own `x`/`y`: the FLIP owns them and they rest at 0.
+  final NibLayoutChannelMode layoutChannelMode;
 
   /// Identity for shared-layout transitions: when a widget with this id
   /// mounts in the same `NibLayoutScope` right after another one with the same
@@ -1055,9 +1067,19 @@ class _NibMotionState extends State<NibMotion>
     final channels = _layoutChannels;
     if (channels == null || !mounted) return;
 
+    final inTranslate =
+        widget.layoutChannelMode == NibLayoutChannelMode.translate;
     final targets = <String, (MotionValue<double>, double, double)>{
-      'layoutX': (channels.x, flip.x, 0.0),
-      'layoutY': (channels.y, flip.y, 0.0),
+      // In translate mode the position FLIP lives in the widget's own
+      // translation (and shares its driver keys, so it supersedes any other
+      // translate animation).
+      if (inTranslate) ...{
+        'translateX': (_translateX, flip.x, 0.0),
+        'translateY': (_translateY, flip.y, 0.0),
+      } else ...{
+        'layoutX': (channels.x, flip.x, 0.0),
+        'layoutY': (channels.y, flip.y, 0.0),
+      },
       'layoutScaleX': (channels.scaleX, flip.scaleX, 1.0),
       'layoutScaleY': (channels.scaleY, flip.scaleY, 1.0),
     };
@@ -1068,7 +1090,10 @@ class _NibMotionState extends State<NibMotion>
     }
     _layoutDelayTimer?.cancel();
     _layoutDelayTimer = null;
-    // A superseded animation ends here, so observers never wait on it.
+    // A superseded animation ends here, so observers never wait on it. If the
+    // flip that replaces it has nothing left to animate, that successor settles
+    // at once and reports completion on the superseded animation's behalf.
+    final supersededActive = _layoutActive;
     _endLayoutActivity(notifyComplete: false);
 
     final generation = ++_layoutGeneration;
@@ -1077,6 +1102,7 @@ class _NibMotionState extends State<NibMotion>
       for (final (channel, _, rest) in targets.values) {
         channel.update(rest);
       }
+      if (supersededActive) widget.onLayoutAnimationComplete?.call();
       return;
     }
 
@@ -1098,7 +1124,10 @@ class _NibMotionState extends State<NibMotion>
         final future = _animateDouble(channel, entry.key, rest, transition);
         if (future != null) futures.add(future);
       }
-      if (futures.isEmpty) return;
+      if (futures.isEmpty) {
+        if (supersededActive) widget.onLayoutAnimationComplete?.call();
+        return;
+      }
 
       _layoutActive = true;
       widget.onLayoutAnimationStart?.call();
@@ -1872,6 +1901,7 @@ class _NibMotionState extends State<NibMotion>
       boxShadow: _boxShadow,
       layout: _effectiveLayout,
       layoutSizeMode: widget.layoutSizeMode,
+      layoutChannelMode: widget.layoutChannelMode,
       layoutChannels: _layoutChannels,
       layoutId: widget.layoutId,
       layoutScope: NibLayoutScope.maybeOf(context),

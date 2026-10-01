@@ -1,10 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../core/nib_anim.dart';
-import '../core/nib_motion_controller.dart';
 import '../core/nib_motion_widget.dart';
 import '../core/nib_transition.dart';
-import 'flip_recorder.dart';
+import 'nib_layout.dart';
+import 'nib_layout_scope.dart';
 
 /// Animates [children] to their new positions whenever a rebuild changes
 /// their layout, using the FLIP (First, Last, Invert, Play) technique.
@@ -23,6 +22,12 @@ import 'flip_recorder.dart';
 /// - **Play:** that offset is animated back to zero with [transition],
 ///   so the child appears to travel smoothly from its old position to its
 ///   new one.
+///
+/// Each child is a `NibMotion(layout: NibLayout.position)` in
+/// [NibLayoutChannelMode.translate] mode inside a [NibLayoutScope], so the
+/// group is a thin `Column` over the same per-widget mechanism you get from
+/// `NibMotion(layout:)` anywhere else; the FLIP is observable as each child's
+/// own translation.
 ///
 /// A child whose key is newly added to [children] mounts without a FLIP
 /// animation. A child whose key is removed from [children] stops being
@@ -71,15 +76,12 @@ class NibLayoutGroup extends StatefulWidget {
 }
 
 class _NibLayoutGroupState extends State<NibLayoutGroup> {
-  final FlipRecorder _recorder = FlipRecorder();
   final Map<Key, GlobalKey> _globalKeys = <Key, GlobalKey>{};
-  final Map<Key, NibMotionController> _controllers =
-      <Key, NibMotionController>{};
 
-  /// Keys with a FLIP in flight, and a per-key generation so a superseded
-  /// FLIP's completion cannot end its successor.
+  /// Keys with a FLIP in flight. Each child's `NibMotion` reports the start and
+  /// the settle of its own animation; a superseded animation is followed by its
+  /// successor's start for the same key, so the set stays balanced.
   final Set<Key> _active = <Key>{};
-  final Map<Key, int> _generations = <Key, int>{};
 
   void _moveStarted(Key key) {
     final first = _active.isEmpty;
@@ -88,16 +90,13 @@ class _NibLayoutGroupState extends State<NibLayoutGroup> {
     if (first) widget.onAnimationStart?.call();
   }
 
-  void _moveEnded(Key key, int generation) {
-    if (_generations[key] != generation || !_active.remove(key)) return;
+  void _moveEnded(Key key) {
+    if (!_active.remove(key)) return;
     if (_active.isEmpty && mounted) widget.onAnimationComplete?.call();
   }
 
   GlobalKey _globalKeyFor(Key key) =>
       _globalKeys.putIfAbsent(key, GlobalKey.new);
-
-  NibMotionController _controllerFor(Key key) =>
-      _controllers.putIfAbsent(key, NibMotionController.new);
 
   @override
   void didUpdateWidget(NibLayoutGroup oldWidget) {
@@ -106,17 +105,8 @@ class _NibLayoutGroupState extends State<NibLayoutGroup> {
     final oldKeys = <Key>{for (final child in oldWidget.children) child.key!};
     final newKeys = <Key>{for (final child in widget.children) child.key!};
 
-    final tracked = oldKeys.intersection(newKeys);
-    final space = context.findRenderObject();
-    for (final key in tracked) {
-      _recorder.record(_globalKeyFor(key), ancestor: space);
-    }
-
     for (final key in oldKeys.difference(newKeys)) {
-      final globalKey = _globalKeys.remove(key);
-      if (globalKey != null) _recorder.forget(globalKey);
-      _controllers.remove(key)?.dispose();
-      _generations.remove(key);
+      _globalKeys.remove(key);
       final wasActive = _active.remove(key);
       final onExit = widget.onChildExit;
       if (onExit != null) {
@@ -139,53 +129,27 @@ class _NibLayoutGroupState extends State<NibLayoutGroup> {
         });
       }
     }
-
-    if (tracked.isEmpty) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      for (final key in tracked) {
-        final globalKey = _globalKeys[key];
-        if (globalKey == null) continue;
-
-        final delta = _recorder.computeDelta(globalKey,
-            ancestor: context.findRenderObject());
-        if (delta == null || delta == Offset.zero) continue;
-
-        final controller = _controllerFor(key);
-        controller.set(NibAnim(x: delta.dx, y: delta.dy), keepVelocity: true);
-        final generation = (_generations[key] ?? 0) + 1;
-        _generations[key] = generation;
-        _moveStarted(key);
-        controller
-            .start(
-                target: const NibAnim(x: 0, y: 0),
-                transition: widget.transition ?? NibTransition.springGentle)
-            .then((_) => _moveEnded(key, generation));
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _controllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final child in widget.children)
-          NibMotion(
-            key: _globalKeyFor(child.key!),
-            controller: _controllerFor(child.key!),
-            child: child,
-          ),
-      ],
+    final transition = widget.transition ?? NibTransition.springGentle;
+    return NibLayoutScope(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final child in widget.children)
+            NibMotion(
+              key: _globalKeyFor(child.key!),
+              layout: NibLayout.position,
+              layoutChannelMode: NibLayoutChannelMode.translate,
+              layoutTransition: transition,
+              onLayoutAnimationStart: () => _moveStarted(child.key!),
+              onLayoutAnimationComplete: () => _moveEnded(child.key!),
+              child: child,
+            ),
+        ],
+      ),
     );
   }
 }

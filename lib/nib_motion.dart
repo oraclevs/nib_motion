@@ -23,7 +23,8 @@ export 'src/gestures/drag_handler.dart' show NibDragConfig, NibDragReleaseMode;
 export 'src/gestures/nib_draggable.dart';
 export 'src/gestures/nib_pinch.dart';
 export 'src/gestures/nib_swipe_dismiss.dart';
-export 'src/layout/nib_layout.dart' show NibLayout, NibLayoutSizeMode;
+export 'src/layout/nib_layout.dart'
+    show NibLayout, NibLayoutChannelMode, NibLayoutSizeMode;
 export 'src/layout/nib_layout_defaults.dart';
 export 'src/layout/nib_layout_group.dart';
 export 'src/layout/nib_layout_scope.dart' show NibLayoutScope;
@@ -84,6 +85,7 @@ export 'src/variants/nib_variants.dart';
 export 'src/viewport/nib_in_view_config.dart';
 export 'src/viewport/nib_viewport_progress.dart';
 export 'src/routes/nib_routes.dart';
+export 'src/routes/nib_shared_source.dart' show NibSharedSource;
 export 'src/scroll/nib_sliver_progress.dart';
 export 'src/timeline/nib_timeline_drag_scrubber.dart';
 export 'src/debug/nib_hot_reload_replay.dart';

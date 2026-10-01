@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/physics.dart' as flutter_physics;
 import 'package:flutter/widgets.dart';
@@ -9,6 +10,8 @@ import '../core/nib_property.dart';
 import '../core/render_nib_motion.dart';
 import '../core/nib_transition.dart';
 import '../physics/spring_description.dart';
+import '../values/motion_value.dart';
+import 'nib_shared_source.dart';
 
 /// Default hidden state of a route's content (before it enters / after it
 /// exits): transparent and slightly small.
@@ -42,6 +45,52 @@ Duration _atLeastSettle(Duration requested, NibTransition transition) {
 }
 
 /// Width of the strip at the start edge that begins a back-swipe.
+/// Per-navigator progress of an interactive back-swipe: `null` when none is
+/// running, otherwise how far the page being swiped has left (0 at rest, 1
+/// gone). Routes below read it to slide in from the side behind the page.
+final Expando<ValueNotifier<double?>> _backSwipeProgress =
+    Expando<ValueNotifier<double?>>('NibBackSwipeProgress');
+
+/// The back-swipe progress notifier for [navigator] (created on first use).
+ValueNotifier<double?> _backSwipeProgressFor(NavigatorState navigator) =>
+    _backSwipeProgress[navigator] ??= ValueNotifier<double?>(null);
+
+/// Slides its child sideways while the route above is being swiped away.
+///
+/// Applies only when this route is covered (its `secondaryAnimation` is not
+/// dismissed), so the page being dragged never shifts itself.
+class _NibParallaxShift extends StatelessWidget {
+  const _NibParallaxShift({
+    required this.progress,
+    required this.secondaryAnimation,
+    required this.parallax,
+    required this.child,
+  });
+
+  final ValueListenable<double?> progress;
+  final Animation<double> secondaryAnimation;
+  final double parallax;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dir = Directionality.of(context) == TextDirection.rtl ? -1.0 : 1.0;
+    return AnimatedBuilder(
+      animation: Listenable.merge([progress, secondaryAnimation]),
+      child: child,
+      builder: (context, child) {
+        final fraction = progress.value;
+        final covered = secondaryAnimation.status != AnimationStatus.dismissed;
+        final dx = (fraction == null || !covered)
+            ? 0.0
+            : -dir * parallax * (1.0 - fraction);
+        if (dx == 0.0) return child!;
+        return FractionalTranslation(translation: Offset(dx, 0), child: child);
+      },
+    );
+  }
+}
+
 const double _kBackSwipeEdge = 24.0;
 
 /// Fraction of the width past which releasing a back-swipe pops the route.
@@ -95,6 +144,11 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
   final GlobalKey _motionKey = GlobalKey();
   bool _swipeCommitted = false;
   bool _enteredShared = false;
+  bool _hidingSource = false;
+  int _swipeGeneration = 0;
+  bool _dragging = false;
+  ValueNotifier<double?>? _parallax;
+  MotionValue<double>? _xValue;
   double _dragBack = 0.0;
   double _width = 0.0;
 
@@ -152,6 +206,11 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
           _enteredShared = true;
           final pose = _sharedPose();
           if (pose != null) _controller.set(pose.copyWith(opacity: 1.0));
+          // The source stays laid out but invisible while this route stands
+          // in for it.
+          final source = widget.sharedFrom!;
+          nibSharedSourceHide(source);
+          _hidingSource = true;
         }
         _controller.start(
           target: NibAnim.identity.merge(widget.animate),
@@ -166,10 +225,20 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
           final dir = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
           target = widget.exit.copyWith(x: dir * (_width + 24));
         }
-        _controller.start(target: target, transition: widget.transition);
+        _controller
+            .start(target: target, transition: widget.transition)
+            .then((_) => _endParallax());
       case AnimationStatus.dismissed:
-        break;
+        _showSource();
+        _endParallax();
     }
+  }
+
+  /// Gives the hidden source back once nothing stands in for it any more.
+  void _showSource({bool defer = false}) {
+    if (!_hidingSource) return;
+    _hidingSource = false;
+    nibSharedSourceShow(widget.sharedFrom!, defer: defer);
   }
 
   @override
@@ -186,6 +255,8 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
     widget.animation.removeStatusListener(_onStatus);
     // A route torn down mid-swipe must not leave the navigator in a gesture.
     _endSwipeGesture();
+    _endParallax();
+    _showSource(defer: true);
     _controller.dispose();
     super.dispose();
   }
@@ -199,11 +270,44 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
   void _swipeStart(DragStartDetails details) {
     _controller.stop();
     _dragBack = 0.0;
+    _dragging = true;
+    _swipeGeneration++;
     // Tell the Navigator a user gesture is in flight (as the platform back
     // swipe does) and make the route below paint instead of staying offstage
     // behind this opaque page.
-    _swipeNavigator = Navigator.of(context)..didStartUserGesture();
+    final navigator = Navigator.of(context)..didStartUserGesture();
+    _swipeNavigator = navigator;
     widget.onSwipeActive?.call(true);
+    _beginParallax(navigator);
+  }
+
+  // --- parallax of the route below ---
+
+  void _beginParallax(NavigatorState navigator) {
+    _endParallax();
+    final value = _controller.motionValueOf(NibProperty.x);
+    if (value == null) return;
+    _xValue = value;
+    _parallax = _backSwipeProgressFor(navigator);
+    value.addListener(_publishParallax);
+    _publishParallax();
+  }
+
+  /// Tells routes below how far this page has been dragged away (0 at rest,
+  /// 1 gone), so they can slide in from the side behind it.
+  void _publishParallax() {
+    final notifier = _parallax;
+    final value = _xValue;
+    if (notifier == null || value == null || _width <= 0) return;
+    notifier.value = (value.value * _dir / _width).clamp(0.0, 1.0);
+  }
+
+  void _endParallax() {
+    _xValue?.removeListener(_publishParallax);
+    _xValue = null;
+    final notifier = _parallax;
+    _parallax = null;
+    if (notifier != null && notifier.value != null) notifier.value = null;
   }
 
   void _endSwipeGesture() {
@@ -226,6 +330,8 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
     _controller
         .motionValueOf(NibProperty.x)
         ?.update(_dragBack * _dir, velocity: velocityBack * _dir);
+    _dragging = false;
+    final generation = _swipeGeneration;
     _endSwipeGesture();
     if (commit) {
       _swipeCommitted = true;
@@ -234,13 +340,22 @@ class _NibRouteTransitionState extends State<_NibRouteTransition> {
       if (popped) return;
       _swipeCommitted = false;
     }
-    widget.onSwipeActive?.call(false);
-    if (mounted) {
-      _controller.start(
-        target: NibAnim.identity.merge(widget.animate),
-        transition: widget.transition,
-      );
+    if (!mounted) {
+      widget.onSwipeActive?.call(false);
+      return;
     }
+    // Cancelled: the page springs back. The route below must stay painted (and
+    // keep its parallax) until it has fully covered it again.
+    _controller
+        .start(
+      target: NibAnim.identity.merge(widget.animate),
+      transition: widget.transition,
+    )
+        .then((_) {
+      if (generation != _swipeGeneration || _dragging) return;
+      widget.onSwipeActive?.call(false);
+      _endParallax();
+    });
   }
 
   @override
@@ -454,6 +569,7 @@ class NibPageRoute<T> extends PageRoute<T> {
     this.reverseDuration = const Duration(milliseconds: 250),
     this.maintainState = true,
     this.backSwipe = false,
+    this.parallax = 0.3,
     this.sharedFrom,
     super.settings,
     super.fullscreenDialog,
@@ -465,6 +581,14 @@ class NibPageRoute<T> extends PageRoute<T> {
   /// exit spring, and anything less springs it back. Taps in the edge strip
   /// still reach the page. Off by default.
   final bool backSwipe;
+
+  /// How far (as a fraction of its width) this page slides sideways, behind the
+  /// page above it, while that page is interactively back-swiped away: it
+  /// starts `parallax` of a width off to the side and eases to rest as the top
+  /// page leaves (mirrored in RTL), the iOS look. `0` disables it. Only takes
+  /// effect while a route above uses `backSwipe`; pushes and ordinary pops
+  /// never offset this page.
+  final double parallax;
 
   /// Like [NibModalRoute.sharedFrom]: the page grows out of, and returns to,
   /// the widget owning this key.
@@ -536,7 +660,7 @@ class NibPageRoute<T> extends PageRoute<T> {
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation, Widget child) {
-    return _NibRouteTransition(
+    final page = _NibRouteTransition(
       animation: animation,
       initial: initial,
       animate: animate,
@@ -547,6 +671,13 @@ class NibPageRoute<T> extends PageRoute<T> {
       sharedFrom: sharedFrom,
       contentKey: _contentKey,
       child: child,
+    );
+    if (parallax <= 0) return page;
+    return _NibParallaxShift(
+      progress: _backSwipeProgressFor(Navigator.of(context)),
+      secondaryAnimation: secondaryAnimation,
+      parallax: parallax,
+      child: page,
     );
   }
 }

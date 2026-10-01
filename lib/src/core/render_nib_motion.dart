@@ -42,6 +42,7 @@ class RenderNibMotion extends RenderProxyBox
     required BoxShadowMotionValue boxShadow,
     NibLayout layout = NibLayout.none,
     NibLayoutSizeMode layoutSizeMode = NibLayoutSizeMode.scale,
+    NibLayoutChannelMode layoutChannelMode = NibLayoutChannelMode.channels,
     NibLayoutChannels? layoutChannels,
     this.layoutId,
     this.layoutScope,
@@ -49,6 +50,7 @@ class RenderNibMotion extends RenderProxyBox
     RenderBox? child,
   })  : _layoutMode = layout,
         _layoutSizeMode = layoutSizeMode,
+        _layoutChannelMode = layoutChannelMode,
         _layoutChannels = layoutChannels,
         _opacity = opacity,
         _translateX = translateX,
@@ -90,6 +92,18 @@ class RenderNibMotion extends RenderProxyBox
 
   NibLayout _layoutMode;
   NibLayoutSizeMode _layoutSizeMode;
+  NibLayoutChannelMode _layoutChannelMode;
+
+  /// Where the position part of a layout FLIP is stored.
+  NibLayoutChannelMode get layoutChannelMode => _layoutChannelMode;
+  set layoutChannelMode(NibLayoutChannelMode value) {
+    if (_layoutChannelMode == value) return;
+    _layoutChannelMode = value;
+    markNeedsPaint();
+  }
+
+  bool get _flipInTranslate =>
+      _layoutChannelMode == NibLayoutChannelMode.translate;
 
   /// How size changes are played: scaled or revealed through a clip.
   NibLayoutSizeMode get layoutSizeMode => _layoutSizeMode;
@@ -205,8 +219,14 @@ class RenderNibMotion extends RenderProxyBox
     }
   }
 
-  double get _flipX => _pending?.x ?? _layoutChannels?.x.value ?? 0.0;
-  double get _flipY => _pending?.y ?? _layoutChannels?.y.value ?? 0.0;
+  // In translate mode the FLIP *is* the widget's translation, so the current
+  // in-flight offset is `translateX/Y` itself.
+  double get _flipX =>
+      _pending?.x ??
+      (_flipInTranslate ? _translateX.value : _layoutChannels?.x.value ?? 0.0);
+  double get _flipY =>
+      _pending?.y ??
+      (_flipInTranslate ? _translateY.value : _layoutChannels?.y.value ?? 0.0);
   double get _flipScaleX =>
       _pending?.scaleX ?? _layoutChannels?.scaleX.value ?? 1.0;
   double get _flipScaleY =>
@@ -231,20 +251,17 @@ class RenderNibMotion extends RenderProxyBox
         final main =
             constraints.precedingScrollExtent + (data.layoutOffset ?? 0);
         final cross =
-            data is SliverGridParentData ? data.crossAxisOffset ?? 0 : 0;
+            data is SliverGridParentData ? data.crossAxisOffset ?? 0 : 0.0;
         return origin +
-            (constraints.axis == Axis.vertical
-                ? Offset(cross.toDouble(), main)
-                : Offset(main, cross.toDouble()));
+            _sliverContentOffset(constraints, main, cross.toDouble(), node);
       }
       if (parent is RenderSliver && data is SliverPhysicalParentData) {
         // Box inside a SliverToBoxAdapter and friends: content-space start of
         // the sliver.
         final constraints = parent.constraints;
         return origin +
-            (constraints.axis == Axis.vertical
-                ? Offset(0, constraints.precedingScrollExtent)
-                : Offset(constraints.precedingScrollExtent, 0));
+            _sliverContentOffset(
+                constraints, constraints.precedingScrollExtent, 0.0, node);
       }
       if (data is BoxParentData) {
         origin += data.offset;
@@ -258,6 +275,27 @@ class RenderNibMotion extends RenderProxyBox
       node = parent;
     }
     return origin;
+  }
+
+  /// The top-left of [item] in screen-oriented content space (x right, y down,
+  /// origin at the viewport's centre line), given its [main] offset along the
+  /// sliver's growth direction and [cross] offset along its cross axis.
+  ///
+  /// Slivers measure `layoutOffset` from their leading edge, which is the
+  /// bottom/right in a reversed list (`reverse: true`) or a reverse-growth
+  /// sliver before a `center`. Without this mapping the FLIP of such items
+  /// would be mirrored.
+  static Offset _sliverContentOffset(SliverConstraints constraints, double main,
+      double cross, RenderObject item) {
+    final dir = applyGrowthDirectionToAxisDirection(
+        constraints.axisDirection, constraints.growthDirection);
+    final vertical = axisDirectionToAxis(dir) == Axis.vertical;
+    final size = item is RenderBox && item.hasSize ? item.size : Size.zero;
+    final mainExtent = vertical ? size.height : size.width;
+    final m = axisDirectionIsReversed(dir) ? -(main + mainExtent) : main;
+    // `SliverGridParentData.crossAxisOffset` is already physical (measured
+    // from the left/top edge even in RTL), so the cross axis needs no mapping.
+    return vertical ? Offset(cross, m) : Offset(m, cross);
   }
 
   void _measureLayout() {
@@ -526,7 +564,9 @@ class RenderNibMotion extends RenderProxyBox
   Matrix4 get transform {
     final center = size.center(Offset.zero);
     return Matrix4.translationValues(
-        _translateX.value + _flipX, _translateY.value + _flipY, 0.0)
+        _flipInTranslate ? _flipX : _translateX.value + _flipX,
+        _flipInTranslate ? _flipY : _translateY.value + _flipY,
+        0.0)
       ..multiply(Matrix4.translationValues(center.dx, center.dy, 0.0))
       ..multiply(Matrix4.rotationZ(_rotate.value * 2 * math.pi))
       ..multiply(Matrix4.diagonal3Values(

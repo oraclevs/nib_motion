@@ -44,6 +44,19 @@ enum NibLayoutSizeMode {
   clip,
 }
 
+/// Where a layout FLIP's position offset is stored.
+enum NibLayoutChannelMode {
+  /// In dedicated layout channels, painted on top of the widget's own
+  /// transform. The default: a widget can animate `x`/`y` and FLIP at once.
+  channels,
+
+  /// Directly in the widget's own `translateX`/`translateY` values. Used by
+  /// `NibLayoutGroup`, whose children are laid out and moved only by layout, so
+  /// the FLIP is observable as the widget's translation. The widget must not
+  /// animate its own `x`/`y` in this mode (the FLIP owns them and rests at 0).
+  translate,
+}
+
 /// The four scalar channels a layout FLIP animates back to identity.
 ///
 /// They are separate from the widget's own `x`/`y`/`scale` animation values so

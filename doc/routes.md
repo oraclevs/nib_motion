@@ -40,11 +40,11 @@ motion is cut off when it elapses, so give slow exit transitions a longer
 
 ## Limits
 
-* No shared-element (`layoutId`) hand-off between the route and its caller is
-  wired up. `NibLayoutScope` would have to sit above the `Navigator`; this is
-  untested and not claimed.
-* No iOS-style interactive back-swipe: dismissal is `Navigator.pop`,
-  barrier tap, or the platform back button.
+* The `layoutId` mechanism of `NibLayoutScope` is not used for the route/caller
+  hand-off (see `sharedFrom` below); it only hands off from an owner that has
+  been unmounted.
+* The back-swipe is opt-in per route (`backSwipe: true`), and the parallax
+  below only moves routes that are `NibPageRoute`s.
 
 ## Edge back-swipe (`NibPageRoute(backSwipe: true)`)
 
@@ -56,6 +56,15 @@ reach the page, a route that refuses to pop (`maybePop` is false) springs back,
 and the gesture works under reduced motion (finger-following is essential motion).
 Off by default.
 
+While the page is dragged, the route below **slides in from the side behind
+it** (parallax): it starts `parallax` (default `0.3`) of a width off to the
+side and eases to rest as the top page leaves, mirrored in RTL. Set
+`NibPageRoute(parallax: 0)` on the route below to disable it. It only applies
+to a covered `NibPageRoute` while a route above is being swiped (pushes and
+ordinary pops never offset it), follows the top page's real position, so a
+release that commits keeps moving it monotonically to rest, and a cancelled
+swipe leaves it painted until the page has covered it again.
+
 ## Shared-element hand-off (`sharedFrom:`)
 
 ```dart
@@ -65,7 +74,12 @@ showNibDialog(context: context, sharedFrom: cardKey, builder: (_) => Detail());
 The content grows out of the widget owning `cardKey` and shrinks back into it on
 pop (position and size, measured when the route enters and again when it leaves).
 If the source is not mounted, the normal `initial`/`exit` motion is used. The
-source stays where it is (nothing is moved or hidden). This is a FLIP on the route's
+source stays where it is. To hide it while the route stands in for it, wrap
+it in `NibSharedSource(sourceKey: cardKey, child: …)`: it keeps its layout space
+but paints nothing while any route using that key is open (several routes may
+share one source) and reappears when the content has shrunk back over it.
+Without `NibSharedSource` (a plain `GlobalKey`) the hand-off still animates and
+the source stays visible underneath. This is a FLIP on the route's
 own `NibMotion`, not the `NibLayoutScope` id mechanism: that mechanism only hands
 off from an owner that has been *unmounted*, and a route's caller stays mounted.
 
