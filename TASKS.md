@@ -238,7 +238,7 @@ Honest caveats: tests for layout/presence were written alongside the implementat
 - Verification after the fixes: 739 package tests pass, 50 example tests pass, `flutter analyze --fatal-infos` reports no issues, and changed Dart files pass `dart format --set-exit-if-changed`.
 - `dart pub publish --dry-run` validated a 373 KB archive after `.pubignore` excluded the three untracked example platform folders. The precommit run warned only about the dirty git tree; the committed branch passed with 0 warnings. Device visuals and cross-platform frame timing still need the hardware listed below.
 
-## Seventh pass (in progress, 2026-10-14)
+## Seventh pass (verified, 2026-10-14)
 
 - [x] `NibVisibility` takes its exit target and transition from the hide build. `NibPresence` passes the override through the existing animator API; re-entry and interaction exclusion still pass.
 - [x] Default FLIP channels compose with explicit x/y targets (regression test). `NibLayoutChannelMode.translate` remains reserved for the `NibLayoutGroup` wrapper, whose own x/y are unused.
@@ -248,7 +248,10 @@ Honest caveats: tests for layout/presence were written alongside the implementat
 - [-] Per-property spring tolerance: existing solver tolerance settles scalar properties and no measured failure requires a public setting. Mid-visible `whileInView` easing: existing transition curve handles entrances; no separate entrance rule is justified.
 - [x] Local gates: 744 package tests, 50 example tests, 814 downstream `nib_components` tests against an isolated path override; format and analyzer clean. WebAssembly and Android release builds pass. Headless Chromium rendered the Web app with no page errors; clicking a task changed progress from 20% to 40%. The example's missing Material icons were found visually and fixed with `uses-material-design: true`.
 - [x] 200-item debug layout benchmark compared with the committed baseline (`doc/performance.md`); differences stayed inside the run-to-run spread. No device performance conclusion follows.
-- [~] Commit and validate the clean pub archive, then check GitHub CI on the updated PR.
+- [x] Committed and pushed to draft PR #1. `dart pub publish --dry-run` reports 0 warnings (376 KB archive). GitHub Analyze & Test and Web (Wasm) build both pass on commit `fa283ca`.
 
-## Blocked / Needs Decision
-- Android Impeller-GLES / iOS / desktop / Web device benchmark lanes: need hardware. Procedure documented in `doc/performance.md`; **no platform performance claim is made**.
+## Device checks before release
+
+- Run the example and visual interaction sheet on a physical Android device (including a low-end Impeller-GLES device), iOS/Metal, and target web browsers. Record UI/raster frame percentiles using `doc/performance.md`. The Linux build host has no connected Android or iOS device; its headless Chromium run is a web smoke test, not a mobile/browser matrix.
+- Exercise the release-mode invalid-input fallbacks on a device build. The sanitization helpers and Android release compilation pass locally, but the release APK was not run on a device.
+- Review draft PR #1 before merging. Publish 0.3.2 only after device checks and review. `sampleChild` on Skia remains an intentional child-unchanged fallback because Flutter's shader filter is unavailable there; lazy sliver first-frame timing and offscreen virtualization limits are documented in `doc/layout.md`. No cross-platform performance claim is made.
