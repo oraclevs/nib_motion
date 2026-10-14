@@ -48,4 +48,5 @@ in-flight futures resolve. Turning reduced motion back off restarts nothing.
 
 Single-child show/hide with enter/exit animation; reduced motion removes the
 child immediately, and an exiting child ignores pointers and is excluded from
-semantics and focus.
+semantics and focus. Exit target and timing are read from the hide build, so
+changing them while hiding takes effect immediately.

@@ -238,5 +238,17 @@ Honest caveats: tests for layout/presence were written alongside the implementat
 - Verification after the fixes: 739 package tests pass, 50 example tests pass, `flutter analyze --fatal-infos` reports no issues, and changed Dart files pass `dart format --set-exit-if-changed`.
 - `dart pub publish --dry-run` validated a 373 KB archive after `.pubignore` excluded the three untracked example platform folders. The precommit run warned only about the dirty git tree; the committed branch passed with 0 warnings. Device visuals and cross-platform frame timing still need the hardware listed below.
 
+## Seventh pass (in progress, 2026-10-14)
+
+- [x] `NibVisibility` takes its exit target and transition from the hide build. `NibPresence` passes the override through the existing animator API; re-entry and interaction exclusion still pass.
+- [x] Default FLIP channels compose with explicit x/y targets (regression test). `NibLayoutChannelMode.translate` remains reserved for the `NibLayoutGroup` wrapper, whose own x/y are unused.
+- [x] Ordinary scoped boxes under `RepaintBoundary` prime FLIP during layout; a red-first pixel test verifies that the first changed frame retains the old painted position. Slivers use the after-frame hook because early measurement broke reverse/RTL geometry.
+- [x] Evicted `ListView.builder` items reenter without a stale FLIP. Whole-list reorders animate built items only: offscreen items have no mounted render object or painted origin to invert. Keeping them alive would defeat virtualization, so this is a documented scope limit.
+- [x] `NibTransition.sanitized()` clamps all negative time fields in a focused test; invalid `NibSpringDescription.unchecked` inputs have an existing solver test. `NibShaderEffect(sampleChild)` intentionally uses Flutter's `ImageFilter.shader` and paints the child unchanged where that engine feature is unavailable (documented in `doc/physics.md`).
+- [-] Per-property spring tolerance: existing solver tolerance settles scalar properties and no measured failure requires a public setting. Mid-visible `whileInView` easing: existing transition curve handles entrances; no separate entrance rule is justified.
+- [x] Local gates: 744 package tests, 50 example tests, 814 downstream `nib_components` tests against an isolated path override; format and analyzer clean. WebAssembly and Android release builds pass. Headless Chromium rendered the Web app with no page errors; clicking a task changed progress from 20% to 40%. The example's missing Material icons were found visually and fixed with `uses-material-design: true`.
+- [x] 200-item debug layout benchmark compared with the committed baseline (`doc/performance.md`); differences stayed inside the run-to-run spread. No device performance conclusion follows.
+- [~] Commit and validate the clean pub archive, then check GitHub CI on the updated PR.
+
 ## Blocked / Needs Decision
 - Android Impeller-GLES / iOS / desktop / Web device benchmark lanes: need hardware. Procedure documented in `doc/performance.md`; **no platform performance claim is made**.

@@ -2,6 +2,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'nib_layout_frame_hook.dart';
+
 /// Defines the coordinate space `NibMotion.layout` widgets are measured in,
 /// and connects `layoutId`s across the subtree.
 ///
@@ -59,12 +61,25 @@ class _NibLayoutScopeBox extends SingleChildRenderObjectWidget {
   @override
   RenderNibLayoutScope createRenderObject(BuildContext context) =>
       RenderNibLayoutScope();
+
+  @override
+  void updateRenderObject(
+      BuildContext context, RenderNibLayoutScope renderObject) {
+    // The child may be a relayout boundary; rebuilds must still remeasure FLIP.
+    renderObject.markNeedsLayout();
+  }
 }
 
 /// Marker render object that bounds layout measurement (see [NibLayoutScope]).
 class RenderNibLayoutScope extends RenderProxyBox {
   /// Creates the scope's render object.
   RenderNibLayoutScope([super.child]);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    NibLayoutFrameHook.remeasureInScope(this);
+  }
 }
 
 class _Snapshot {

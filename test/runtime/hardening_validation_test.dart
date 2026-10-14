@@ -83,6 +83,24 @@ void main() {
       NibTransition.springGentle.validate();
     });
 
+    test('sanitized transition clamps every negative field', () {
+      const negative = Duration(milliseconds: -7);
+      const bad = NibTransition(
+        duration: negative,
+        delay: negative,
+        delayChildren: negative,
+        staggerChildren: negative,
+      );
+      final safe = bad.sanitized();
+      expect(safe.duration, Duration.zero);
+      expect(safe.delay, Duration.zero);
+      expect(safe.delayChildren, Duration.zero);
+      expect(safe.staggerChildren, Duration.zero);
+      expect(safe.curve, bad.curve);
+      expect(NibTransition.springGentle.sanitized(),
+          same(NibTransition.springGentle));
+    });
+
     testWidgets('NibMotion refuses a negative-duration transition',
         (tester) async {
       final controller = NibMotionController();

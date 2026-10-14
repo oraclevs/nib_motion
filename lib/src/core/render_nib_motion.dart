@@ -159,9 +159,8 @@ class RenderNibMotion extends RenderProxyBox
 
   bool _registered = false;
 
-  /// Registers with the frame hook while this box animates layout, so
-  /// movement that never reaches [paint] (a `RepaintBoundary` re-compositing
-  /// it at a new offset) is still noticed, one frame late.
+  /// Registers while this box animates layout so scopes can measure before
+  /// paint and the frame hook can catch changes that skip scope layout.
   void _syncRegistration() {
     final want = attached && _layoutMode != NibLayout.none;
     if (want == _registered) return;
@@ -298,10 +297,19 @@ class RenderNibMotion extends RenderProxyBox
     return vertical ? Offset(cross, m) : Offset(m, cross);
   }
 
+  // Ancestor layout cannot read this box's size under Flutter's size contract.
+  Size? _lastLayoutSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _lastLayoutSize = size;
+  }
+
   void _measureLayout() {
     if (!hasSize) return;
     lastMeasuredFrame = NibLayoutFrameHook.frame;
-    final rect = _layoutOrigin() & size;
+    final rect = _layoutOrigin() & (_lastLayoutSize ?? size);
     final previous = _committed;
     Rect? from = previous;
     final id = layoutId;

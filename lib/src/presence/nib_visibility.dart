@@ -84,19 +84,19 @@ class _NibVisibilityState extends State<NibVisibility> {
     final base = widget.transition ?? const NibTransition();
     final exitBase = widget.exitTransition ?? base;
     return NibPresence(
+      exit: widget.exit,
+      exitTransition: widget.exitDelay == Duration.zero
+          ? exitBase
+          : exitBase.copyWith(delay: widget.exitDelay),
       children: [
         if (widget.visible)
           NibMotion(
             key: _key,
             initial: widget.initial,
             animate: widget.animate,
-            exit: widget.exit,
             transition: widget.enterDelay == Duration.zero
                 ? base
                 : base.copyWith(delay: widget.enterDelay),
-            exitTransition: widget.exitDelay == Duration.zero
-                ? exitBase
-                : exitBase.copyWith(delay: widget.exitDelay),
             child: widget.child,
           ),
       ],

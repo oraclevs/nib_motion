@@ -10,6 +10,8 @@ Widget _host(
   Duration enterDelay = Duration.zero,
   Duration exitDelay = Duration.zero,
   NibTransition? transition,
+  NibTransition? exitTransition,
+  NibAnim? exit,
 }) =>
     Directionality(
       textDirection: TextDirection.ltr,
@@ -24,6 +26,8 @@ Widget _host(
             exitDelay: exitDelay,
             transition: transition ??
                 const NibTransition(duration: Duration(milliseconds: 300)),
+            exitTransition: exitTransition,
+            exit: exit ?? const NibAnim(opacity: 0),
             child: _child,
           ),
         ),
@@ -115,7 +119,6 @@ void main() {
   });
 
   testWidgets('exitDelay holds the child fully visible first', (tester) async {
-    // Exit params are those of the widget built while visible.
     const delay = Duration(milliseconds: 400);
     await tester.pumpWidget(_host(true, exitDelay: delay));
     await tester.pumpAndSettle();
@@ -123,6 +126,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(_opacity(tester), 1, reason: 'still waiting out the delay');
     await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('child')), findsNothing);
+  });
+
+  testWidgets('hide uses the current exit target and transition',
+      (tester) async {
+    await tester.pumpWidget(_host(true));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(_host(
+      false,
+      exit: const NibAnim(opacity: 0, y: 100),
+      exitTransition:
+          const NibTransition(duration: Duration(milliseconds: 600)),
+    ));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byKey(const ValueKey('child')), findsOneWidget);
+    final render = tester.renderObject<RenderNibMotion>(
+      find.byType(NibMotion),
+    );
+    expect(render.translateY.value, greaterThan(0));
+    expect(_opacity(tester), greaterThan(0.5),
+        reason: 'the new 600ms exit must still be running');
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('child')), findsNothing);
   });

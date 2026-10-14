@@ -85,6 +85,24 @@ so differences under ~30% are noise.
 * **Not shown:** raster time, real devices, allocation counts, release/AOT
   numbers. All numbers above are debug-mode JIT.
 
+## Scope measurement check (2026-10-14)
+
+The scoped `RepaintBoundary` fix measures ordinary descendants after layout.
+The existing 200-item debug benchmark was run from the committed baseline and
+the updated working tree on the same host and Flutter 3.47.3. Median time per
+frame for a Wrap reorder plus five frames, in microseconds:
+
+| Layout | Baseline | Updated |
+|---|---:|---:|
+| `none` | 1486 | 1512 |
+| `position` | 4474 | 4354 |
+| `both` | 4050 | 4032 |
+| `NibLayoutGroup` Column | 3901 | 3931 |
+
+The differences are far below the runs' spread; this check does not establish
+a performance improvement or regression. Raster and device costs still need
+measurement.
+
 ## Not yet measured (needs hardware)
 
 * Android low-end Impeller-GLES device (the report cites 2–3× Skia-GL raster

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/nib_anim.dart';
 import '../core/nib_motion_animator.dart';
+import '../core/nib_transition.dart';
 import '../layout/nib_layout.dart';
 import '../layout/nib_layout_defaults.dart';
 import '../layout/nib_layout_scope.dart';
@@ -68,6 +70,8 @@ class NibPresence extends StatefulWidget {
   const NibPresence({
     super.key,
     required this.children,
+    this.exit,
+    this.exitTransition,
     this.layoutBuilder,
     this.exitLayout = NibExitLayout.sync,
     this.stagger = Duration.zero,
@@ -77,10 +81,17 @@ class NibPresence extends StatefulWidget {
     this.onChildMove,
     this.onAnimationStart,
     this.onAnimationComplete,
-  });
+  }) : assert(exitTransition == null || exit != null,
+            'exitTransition requires a container exit target.');
 
   /// The widgets to display. Each must have a non-null, unique [Key].
   final List<Widget> children;
+
+  /// Overrides each child's exit target when it is removed.
+  final NibAnim? exit;
+
+  /// Overrides each child's exit transition when [exit] is supplied.
+  final NibTransition? exitTransition;
 
   /// Lays out the children. Defaults to a `Stack`.
   final NibPresenceLayoutBuilder? layoutBuilder;
@@ -131,6 +142,8 @@ class NibPresence extends StatefulWidget {
   factory NibPresence.layout({
     Key? key,
     required List<Widget> children,
+    NibAnim? exit,
+    NibTransition? exitTransition,
     NibPresenceAxis axis = NibPresenceAxis.column,
     NibLayout childLayout = NibLayout.position,
     NibExitLayout exitLayout = NibExitLayout.pop,
@@ -146,6 +159,8 @@ class NibPresence extends StatefulWidget {
   }) {
     return NibPresence(
       key: key,
+      exit: exit,
+      exitTransition: exitTransition,
       exitLayout: exitLayout,
       stagger: stagger,
       staggerFrom: staggerFrom,
@@ -375,7 +390,11 @@ class _NibPresenceState extends State<NibPresence> {
 
     void start() {
       entry.exitTimer = null;
-      animator.triggerExit().then((_) {
+      final exit = widget.exit;
+      (exit == null
+              ? animator.triggerExit()
+              : animator.animateTo(exit, transition: widget.exitTransition))
+          .then((_) {
         completer.complete();
         if (!mounted) return;
         final current = _entries[key];

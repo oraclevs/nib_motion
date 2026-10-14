@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
@@ -32,6 +35,61 @@ void main() {
           ]),
         ));
 
+    testWidgets('recomposited item does not flash at its new slot',
+        (tester) async {
+      const shot = ValueKey('shot');
+      Widget coloredHost(bool above) => _wrap(RepaintBoundary(
+            key: shot,
+            child: ColoredBox(
+              color: const Color(0xFFFFFFFF),
+              child: SizedBox(
+                width: 100,
+                height: 100,
+                child: NibLayoutScope(
+                  child: Column(children: [
+                    if (above) const SizedBox(height: 40),
+                    RepaintBoundary(
+                      key: const ValueKey('moving-boundary'),
+                      child: NibMotion(
+                        key: const ValueKey('moving'),
+                        layout: NibLayout.position,
+                        child: const ColoredBox(
+                          color: Color(0xFFFF0000),
+                          child: SizedBox(width: 100, height: 50),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ));
+
+      Future<Color> pixel(double y) async {
+        final boundary =
+            tester.renderObject<RenderRepaintBoundary>(find.byKey(shot));
+        return (await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          final data =
+              (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+          image.dispose();
+          final i = ((y.round() * image.width) + 50) * 4;
+          return Color.fromARGB(data.getUint8(i + 3), data.getUint8(i),
+              data.getUint8(i + 1), data.getUint8(i + 2));
+        }))!;
+      }
+
+      await tester.pumpWidget(coloredHost(false));
+      await tester.pumpAndSettle();
+      expect(await pixel(10), const Color(0xFFFF0000));
+      await tester.pumpWidget(coloredHost(true));
+      expect(await pixel(10), const Color(0xFFFF0000),
+          reason: 'first changed frame should preserve painted position');
+      await tester.pumpAndSettle();
+      expect(await pixel(10), const Color(0xFFFFFFFF));
+      expect(await pixel(50), const Color(0xFFFF0000));
+    });
+
     testWidgets('a move that never repaints the child is still FLIPped',
         (tester) async {
       await tester.pumpWidget(host(false));
@@ -39,9 +97,9 @@ void main() {
       expect(_painted(tester, 'a').dy, 0);
 
       await tester.pumpWidget(host(true));
-      // The boundary re-composites the child without repainting it, so the
-      // move is found by the frame hook and the FLIP starts one frame late.
-      await tester.pump();
+      // The boundary re-composites the child without repainting it; the
+      // scope measures the move before that first paint.
+      expect(_painted(tester, 'a').dy, closeTo(0, 0.1));
       await tester.pump(const Duration(milliseconds: 16));
       await tester.pump(const Duration(milliseconds: 60));
       expect(_painted(tester, 'a').dy, inExclusiveRange(1.0, 39.0),
@@ -75,7 +133,7 @@ void main() {
 
       await tester.pumpWidget(list(['new', 'a', 'b']));
       // ListView items sit in their own RepaintBoundary, so the move is found
-      // by the frame hook one frame late (documented limitation).
+      // by the frame hook one frame late.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       await tester.pump(const Duration(milliseconds: 50));
@@ -114,6 +172,35 @@ void main() {
           duration: const Duration(milliseconds: 200), curve: Curves.linear);
       await tester.pumpAndSettle();
       expect(_painted(tester, 'i10').dy, closeTo(10 * 50 - 400, 0.01));
+    });
+
+    testWidgets('evicted lazy item reappears without a stale FLIP',
+        (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(_wrap(SizedBox(
+        width: 100,
+        height: 300,
+        child: NibLayoutScope(
+          child: ListView.builder(
+            controller: controller,
+            itemCount: 60,
+            itemBuilder: (context, index) =>
+                _item('i$index', layout: NibLayout.position),
+          ),
+        ),
+      )));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('i0')), findsOneWidget);
+      controller.jumpTo(2000);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const ValueKey('i0')), findsNothing);
+      controller.jumpTo(0);
+      await tester.pump();
+      await tester.pump();
+      expect(_painted(tester, 'i0').dy, closeTo(0, 0.1));
+      expect(tester.hasRunningAnimations, isFalse);
     });
 
     testWidgets('items created by scrolling do not FLIP on arrival',

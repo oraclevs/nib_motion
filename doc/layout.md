@@ -122,15 +122,15 @@ on the same axis, holding the dragged item within 56 px of its edge scrolls it
   bottom/right edge in a reversed list, so it is mirrored; a grid's
   `crossAxisOffset` is already physical), so a FLIP always travels the visible
   way and a centre-keyed sliver that did not move never animates.
-* **`RepaintBoundary` (one frame late).** A `ListView` wraps every item in a
-  `RepaintBoundary`, and an outer relayout can move a boundary's subtree
-  without painting it, so the widget's own `paint` (where movement is
-  normally detected, flash-free) never runs — and nothing may mark it dirty
-  during the paint phase. `NibLayoutFrameHook` therefore re-measures, after
-  each frame, every `layout:` box that did not measure itself: the move is
-  animated, but the FLIP starts one frame late, so the new position shows for
-  a single frame first. Pass `addRepaintBoundaries: false` (lists) to get the
-  flash-free path.
+* **`RepaintBoundary` timing.** When a `NibLayoutScope` rebuilds around
+  ordinary boxes, it measures their new positions during layout and primes
+  FLIP before cached layers paint; a pixel regression checks the first frame.
+  Sliver item geometry is final only after the sliver finishes layout, so
+  lazy-list changes use `NibLayoutFrameHook` after the frame. An item whose
+  boundary was merely re-composited can appear in its new slot for one frame
+  before its FLIP starts. Pass `addRepaintBoundaries: false` to a `ListView`
+  when that frame matters. The hook also covers box moves that do not relayout
+  their enclosing scope.
 * **`NibLayoutGroup` is built on the per-widget mechanism**, through
   `NibLayoutChannelMode.translate`: in that mode the position part of the FLIP
   is stored directly in the widget's own `translateX`/`translateY` (rather than

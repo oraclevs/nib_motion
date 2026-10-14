@@ -1,4 +1,7 @@
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/rendering.dart';
+
+import 'nib_layout_scope.dart';
 
 /// A render object that measures its own layout movement.
 ///
@@ -15,13 +18,10 @@ abstract class NibLayoutMeasurable {
 
 /// Safety net for layout movement that never reaches `paint`.
 ///
-/// `NibMotion(layout:)` detects movement in `paint`, which is pre-paint and
-/// flash-free. A `RepaintBoundary` (every `ListView` item gets one) can move a
-/// child without repainting it; then `paint` is skipped, and nothing can mark
-/// it dirty during the paint phase. This hook re-measures, once per frame and
-/// after it, every registered box that did not measure itself, so the move is
-/// animated — but it starts one frame late: the new position shows for a
-/// single frame before the FLIP takes over.
+/// `NibLayoutScope` remeasures descendants after layout so cached repaint
+/// boundaries have their FLIP before paint. If a layout change does not
+/// relayout the scope, this hook catches it after the frame; that fallback
+/// begins one frame late.
 class NibLayoutFrameHook {
   NibLayoutFrameHook._();
 
@@ -45,6 +45,25 @@ class NibLayoutFrameHook {
 
   /// Stops re-measuring [node].
   static void unregister(NibLayoutMeasurable node) => _nodes.remove(node);
+
+  /// Measures box descendants after their scope finishes layout, before any
+  /// cached repaint boundary can be re-composited at its new position.
+  /// Sliver descendants wait for their geometry to settle and use the hook.
+  static void remeasureInScope(RenderObject scope) {
+    for (final node in List<NibLayoutMeasurable>.of(_nodes)) {
+      if (node is! RenderObject) continue;
+      final renderNode = node as RenderObject;
+      if (!renderNode.attached) continue;
+      var ancestor = renderNode.parent;
+      var insideSliver = false;
+      while (ancestor != null && ancestor != scope) {
+        if (ancestor is RenderNibLayoutScope) break;
+        if (ancestor is RenderSliver) insideSliver = true;
+        ancestor = ancestor.parent;
+      }
+      if (ancestor == scope && !insideSliver) node.remeasureLayout();
+    }
+  }
 
   /// Number of registered boxes (for tests).
   static int get registeredCount => _nodes.length;

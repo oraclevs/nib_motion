@@ -3,6 +3,12 @@
 Runtime correctness release: interruption, coordinate spaces, presence, reduced
 motion. All API changes are additive.
 
+### Final hardening
+* `NibVisibility` now uses the exit target and timing supplied on the hide build.
+* FLIP under a cached `RepaintBoundary` starts before paint for ordinary scoped boxes. Lazy sliver items retain the after-frame fallback.
+* Verified that default layout channels compose with explicit x/y animation and that evicted lazy-list items reenter without a stale FLIP.
+* The example now bundles Material icons so its Web build renders icons correctly.
+
 ### Fixed
 * `MotionValue<double>` rejects non-finite initial values. `mapRange` rejects invalid stops and copies the stop lists, so a later caller edit cannot change an active mapping.
 * Hit testing and `localToGlobal` now follow the painted transform of
@@ -42,7 +48,7 @@ motion. All API changes are additive.
 
 ### Added (third pass)
 * **Routes:** `NibModalRoute`, `showNibDialog`, `NibPageRoute` (opt-in edge `backSwipe`, `sharedFrom` grow-from-caller). Route stays until its exit settles. See `doc/routes.md`.
-* **Sliver:** `NibSliverProgress`, `NibSliverHeaderDelegate` (progress as a `MotionValue`, safe to listen to). `layout:` now works in `ListView`/`GridView`/slivers (scroll-content space); `NibLayoutFrameHook` catches moves under a `RepaintBoundary` (one frame late).
+* **Sliver:** `NibSliverProgress`, `NibSliverHeaderDelegate` (progress as a `MotionValue`, safe to listen to). `layout:` now works in `ListView`/`GridView`/slivers (scroll-content space); `NibLayoutFrameHook` catches moves under a `RepaintBoundary` (sliver fallback can start one frame late).
 * **Layout:** `layoutSizeMode: clip|scale`, `layoutTransition.delay`, `NibLayout.inherit` (default) so a child can opt out of `NibLayoutDefaults` with `NibLayout.none`; `NibPresence.layout(axis:)`; per-child `onChildEnter/Exit/Move`; `NibReorderable` spacing and auto-scroll; `NibPageProgress.tab`.
 * **API friction:** `NibMotionController.velocityOf/velocities/motionValueOf`, `NibMotionValues(offset:)` + `NibOffsetMotionValue`, timeline `from:` derived automatically, widgets-only `NibTimelineScrubber`, `NibTransition.of(spring)` and `NibMotion(spring:)`, debug note when `initial` changes.
 * **Tools:** `NibTimelineDragScrubber`, `NibSpringTuner`, `NibHotReloadReplay`.

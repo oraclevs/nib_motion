@@ -63,6 +63,39 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('default mode composes an explicit x target with a y FLIP',
+        (tester) async {
+      Widget host(List<String> ids, double x) => _wrap(NibLayoutScope(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final id in ids)
+                  NibMotion(
+                    key: ValueKey(id),
+                    layout: NibLayout.position,
+                    animate: id == 'a' ? NibAnim(x: x) : null,
+                    child: const SizedBox(width: 50, height: 50),
+                  ),
+              ],
+            ),
+          ));
+
+      await tester.pumpWidget(host(['a', 'b'], 0));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(host(['b', 'a'], 80));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+
+      final a = _renderFor(tester, const ValueKey('a'));
+      expect(a.translateX.value, inExclusiveRange(0, 80));
+      expect(a.layoutChannels!.y.value, lessThan(0));
+      await tester.pumpAndSettle();
+      expect(a.translateX.value, closeTo(80, 0.5));
+      expect(a.layoutChannels!.y.value, closeTo(0, 0.5));
+      expect(a.child!.localToGlobal(Offset.zero),
+          within(distance: 0.5, from: const Offset(80, 50)));
+    });
+
     testWidgets('painted position is continuous in translate mode',
         (tester) async {
       Offset painted(String id) {
