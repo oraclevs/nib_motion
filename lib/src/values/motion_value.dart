@@ -12,7 +12,12 @@ import 'derived_motion_value.dart';
 /// a result.
 class MotionValue<T> extends ChangeNotifier implements ValueListenable<T> {
   /// Creates a [MotionValue] holding [initial] as its starting value.
-  MotionValue(T initial) : _value = initial;
+  /// A `double` initial value must be finite.
+  MotionValue(T initial) : _value = initial {
+    if (initial is double && !initial.isFinite) {
+      throw ArgumentError.value(initial, 'initial', 'must be finite');
+    }
+  }
 
   T _value;
   double _velocity = 0.0;
@@ -98,7 +103,8 @@ extension MotionValueMapRange on MotionValue<double> {
   /// [inputRange] to [outputRange].
   ///
   /// [inputRange] and [outputRange] are parallel lists: `inputRange[i]`
-  /// corresponds to `outputRange[i]`. At least two stops are required.
+  /// corresponds to `outputRange[i]`. At least two finite stops are required;
+  /// input stops must be strictly increasing. The stop lists are copied.
   /// Between stops, the result is linearly interpolated. When [clamp] is
   /// true (the default), values outside [inputRange] are clamped to the
   /// nearest end of [outputRange]; otherwise the first/last segment's slope
@@ -108,16 +114,25 @@ extension MotionValueMapRange on MotionValue<double> {
     List<double> outputRange, {
     bool clamp = true,
   }) {
-    assert(
-      inputRange.length == outputRange.length,
-      'inputRange and outputRange must have the same number of stops.',
-    );
-    assert(inputRange.length >= 2, 'mapRange requires at least two stops.');
+    if (inputRange.length < 2 || inputRange.length != outputRange.length) {
+      throw ArgumentError(
+          'mapRange requires matching ranges with at least two stops');
+    }
+    for (var i = 0; i < inputRange.length; i++) {
+      if (!inputRange[i].isFinite ||
+          !outputRange[i].isFinite ||
+          (i > 0 && inputRange[i] <= inputRange[i - 1])) {
+        throw ArgumentError(
+            'mapRange stops must be finite and input stops strictly increasing');
+      }
+    }
+    final inputs = List<double>.unmodifiable(inputRange);
+    final outputs = List<double>.unmodifiable(outputRange);
     return DerivedMotionValue<double, double>(
       this,
-      (input) => _mapRangeValue(input, inputRange, outputRange, clamp),
+      (input) => _mapRangeValue(input, inputs, outputs, clamp),
       velocityMapper: (input, velocity) =>
-          _mapRangeSlope(input, inputRange, outputRange, clamp) * velocity,
+          _mapRangeSlope(input, inputs, outputs, clamp) * velocity,
     );
   }
 }

@@ -14,6 +14,11 @@ doc/
 # Showcase apps — large standalone demos, browsable on GitHub but not needed on pub.dev
 showcase/
 
+# Generated example platform projects are local and not tracked for release.
+example/android/
+example/linux/
+example/web/
+
 # IDE
 *.iml
 .idea/

@@ -3,6 +3,7 @@
 A `MotionValue<T>` is a `ValueListenable<T>` that also knows its **velocity**
 (units/second, `0` for non-numeric `T`). Render objects listen to it and repaint
 directly; nothing rebuilds.
+A `MotionValue<double>` requires a finite initial value.
 
 ```dart
 final x = MotionValue<double>(0);
@@ -17,6 +18,9 @@ x.update(10, velocity: 300);       // what drivers do: value + momentum
 | `value.transform(fn)` | 1 | eager; notifies only if the result changed | 0 |
 | `value.mapRange(in, out, clamp:)` | 1 | eager | source velocity × segment slope |
 | `MotionValue.computed([deps], fn)` | any `Listenable`s | **lazy**: marked stale on change, computed on read | 0 |
+
+`mapRange` requires at least two finite stops. Input stops must increase strictly.
+It copies both lists when the mapping is created.
 
 `computed` reads happen at paint time, after every dependency finished
 updating, so diamond graphs are consistent where it matters. A listener that

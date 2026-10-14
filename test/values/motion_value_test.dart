@@ -3,6 +3,11 @@ import 'package:nib_motion/nib_motion.dart';
 
 void main() {
   group('MotionValue', () {
+    test('rejects non-finite initial values', () {
+      expect(() => MotionValue<double>(double.nan), throwsArgumentError);
+      expect(() => MotionValue<double>(double.infinity), throwsArgumentError);
+    });
+
     test('value getter returns the initial value', () {
       final motion = MotionValue<double>(10.0);
 
@@ -77,6 +82,35 @@ void main() {
   });
 
   group('MotionValue.mapRange', () {
+    test('rejects invalid stops before creating a derived value', () {
+      final source = MotionValue<double>(0);
+
+      expect(() => source.mapRange([0], [0]), throwsArgumentError);
+      expect(() => source.mapRange([0, 1], [0]), throwsArgumentError);
+      expect(() => source.mapRange([0, 0], [0, 1]), throwsArgumentError);
+      expect(() => source.mapRange([1, 0], [0, 1]), throwsArgumentError);
+      expect(
+          () => source.mapRange([0, double.nan], [0, 1]), throwsArgumentError);
+      expect(() => source.mapRange([0, 1], [0, double.infinity]),
+          throwsArgumentError);
+    });
+
+    test('copies stops so later caller mutations do not change the mapping',
+        () {
+      final source = MotionValue<double>(0.5);
+      final input = <double>[0, 1];
+      final output = <double>[0, 100];
+      final mapped = source.mapRange(input, output);
+
+      input[1] = 0;
+      output[1] = double.nan;
+      source.value = 0.75;
+
+      expect(mapped.value, 75);
+      mapped.dispose();
+      source.dispose();
+    });
+
     test('mapRange([0,100],[0.0,1.0]) at input=50 gives output=0.5', () {
       final source = MotionValue<double>(50.0);
       final mapped = source.mapRange([0, 100], [0.0, 1.0]);

@@ -10,6 +10,10 @@ sharing one model, centralised accessibility, measured performance — without
 copying competitor APIs or adding dependencies. Source of truth is this repo;
 `deep-research-report(1).md` (2026-09-28) is guidance only.
 
+## Current state (2026-10-14)
+
+The 0.3.2 work is on `feat/runtime-0.3.2`. pub.dev still lists 0.3.1; the branch has not been published. The six passes below completed most of the original gap analysis. The current limits are recorded in the sixth pass and the resumption check near the end of this file.
+
 ## Baseline (verified 2026-09-29)
 
 - Version 0.3.1. Dart `>=3.0.0 <4.0.0`, Flutter `>=3.10.0`. Zero pub deps beyond Flutter SDK.
@@ -91,15 +95,15 @@ GPU shaders (shimmer, dissolve, glass) · nav shell · debugger/inspector/perf o
 - [x] `MotionValue.computed` / `ComputedMotionValue` (lazy, read-only). Cycle detection rejected: dependencies must pre-exist so cycles can't be built. Batching rejected: benchmark shows 1000-node fan-out 0.26 ms/frame; lazy read already coalesces.
 - [x] `InertiaSolver` bounds + elastic overshoot; drag `inertia` release respects constraints; `snapProjection` (`inertia_solver_test.dart`, `drag_release_test.dart`)
 - [x] Presence ordering (exiting children keep their slot)
-- [ ] FLIP size (scale) + `layout: true` API — **deferred**: needs layout-time measurement hook design; position FLIP + interruption shipped
+- [x] FLIP size (scale and clip) + `layout:` API; see the second and third passes below.
 - [x] Timeline cancellation: already covered by `nib_timeline_test.dart` (pause/stop/dispose). Found + fixed `NibAnimationSequence` double-run on `play()`-while-playing and `stop()`→`play()` (generation token; `sequence_replay_test.dart`). **Kept** the documented contract that `NibTimeline`/looping-`NibAnimationSequence` futures do not complete after stop/pause (explicit in docs + an existing test) — AD-9. Scrubbing: not implemented (defer).
 - [x] Numeric trajectory goldens (`test/runtime/goldens/*.json`, 3 scenarios). Pixel `AnimationSheetBuilder` goldens rejected: platform/SDK-sensitive (CI pins 3.32, dev uses 3.47); the physics is pure math so snapshotting trajectories is deterministic.
 
 ## P2 — Differentiation / Ecosystem
 
-- [ ] Neutral motion tokens — deferred (P2, low)
-- [ ] Shared `layoutId` (deferred unless time)
-- [ ] Companion packages: none justified yet (record decision after audit)
+- [x] Neutral motion tokens (`NibSpring`); see the second pass below.
+- [x] Shared `layoutId` within `NibLayoutScope`; see the second pass below.
+- [-] Companion packages: no separate package justified by the current API or measurements.
 
 ## Documentation
 
@@ -109,7 +113,7 @@ GPU shaders (shimmer, dissolve, glass) · nav shell · debugger/inspector/perf o
 - [x] CHANGELOG 0.3.2 (not 0.4.0: `nib_components` pins `nib_motion: ^0.3.0`, and every change is additive → AD-5)
 
 ## Examples
-- [ ] Interruption, drag+inertia+snap, presence re-entry, FLIP reorder, reduced motion (in `example/`) — **not done**; see Remaining
+- [x] Example app: 21 screens and 50 tests; see the fourth pass below.
 
 ## Benchmarks
 - [x] `benchmark/motion_benchmarks.dart` (fan-out, springs, computed, widgets rebuild count, presence churn); numbers in `doc/performance.md`. No optimisation performed (no bottleneck evidenced).
@@ -141,7 +145,7 @@ Bugs found by audit and fixed, each with tests that failed first:
 8. Inertia release ignored drag constraints.
 9. README examples referenced non-existent API.
 
-## Remaining / Future opportunities (genuinely unfinished)
+## Remaining after the first pass (historical snapshot)
 - `layout: true` widget-level API and size (scale) FLIP; shared `layoutId`; sliver-aware motion.
 - Neutral motion tokens (`NibSpring.spatialFast` …).
 - Timeline scrubbing; visual spring/timeline inspector; graph view in `NibMotionDebugger`.
@@ -224,6 +228,15 @@ Done: dialog/route helpers with back-swipe + shared hand-off, sliver progress/he
 - **Remaining:** per-property spring tolerance and eased mid-visible `whileInView` entrance (optional); on-device visuals/perf; whole-`ListView.builder` reorders only animate built items; items re-created after leaving the cache extent don't FLIP on arrival; position FLIP assumes the widget doesn't animate its own x/y; `NibVisibility` exit settings come from the last visible build; release-mode clamp paths are untested (asserts fire in debug); Skia has no `sampleChild`.
 
 Honest caveats: tests for layout/presence were written alongside the implementation (fork reported mutation checks instead of red-first runs); blur/tint/3D have unit + layer-presence tests but no pixel or device verification; shader effect untested with a real program.
+
+## Resumption check (2026-10-14)
+
+- The active branch is `feat/runtime-0.3.2` at `a8ac6eb`; `pubspec.yaml` says 0.3.2. The three untracked example platform folders (`android/`, `linux/`, `web/`) were left alone.
+- Baseline on Flutter 3.47.3: 736 package tests pass; `flutter analyze --fatal-infos` reports no issues.
+- A current pub.dev check found `animated_to` 0.9.1 and `flutter_animate_plus` 5.1.0. Their newer features include hit-test boundary support and sliver/implicit effects. NibMotion already has transformed hit testing, sliver progress, `NibMotion(animate:)`, and value builders. No new API follows from that spot check. Sources: https://pub.dev/packages/animated_to and https://pub.dev/packages/flutter_animate_plus.
+- `MotionValue<double>` accepted a non-finite initial value. `mapRange` accepted duplicate, descending, or non-finite stops and kept mutable caller lists. Construction now rejects non-finite doubles; `mapRange` rejects invalid stops and copies valid lists. Three regression tests failed before the fixes and pass after them.
+- Verification after the fixes: 739 package tests pass, 50 example tests pass, `flutter analyze --fatal-infos` reports no issues, and changed Dart files pass `dart format --set-exit-if-changed`.
+- `dart pub publish --dry-run` validated a 373 KB archive after `.pubignore` excluded the three untracked example platform folders. The precommit run warned only about the dirty git tree; the committed branch passed with 0 warnings. Device visuals and cross-platform frame timing still need the hardware listed below.
 
 ## Blocked / Needs Decision
 - Android Impeller-GLES / iOS / desktop / Web device benchmark lanes: need hardware. Procedure documented in `doc/performance.md`; **no platform performance claim is made**.

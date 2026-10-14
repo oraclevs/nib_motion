@@ -4,6 +4,7 @@ Runtime correctness release: interruption, coordinate spaces, presence, reduced
 motion. All API changes are additive.
 
 ### Fixed
+* `MotionValue<double>` rejects non-finite initial values. `mapRange` rejects invalid stops and copies the stop lists, so a later caller edit cannot change an active mapping.
 * Hit testing and `localToGlobal` now follow the painted transform of
   `NibMotion`, `NibDraggable` and `NibPinch`; gesture wrappers moved inside the
   transform. Previously a translated/scaled widget could not be tapped or
