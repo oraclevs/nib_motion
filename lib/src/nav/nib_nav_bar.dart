@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
 import '../shaders/nib_glass.dart';
@@ -62,7 +63,8 @@ class NibNavBar extends StatefulWidget {
   State<NibNavBar> createState() => _NibNavBarState();
 }
 
-class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
+class _NibNavBarState extends State<NibNavBar>
+    with TickerProviderStateMixin, NibReducedMotionMixin {
   late MotionValue<double> _indicatorX;
   late MotionValue<double> _indicatorWidth;
   late MotionValue<double> _indicatorHeight;
@@ -232,8 +234,19 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
       _indicatorWidth.value = targetWidth;
       _hasLaidOut = true;
     } else {
-      _indicatorXSolver.animateTo(target: targetX);
-      _indicatorWidthSolver.animateTo(target: targetWidth);
+      _go(_indicatorXSolver, _indicatorX, targetX);
+      _go(_indicatorWidthSolver, _indicatorWidth, targetWidth);
+    }
+  }
+
+  /// Springs [value] to [target] via [solver], or jumps there under reduced
+  /// motion.
+  void _go(SpringSolver solver, MotionValue<double> value, double target) {
+    if (reduceMotion) {
+      solver.stop();
+      value.value = target;
+    } else {
+      solver.animateTo(target: target);
     }
   }
 
@@ -246,8 +259,8 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
     final targetWidth = _targetIndicatorWidth(itemWidth);
     final targetX =
         padding.left + itemWidth * index + (itemWidth - targetWidth) / 2;
-    _indicatorXSolver.animateTo(target: targetX);
-    _indicatorWidthSolver.animateTo(target: targetWidth);
+    _go(_indicatorXSolver, _indicatorX, targetX);
+    _go(_indicatorWidthSolver, _indicatorWidth, targetWidth);
   }
 
   /// Springs the outgoing item's icon back to resting scale and fades out its
@@ -262,12 +275,12 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
     final activeScale = widget.itemAnimation.whileActive?.scale ?? 1.0;
 
     if (fromIndex >= 0 && fromIndex < _itemScaleSolvers.length) {
-      _itemScaleSolvers[fromIndex].animateTo(target: restingScale);
-      _itemOpacitySolvers[fromIndex].animateTo(target: 0.0);
+      _go(_itemScaleSolvers[fromIndex], _itemScales[fromIndex], restingScale);
+      _go(_itemOpacitySolvers[fromIndex], _itemOpacities[fromIndex], 0.0);
     }
     if (toIndex >= 0 && toIndex < _itemScaleSolvers.length) {
-      _itemScaleSolvers[toIndex].animateTo(target: activeScale);
-      _itemOpacitySolvers[toIndex].animateTo(target: 1.0);
+      _go(_itemScaleSolvers[toIndex], _itemScales[toIndex], activeScale);
+      _go(_itemOpacitySolvers[toIndex], _itemOpacities[toIndex], 1.0);
     }
   }
 
@@ -284,7 +297,7 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
   void _onItemTapped(int index) {
     final tapScale = widget.itemAnimation.whileTap?.scale;
     if (tapScale != null && index < _itemScaleSolvers.length) {
-      _itemScaleSolvers[index].animateTo(target: tapScale);
+      _go(_itemScaleSolvers[index], _itemScales[index], tapScale);
     }
     widget.onIndexChanged(index);
   }
@@ -297,7 +310,7 @@ class _NibNavBarState extends State<NibNavBar> with TickerProviderStateMixin {
       final resting = i == widget.currentIndex
           ? (widget.itemAnimation.whileActive?.scale ?? 1.0)
           : 1.0;
-      _itemScaleSolvers[i].animateTo(target: resting);
+      _go(_itemScaleSolvers[i], _itemScales[i], resting);
     }
   }
 

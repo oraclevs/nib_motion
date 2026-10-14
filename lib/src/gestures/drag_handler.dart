@@ -28,12 +28,15 @@ class NibDragConfig {
     this.onDragEnd,
     this.releaseMode = NibDragReleaseMode.springBack,
     this.snapPoints,
+    this.snapProjection = Duration.zero,
   });
 
   /// Locks dragging to a single axis. `null` allows free dragging.
   final Axis? axis;
 
-  /// The bounding box the drag offset is confined to, relative to the
+  /// The bounding box the drag offset is confined to, as offsets *from the
+  /// resting position* (e.g. `Rect.fromLTRB(-120, 0, 120, 0)` allows 120px
+  /// either way), not absolute coordinates. Relative to the
   /// position the widget was at before the drag started. `null` means
   /// unconstrained.
   final Rect? constraints;
@@ -56,9 +59,17 @@ class NibDragConfig {
   /// [snapPoints] is set and non-empty.
   final NibDragReleaseMode releaseMode;
 
+  /// Points are offsets from the resting position (not absolute coordinates).
+  ///
   /// If set and non-empty, the widget springs to the nearest of these points
   /// on release instead of following [releaseMode].
   final List<Offset>? snapPoints;
+
+  /// How far ahead, along the release velocity, to look when choosing the
+  /// nearest of [snapPoints]. With the default [Duration.zero] the snap point
+  /// nearest the release *position* wins; a value such as
+  /// `Duration(milliseconds: 150)` lets a quick flick reach the next point.
+  final Duration snapProjection;
 }
 
 /// Applies rubber-band resistance to [value] once it passes [min] or [max].

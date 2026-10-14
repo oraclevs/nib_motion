@@ -30,7 +30,7 @@
 // uSize, uRadius and uThickness pre-multiplied by the device pixel ratio,
 // and FlutterFragCoord() is physical here too.
 
-uniform vec2 uSize;                 // widget size in physical px (MUST be first)
+uniform vec2 uSize;                 // MUST be first: Impeller overwrites it with the backdrop TEXTURE size (the enclosing layer), px
 uniform float uRadius;              // corner radius, physical px
 uniform float uThickness;           // glass depth (dome height), physical px
 uniform float uRefractiveIndex;     // index of refraction, ~1.2
@@ -39,6 +39,8 @@ uniform float uSaturation;          // backdrop saturation boost, 1 = unchanged
 uniform float uLightIntensity;      // rim highlight intensity, 0..1
 uniform vec2 uLight;                // light direction (points toward the light)
 uniform vec4 uTint;                 // glass color rgba; alpha is the mix amount
+uniform vec2 uOrigin;               // glass top-left in the backdrop texture, px
+uniform vec2 uGlassSize;            // the glass widget's own size, physical px
 uniform sampler2D uTexture;         // backdrop, auto-bound by ImageFilter.shader
 
 out vec4 fragColor;
@@ -62,8 +64,17 @@ vec2 rectNormal(vec2 p, vec2 hs, float r) {
       : vec2(0.0, sign(p.y));
 }
 
+// `coordPx` is in the glass's own pixel space (0..uGlassSize). Inside an
+// ImageFilter.shader, FlutterFragCoord() and the uTexture sampler are both in
+// the *enclosing layer's* space (the texture is the whole layer, not just the
+// glass), and uSize is that texture's size, so uOrigin translates between the
+// two spaces.
 vec3 sampleBg(vec2 coordPx) {
-  vec2 uv = coordPx / uSize;
+  // Refracted rays can overshoot the glass; clamp to the glass's own rect so
+  // they pick up its edge colours instead of unrelated backdrop outside it
+  // (or, past the texture, the transparent decal border).
+  vec2 c = clamp(coordPx, vec2(0.5), uGlassSize - vec2(0.5));
+  vec2 uv = (c + uOrigin) / uSize;
 #ifdef IMPELLER_TARGET_OPENGLES
   uv.y = 1.0 - uv.y;
 #endif
@@ -89,8 +100,8 @@ vec3 applySaturation(vec3 color, float saturation) {
 }
 
 void main() {
-  vec2 fragCoord = FlutterFragCoord().xy;
-  vec2 hs = uSize * 0.5;
+  vec2 fragCoord = FlutterFragCoord().xy - uOrigin;
+  vec2 hs = uGlassSize * 0.5;
   vec2 p = fragCoord - hs;
 
   float radius = min(uRadius, min(hs.x, hs.y));

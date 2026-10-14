@@ -7,12 +7,20 @@ import 'package:flutter/widgets.dart';
 import '../debug/motion_value_inspector.dart';
 import '../gestures/drag_handler.dart';
 import '../gestures/gesture_state.dart';
+import '../layout/nib_layout.dart';
+import '../layout/nib_layout_defaults.dart';
+import '../layout/nib_layout_scope.dart';
+import '../physics/driver_completer.dart';
+import '../physics/driver_guard.dart';
 import '../physics/inertia_solver.dart';
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
 import '../presence/presence_scope.dart';
+import '../values/derived_motion_value.dart';
 import '../values/motion_value.dart';
+import '../values/nib_offset_motion_value.dart';
 import '../values/motion_value_types.dart';
+import '../timeline/nib_animation_sequence.dart' show NibLoopMode;
 import '../variants/nib_variants.dart';
 import '../variants/variants_scope.dart';
 import '../viewport/nib_in_view_config.dart';
@@ -23,6 +31,7 @@ import 'nib_motion_controller.dart';
 import 'nib_motion_gate.dart';
 import 'nib_motion_replay_scope.dart';
 import 'nib_motion_values.dart';
+import 'nib_property.dart';
 import 'nib_transition.dart';
 import 'reduced_motion.dart';
 import 'render_nib_motion.dart';
@@ -38,11 +47,30 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
     required this.rotate,
     required this.skewX,
     required this.skewY,
+    required this.rotateX,
+    required this.rotateY,
+    required this.blur,
+    required this.tint,
     required this.color,
     required this.borderRadius,
     required this.boxShadow,
+    required this.layout,
+    required this.layoutSizeMode,
+    required this.layoutChannelMode,
+    required this.layoutChannels,
+    required this.layoutId,
+    required this.layoutScope,
+    required this.onLayoutFlip,
     super.child,
   });
+
+  final NibLayout layout;
+  final NibLayoutSizeMode layoutSizeMode;
+  final NibLayoutChannelMode layoutChannelMode;
+  final NibLayoutChannels? layoutChannels;
+  final Object? layoutId;
+  final NibLayoutScopeData? layoutScope;
+  final void Function(NibLayoutFlip flip)? onLayoutFlip;
 
   final MotionValue<double> opacity;
   final MotionValue<double> translateX;
@@ -52,6 +80,10 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
   final MotionValue<double> rotate;
   final MotionValue<double> skewX;
   final MotionValue<double> skewY;
+  final MotionValue<double> rotateX;
+  final MotionValue<double> rotateY;
+  final MotionValue<double> blur;
+  final MotionValue<Color?> tint;
   final MotionValue<Color?> color;
   final MotionValue<BorderRadius?> borderRadius;
   final BoxShadowMotionValue boxShadow;
@@ -67,9 +99,20 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
       rotate: rotate,
       skewX: skewX,
       skewY: skewY,
+      rotateX: rotateX,
+      rotateY: rotateY,
+      blur: blur,
+      tint: tint,
       color: color,
       borderRadius: borderRadius,
       boxShadow: boxShadow,
+      layout: layout,
+      layoutSizeMode: layoutSizeMode,
+      layoutChannelMode: layoutChannelMode,
+      layoutChannels: layoutChannels,
+      layoutId: layoutId,
+      layoutScope: layoutScope,
+      onLayoutFlip: onLayoutFlip,
     );
   }
 
@@ -84,9 +127,20 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
       ..rotate = rotate
       ..skewX = skewX
       ..skewY = skewY
+      ..rotateX = rotateX
+      ..rotateY = rotateY
+      ..blur = blur
+      ..tint = tint
       ..color = color
       ..borderRadius = borderRadius
-      ..boxShadow = boxShadow;
+      ..boxShadow = boxShadow
+      ..layoutMode = layout
+      ..layoutSizeMode = layoutSizeMode
+      ..layoutChannelMode = layoutChannelMode
+      ..layoutChannels = layoutChannels
+      ..layoutId = layoutId
+      ..layoutScope = layoutScope
+      ..onLayoutFlip = onLayoutFlip;
   }
 }
 
@@ -116,11 +170,31 @@ class NibMotion extends StatefulWidget {
     this.variants,
     this.keyframes,
     this.motionValues,
-    this.transition,
+    NibTransition? transition,
+    this.spring,
     this.controller,
     this.repeatAnimationInLoop = false,
+    this.loopMode = NibLoopMode.pingPong,
+    this.reverseTransition,
+    this.exitTransition,
+    this.layout = NibLayout.inherit,
+    this.layoutSizeMode = NibLayoutSizeMode.scale,
+    this.layoutChannelMode = NibLayoutChannelMode.channels,
+    this.layoutId,
+    this.layoutTransition,
+    this.onLayoutAnimationStart,
+    this.onLayoutAnimationComplete,
     required this.child,
-  })  : assert(
+  })  : _transition = transition,
+        assert(
+          transition == null || spring == null,
+          'NibMotion: pass either `transition` or the `spring` shorthand, not both.',
+        ),
+        assert(
+          layoutId == null || layout != NibLayout.none,
+          'NibMotion.layoutId requires layout to be position, size or both.',
+        ),
+        assert(
           exit == null || key != null,
           'NibMotion: exit animation requires a non-null key for NibPresence tracking.',
         ),
@@ -137,6 +211,10 @@ class NibMotion extends StatefulWidget {
   /// transition runs. Defaults to [NibAnim.identity].
   ///
   /// Either a [NibAnim] or a [String] naming an entry in [variants].
+  ///
+  /// Read **once**, when the widget's state is created: changing it on a
+  /// later rebuild has no effect. Give the widget a new `Key` to restart from
+  /// a different `initial`, or change [animate] to move an existing widget.
   final Object? initial;
 
   /// The animation values to transition toward. `null` means "no change",
@@ -207,7 +285,14 @@ class NibMotion extends StatefulWidget {
   /// If `null`, falls back to `NibMotionConfig.defaultTransitionOf(context)`
   /// (or [NibTransition]'s defaults if there is no `NibMotionConfig`
   /// ancestor).
-  final NibTransition? transition;
+  NibTransition? get transition =>
+      _transition ?? (spring == null ? null : NibTransition.of(spring!));
+  final NibTransition? _transition;
+
+  /// Shorthand for `transition: NibTransition.of(spring)`: a spring-driven
+  /// transition using this description (for example a [NibSpring] token).
+  /// Mutually exclusive with [transition].
+  final NibSpringDescription? spring;
 
   /// An optional external handle for driving this widget's animations.
   final NibMotionController? controller;
@@ -227,6 +312,63 @@ class NibMotion extends StatefulWidget {
   /// [controller]), independent of this field's value.
   final bool repeatAnimationInLoop;
 
+  /// How [repeatAnimationInLoop] repeats: [NibLoopMode.pingPong] (default)
+  /// plays `initial → animate → initial …`; [NibLoopMode.restart] (and
+  /// [NibLoopMode.seamless], which is identical here) jumps back to `initial`
+  /// each cycle — use it when the end state visually matches the start.
+  final NibLoopMode loopMode;
+
+  /// The transition used when this widget *returns* from a temporary state:
+  /// releasing [whileTap]/[whileHover]/[whileFocus]/[whileDrag] or leaving
+  /// [whileInView]. Lets the way back differ from the way in (e.g. a slow
+  /// press, a snappy release). Falls back to [transition].
+  final NibTransition? reverseTransition;
+
+  /// The transition used by the [exit] animation when a `NibPresence` removes
+  /// this widget. Falls back to [transition].
+  final NibTransition? exitTransition;
+
+  /// Which of this widget's own layout changes to animate.
+  ///
+  /// Whenever a rebuild (a reorder, a `Positioned` move, a size change…)
+  /// moves or resizes this widget relative to its `NibLayoutScope`, it is
+  /// visually kept where it was and animated to its new place with
+  /// [layoutTransition] — FLIP, in any parent (`Column`, `Row`, `Wrap`,
+  /// `Stack`, grids). The animation runs on paint-time transforms: it never
+  /// rebuilds the child, continues from the painted position and velocity if
+  /// interrupted, and jumps under reduced motion. See `doc/layout.md`.
+  final NibLayout layout;
+
+  /// How size changes ([NibLayout.size]/[NibLayout.both]) are played:
+  /// [NibLayoutSizeMode.scale] stretches the child, [NibLayoutSizeMode.clip]
+  /// lays it out at its final size and reveals it through a growing clip.
+  final NibLayoutSizeMode layoutSizeMode;
+
+  /// Where the position part of a layout FLIP is kept: in dedicated channels
+  /// ([NibLayoutChannelMode.channels], default) or directly in this widget's
+  /// `translateX`/`translateY` ([NibLayoutChannelMode.translate], what
+  /// `NibLayoutGroup` uses). In translate mode this widget must not animate its
+  /// own `x`/`y`: the FLIP owns them and they rest at 0.
+  final NibLayoutChannelMode layoutChannelMode;
+
+  /// Identity for shared-layout transitions: when a widget with this id
+  /// mounts in the same `NibLayoutScope` right after another one with the same
+  /// id unmounted, it animates from the old widget's rectangle. Requires
+  /// [layout] other than [NibLayout.none] and an enclosing `NibLayoutScope`.
+  final Object? layoutId;
+
+  /// How a layout change is animated back to rest. Defaults to
+  /// [NibTransition.springGentle]; only `spring`, `duration` and `curve` are
+  /// used.
+  final NibTransition? layoutTransition;
+
+  /// Called when a layout animation starts.
+  final VoidCallback? onLayoutAnimationStart;
+
+  /// Called when the latest layout animation has settled (not when it was
+  /// superseded by a newer one).
+  final VoidCallback? onLayoutAnimationComplete;
+
   /// The widget below this one in the tree.
   final Widget child;
 
@@ -245,6 +387,10 @@ class _NibMotionState extends State<NibMotion>
   late final MotionValue<double> _rotate;
   late final MotionValue<double> _skewX;
   late final MotionValue<double> _skewY;
+  late final MotionValue<double> _rotateX;
+  late final MotionValue<double> _rotateY;
+  late final MotionValue<double> _blur;
+  late final MotionValue<Color?> _tint;
   late final MotionValue<Color?> _color;
   late final MotionValue<BorderRadius?> _borderRadius;
   late final BoxShadowMotionValue _boxShadow;
@@ -260,6 +406,10 @@ class _NibMotionState extends State<NibMotion>
       <String, AnimationController>{};
   final Map<String, VoidCallback> _tweenListeners = <String, VoidCallback>{};
   final Map<String, InertiaSolver> _inertiaSolvers = <String, InertiaSolver>{};
+  NibLayoutChannels? _layoutChannels;
+  int _layoutGeneration = 0;
+  bool _layoutActive = false;
+  Timer? _layoutDelayTimer;
 
   NibGestureState _gestureState = NibGestureState.none;
   bool _isHovering = false;
@@ -271,22 +421,53 @@ class _NibMotionState extends State<NibMotion>
   String? _lastVariantName;
   int? _staggerIndex;
   Timer? _staggerTimer;
-  Timer? _delayedAnimateTimer;
+
+  /// Delayed `animateTo` calls that have not started yet. A later call that
+  /// touches any of the same properties cancels (and resolves) them, so the
+  /// newest target always wins.
+  final List<_PendingDelay> _pendingDelays = <_PendingDelay>[];
+  final Map<String, DriverCompleter> _tweenCompleters =
+      <String, DriverCompleter>{};
   Timer? _entranceGateTimer;
   Timer? _replayTimer;
   VoidCallback? _entranceGateListener;
   bool _runningEntranceGateCallback = false;
   bool _deactivated = false;
   AnimationController? _keyframeController;
+  // How to land each running animation on its target immediately; used when
+  // reduced motion switches on mid-flight. Keyed like the drivers.
+  final Map<String, VoidCallback> _snapToTarget = <String, VoidCallback>{};
+  VoidCallback? _keyframeFinish;
+  bool? _wasReducedMotion;
+  final DriverCompleter _keyframeCompleter = DriverCompleter();
   AnimationController? _loopController;
   bool? _wasTickerEnabled;
   bool _isInView = false;
   Set<ScrollPosition> _scrollPositions = const {};
   NibMotionReplaySignal? _replaySignal;
 
+  /// [NibMotion.layout], or the enclosing [NibLayoutDefaults] when this widget
+  /// left it at [NibLayout.inherit] (an explicit [NibLayout.none] opts out).
+  NibLayout get _effectiveLayout {
+    if (widget.layout != NibLayout.inherit) return widget.layout;
+    final inherited = NibLayoutDefaults.maybeOf(context)?.layout;
+    return inherited == null || inherited == NibLayout.inherit
+        ? NibLayout.none
+        : inherited;
+  }
+
+  bool _warnedInitialChange = false;
+
+  /// True when the translate channels belong to a `NibOffsetMotionValue`
+  /// (disposed with it, not with this state).
+  bool _sharedOffsetChannels = false;
+
   @override
   void initState() {
     super.initState();
+    if (_effectiveLayout != NibLayout.none) {
+      _layoutChannels = NibLayoutChannels();
+    }
     final keyframes = widget.keyframes;
     final start = keyframes != null
         ? computeAnimFromKeyframes(keyframes, 0.0, Curves.linear)
@@ -294,10 +475,22 @@ class _NibMotionState extends State<NibMotion>
     final external = widget.motionValues;
     _opacity = external?.opacity ??
         MotionValue(start.opacity ?? NibAnim.identity.opacity!);
-    _translateX =
-        external?.translateX ?? MotionValue(start.x ?? NibAnim.identity.x!);
-    _translateY =
-        external?.translateY ?? MotionValue(start.y ?? NibAnim.identity.y!);
+    final offset = external?.offset;
+    if (offset is NibOffsetMotionValue) {
+      _sharedOffsetChannels = true;
+    }
+    _translateX = external?.translateX ??
+        (offset is NibOffsetMotionValue
+            ? offset.x
+            : offset != null
+                ? DerivedMotionValue<Offset, double>(offset, (o) => o.dx)
+                : MotionValue(start.x ?? NibAnim.identity.x!));
+    _translateY = external?.translateY ??
+        (offset is NibOffsetMotionValue
+            ? offset.y
+            : offset != null
+                ? DerivedMotionValue<Offset, double>(offset, (o) => o.dy)
+                : MotionValue(start.y ?? NibAnim.identity.y!));
     _scaleX = external?.scaleX ??
         MotionValue(_resolveScaleX(start) ?? NibAnim.identity.scaleX!);
     _scaleY = external?.scaleY ??
@@ -308,6 +501,12 @@ class _NibMotionState extends State<NibMotion>
         external?.skewX ?? MotionValue(start.skewX ?? NibAnim.identity.skewX!);
     _skewY =
         external?.skewY ?? MotionValue(start.skewY ?? NibAnim.identity.skewY!);
+    _rotateX = external?.rotateX ??
+        MotionValue(start.rotateX ?? NibAnim.identity.rotateX!);
+    _rotateY = external?.rotateY ??
+        MotionValue(start.rotateY ?? NibAnim.identity.rotateY!);
+    _blur = external?.blur ?? MotionValue(start.blur ?? NibAnim.identity.blur!);
+    _tint = external?.tint ?? MotionValue<Color?>(start.tint);
     _color = external?.color ?? MotionValue<Color?>(start.color);
     _borderRadius = external?.borderRadius ??
         MotionValue<BorderRadius?>(start.borderRadius);
@@ -345,7 +544,19 @@ class _NibMotionState extends State<NibMotion>
         }
         _afterEntranceGate(() {
           if (!mounted) return;
-          animateTo(target);
+          // A staggering NibPresence assigns each entering child a delay.
+          final key = widget.key;
+          final stagger = key == null
+              ? null
+              : NibPresenceScope.maybeOf(context)?.takeEnterDelay?.call(key);
+          if (stagger == null || stagger == Duration.zero) {
+            animateTo(target);
+          } else {
+            _staggerTimer?.cancel();
+            _staggerTimer = Timer(stagger, () {
+              if (mounted) animateTo(target);
+            });
+          }
         });
       });
     }
@@ -435,6 +646,8 @@ class _NibMotionState extends State<NibMotion>
     final controller =
         AnimationController(vsync: this, duration: transition.duration);
     _keyframeController = controller;
+    _keyframeFinish = () => setImmediately(
+        computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
     controller.addListener(() {
       setImmediately(computeAnimFromKeyframes(
           keyframes, controller.value, transition.curve));
@@ -495,7 +708,7 @@ class _NibMotionState extends State<NibMotion>
 
     _afterEntranceGate(() {
       if (!mounted) return;
-      controller.repeat(reverse: true);
+      controller.repeat(reverse: widget.loopMode == NibLoopMode.pingPong);
     });
   }
 
@@ -525,6 +738,10 @@ class _NibMotionState extends State<NibMotion>
       }
       _presenceRegistration = registration;
     }
+
+    final reduced = NibMotionConfig.watchReducedMotion(context);
+    if (reduced && _wasReducedMotion == false) _finishForReducedMotion();
+    _wasReducedMotion = reduced;
 
     // ignore: deprecated_member_use, TickerMode.valuesOf requires a newer Flutter than this package's minimum.
     final tickerEnabled = TickerMode.of(context);
@@ -617,10 +834,24 @@ class _NibMotionState extends State<NibMotion>
   @override
   void didUpdateWidget(NibMotion oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_effectiveLayout != NibLayout.none && _layoutChannels == null) {
+      _layoutChannels = NibLayoutChannels();
+    }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.detach(this);
       widget.controller?.attach(this);
     }
+    assert(() {
+      if (!_warnedInitialChange && widget.initial != oldWidget.initial) {
+        _warnedInitialChange = true;
+        debugPrint(
+            'NibMotion.initial changed on rebuild (${oldWidget.initial} -> '
+            '${widget.initial}). `initial` is read once, so the change is '
+            'ignored. Give the widget a new Key to restart from a different '
+            'initial, or change `animate` to move an existing widget.');
+      }
+      return true;
+    }());
     final animate = widget.animate;
     if (animate != null &&
         animate != oldWidget.animate &&
@@ -649,6 +880,44 @@ class _NibMotionState extends State<NibMotion>
     }
   }
 
+  /// Returns [target] with every non-finite scalar removed (so that property
+  /// is left untouched). Debug builds throw an [ArgumentError] instead.
+  NibAnim _finiteOnly(NibAnim target) {
+    bool ok(String name, double? v) => v == null || nibAcceptFinite(name, v);
+    final allFinite = ok('x', target.x) &&
+        ok('y', target.y) &&
+        ok('scale', target.scale) &&
+        ok('scaleX', target.scaleX) &&
+        ok('scaleY', target.scaleY) &&
+        ok('rotate', target.rotate) &&
+        ok('skewX', target.skewX) &&
+        ok('skewY', target.skewY) &&
+        ok('rotateX', target.rotateX) &&
+        ok('rotateY', target.rotateY) &&
+        ok('blur', target.blur) &&
+        ok('opacity', target.opacity);
+    if (allFinite) return target;
+    double? keep(double? v) => v != null && v.isFinite ? v : null;
+    return NibAnim(
+      x: keep(target.x),
+      y: keep(target.y),
+      scale: keep(target.scale),
+      scaleX: keep(target.scaleX),
+      scaleY: keep(target.scaleY),
+      rotate: keep(target.rotate),
+      skewX: keep(target.skewX),
+      skewY: keep(target.skewY),
+      rotateX: keep(target.rotateX),
+      rotateY: keep(target.rotateY),
+      blur: keep(target.blur),
+      opacity: keep(target.opacity),
+      tint: target.tint,
+      color: target.color,
+      borderRadius: target.borderRadius,
+      boxShadow: target.boxShadow,
+    );
+  }
+
   @override
   Future<void> animateTo(NibAnim target, {NibTransition? transition}) {
     // `GestureRecognizer.dispose()` can synchronously trigger
@@ -658,6 +927,18 @@ class _NibMotionState extends State<NibMotion>
     // `shouldReduceMotion`) on a deactivated element.
     if (_deactivated || !context.mounted) return Future.value();
 
+    // Bad numbers are loud in debug builds and dropped in release builds,
+    // rather than leaving NaN in a transform forever.
+    target = _finiteOnly(target);
+    var effective = transition ??
+        widget.transition ??
+        NibMotionConfig.defaultTransitionOf(context);
+    if (kDebugMode) {
+      effective.validate();
+    } else {
+      effective = effective.sanitized();
+    }
+
     if (!_runningEntranceGateCallback) _cancelEntranceGate();
 
     if (NibMotionConfig.shouldReduceMotion(context)) {
@@ -665,19 +946,25 @@ class _NibMotionState extends State<NibMotion>
       return Future.value();
     }
 
-    final effective = transition ??
-        widget.transition ??
-        NibMotionConfig.defaultTransitionOf(context);
+    _cancelPendingDelays(_propertyKeys(target));
+    _stopKeyframes();
 
     final delay = effective.delay;
     if (delay > Duration.zero) {
-      _delayedAnimateTimer?.cancel();
       final completer = Completer<void>();
-      _delayedAnimateTimer = Timer(delay, () {
-        _runAnimation(target, effective).then((_) {
-          if (!completer.isCompleted) completer.complete();
-        });
-      });
+      late final _PendingDelay pending;
+      pending = _PendingDelay(
+        _propertyKeys(target),
+        target,
+        completer,
+        Timer(delay, () {
+          _pendingDelays.remove(pending);
+          _runAnimation(target, effective).then((_) {
+            if (!completer.isCompleted) completer.complete();
+          });
+        }),
+      );
+      _pendingDelays.add(pending);
       return completer.future;
     }
 
@@ -700,6 +987,15 @@ class _NibMotionState extends State<NibMotion>
     addDouble(_rotate, 'rotate', target.rotate);
     addDouble(_skewX, 'skewX', target.skewX);
     addDouble(_skewY, 'skewY', target.skewY);
+    addDouble(_rotateX, 'rotateX', target.rotateX);
+    addDouble(_rotateY, 'rotateY', target.rotateY);
+    addDouble(_blur, 'blur', target.blur);
+
+    final tint = target.tint;
+    if (tint != null) {
+      futures.add(_animateWithTween<Color?>(
+          _tint, 'tint', tint, effective, Color.lerp));
+    }
 
     final color = target.color;
     if (color != null) {
@@ -730,16 +1026,12 @@ class _NibMotionState extends State<NibMotion>
 
     final spring = transition.spring;
     if (spring != null) {
-      _tweenControllers[key]?.stop();
+      _stopTween(key);
       final solver = _springSolvers.putIfAbsent(
           key, () => SpringSolver(vsync: this, value: value, spring: spring));
       solver.spring = spring;
-      final completer = Completer<void>();
-      solver.onComplete = () {
-        if (!completer.isCompleted) completer.complete();
-      };
-      solver.animateTo(target: target);
-      return completer.future;
+      return _trackTarget<double>(
+          key, value, target, solver.animateTo(target: target));
     }
 
     _springSolvers[key]?.stop();
@@ -761,33 +1053,272 @@ class _NibMotionState extends State<NibMotion>
         key, () => AnimationController(vsync: this));
     final oldListener = _tweenListeners.remove(key);
     if (oldListener != null) controller.removeListener(oldListener);
+    final completer = _tweenCompleters.putIfAbsent(key, DriverCompleter.new);
 
+    T previous = begin;
+    double? previousSeconds;
     void listener() {
       final t = transition.curve.transform(controller.value);
-      value.value = lerp(begin, target, t);
+      final next = lerp(begin, target, t);
+      final seconds =
+          (controller.lastElapsedDuration?.inMicroseconds ?? 0) / 1e6;
+      var velocity = 0.0;
+      final before = previous;
+      if (before is double &&
+          next is double &&
+          previousSeconds != null &&
+          seconds > previousSeconds!) {
+        velocity = (next - before) / (seconds - previousSeconds!);
+      }
+      previous = next;
+      previousSeconds = seconds;
+      value.update(next, velocity: velocity);
     }
 
     _tweenListeners[key] = listener;
     controller.addListener(listener);
     controller.duration = transition.duration;
-    return controller.forward(from: 0.0).then((_) {});
+    final future = completer.begin();
+    controller.forward(from: 0.0).then((_) {
+      value.update(target);
+      completer.resolve();
+    });
+    return _trackTarget<T>(key, value, target, future);
+  }
+
+  /// Remembers how to snap [value] to [target] until [future] resolves.
+  Future<void> _trackTarget<T>(
+      String key, MotionValue<T> value, T target, Future<void> future) {
+    void snap() => value.update(target);
+    _snapToTarget[key] = snap;
+    future.whenComplete(() {
+      // A newer animation on the same property registered its own snap.
+      if (identical(_snapToTarget[key], snap)) _snapToTarget.remove(key);
+    });
+    return future;
+  }
+
+  /// Reduced motion just switched on: land every running animation on its
+  /// target, stop loops and keyframes, and resolve their futures.
+  void _finishForReducedMotion() {
+    final snaps = _snapToTarget.values.toList();
+    final pending = List<_PendingDelay>.of(_pendingDelays);
+    final keyframeFinish =
+        (_keyframeController?.isAnimating ?? false) ? _keyframeFinish : null;
+    final loopRunning = _loopController?.isAnimating ?? false;
+
+    stopAnimations(); // also cancels pending delays and resolves futures
+    for (final snap in snaps) {
+      snap();
+    }
+    for (final delayed in pending) {
+      setImmediately(delayed.target);
+    }
+    keyframeFinish?.call();
+    if (loopRunning) {
+      // Its reduced-motion branch jumps to the end of the cycle.
+      _startRepeatLoop();
+    }
+    _snapToTarget.clear();
+  }
+
+  /// Stops the tween for [key] (if any) and resolves its pending future.
+  /// Velocity is left on the value so the next driver can inherit it.
+  void _stopTween(String key) {
+    _tweenControllers[key]?.stop();
+    _tweenCompleters[key]?.resolve();
+  }
+
+  static Set<String> _propertyKeys(NibAnim a) => <String>{
+        if (a.opacity != null) 'opacity',
+        if (a.x != null) 'translateX',
+        if (a.y != null) 'translateY',
+        if (_resolveScaleX(a) != null) 'scaleX',
+        if (_resolveScaleY(a) != null) 'scaleY',
+        if (a.rotate != null) 'rotate',
+        if (a.skewX != null) 'skewX',
+        if (a.skewY != null) 'skewY',
+        if (a.rotateX != null) 'rotateX',
+        if (a.rotateY != null) 'rotateY',
+        if (a.blur != null) 'blur',
+        if (a.tint != null) 'tint',
+        if (a.color != null) 'color',
+        if (a.borderRadius != null) 'borderRadius',
+        if (a.boxShadow != null) 'boxShadow',
+      };
+
+  void _cancelPendingDelays([Set<String>? keys]) {
+    for (final pending in List<_PendingDelay>.of(_pendingDelays)) {
+      if (keys != null && pending.keys.intersection(keys).isEmpty) continue;
+      pending.timer.cancel();
+      if (!pending.completer.isCompleted) pending.completer.complete();
+      _pendingDelays.remove(pending);
+    }
+  }
+
+  /// Writes a layout FLIP into the channels (keeping their velocity) and
+  /// animates them back to rest. Called post-frame by [RenderNibMotion], which
+  /// paints the same values itself until this returns.
+  void _onLayoutFlip(NibLayoutFlip flip) {
+    final channels = _layoutChannels;
+    if (channels == null || !mounted) return;
+
+    final inTranslate =
+        widget.layoutChannelMode == NibLayoutChannelMode.translate;
+    final targets = <String, (MotionValue<double>, double, double)>{
+      // In translate mode the position FLIP lives in the widget's own
+      // translation (and shares its driver keys, so it supersedes any other
+      // translate animation).
+      if (inTranslate) ...{
+        'translateX': (_translateX, flip.x, 0.0),
+        'translateY': (_translateY, flip.y, 0.0),
+      } else ...{
+        'layoutX': (channels.x, flip.x, 0.0),
+        'layoutY': (channels.y, flip.y, 0.0),
+      },
+      'layoutScaleX': (channels.scaleX, flip.scaleX, 1.0),
+      'layoutScaleY': (channels.scaleY, flip.scaleY, 1.0),
+    };
+
+    for (final entry in targets.entries) {
+      _springSolvers[entry.key]?.stop();
+      _stopTween(entry.key);
+    }
+    _layoutDelayTimer?.cancel();
+    _layoutDelayTimer = null;
+    // A superseded animation ends here, so observers never wait on it. If the
+    // flip that replaces it has nothing left to animate, that successor settles
+    // at once and reports completion on the superseded animation's behalf.
+    final supersededActive = _layoutActive;
+    _endLayoutActivity(notifyComplete: false);
+
+    final generation = ++_layoutGeneration;
+    final reduce = NibMotionConfig.shouldReduceMotion(context);
+    if (reduce) {
+      for (final (channel, _, rest) in targets.values) {
+        channel.update(rest);
+      }
+      if (supersededActive) widget.onLayoutAnimationComplete?.call();
+      return;
+    }
+
+    for (final (channel, value, _) in targets.values) {
+      channel.update(value, velocity: channel.velocity);
+    }
+
+    final transition = widget.layoutTransition ?? NibTransition.springGentle;
+
+    void play() {
+      if (!mounted || generation != _layoutGeneration) return;
+      _layoutDelayTimer = null;
+      final futures = <Future<void>>[];
+      for (final entry in targets.entries) {
+        final (channel, _, rest) = entry.value;
+        if ((channel.value - rest).abs() < 1e-6 && channel.velocity == 0) {
+          continue;
+        }
+        final future = _animateDouble(channel, entry.key, rest, transition);
+        if (future != null) futures.add(future);
+      }
+      if (futures.isEmpty) {
+        if (supersededActive) widget.onLayoutAnimationComplete?.call();
+        return;
+      }
+
+      _layoutActive = true;
+      widget.onLayoutAnimationStart?.call();
+      final key = widget.key;
+      if (key != null) _presenceRegistration?.layoutAnimation?.call(key, true);
+      Future.wait(futures).then((_) {
+        if (mounted && generation == _layoutGeneration) {
+          _endLayoutActivity(notifyComplete: true);
+        }
+      });
+    }
+
+    // The inverted state (channels above) holds for the delay, so the widget
+    // keeps looking like it did before the layout change until it starts
+    // moving.
+    if (transition.delay > Duration.zero) {
+      _layoutDelayTimer = Timer(transition.delay, play);
+    } else {
+      play();
+    }
+  }
+
+  /// Ends the layout animation in flight, if any: reports completion to the
+  /// widget's callback when [notifyComplete], and always to an enclosing
+  /// `NibPresence` so its aggregate start/complete stays balanced.
+  void _endLayoutActivity({required bool notifyComplete}) {
+    if (!_layoutActive) return;
+    _layoutActive = false;
+    if (notifyComplete) widget.onLayoutAnimationComplete?.call();
+    final key = widget.key;
+    if (key != null) _presenceRegistration?.layoutAnimation?.call(key, false);
+  }
+
+  @override
+  MotionValue<double>? motionValueOf(NibProperty property) {
+    switch (property) {
+      case NibProperty.x:
+        return _translateX;
+      case NibProperty.y:
+        return _translateY;
+      case NibProperty.scaleX:
+        return _scaleX;
+      case NibProperty.scaleY:
+        return _scaleY;
+      case NibProperty.rotate:
+        return _rotate;
+      case NibProperty.skewX:
+        return _skewX;
+      case NibProperty.skewY:
+        return _skewY;
+      case NibProperty.rotateX:
+        return _rotateX;
+      case NibProperty.rotateY:
+        return _rotateY;
+      case NibProperty.blur:
+        return _blur;
+      case NibProperty.opacity:
+        return _opacity;
+    }
+  }
+
+  @override
+  NibAnim get initialAnim {
+    final keyframes = widget.keyframes;
+    final start = keyframes != null
+        ? computeAnimFromKeyframes(keyframes, 0.0, Curves.linear)
+        : (_resolveAnim(widget.initial) ?? NibAnim.identity);
+    return NibAnim.identity.merge(start);
+  }
+
+  @override
+  Future<void> restoreFromExit() {
+    final variantName = _lastVariantName;
+    final variant = variantName == null ? null : widget.variants?[variantName];
+    final resting =
+        _resolveAnim(widget.animate) ?? variant ?? _resolveAnim(widget.initial);
+    return animateTo(NibAnim.identity.merge(resting ?? NibAnim.identity));
   }
 
   @override
   Future<void> triggerExit() {
     final exit = widget.exit;
     if (exit == null) return Future.value();
-    return animateTo(exit);
+    return animateTo(exit, transition: widget.exitTransition);
   }
 
   @override
-  void setImmediately(NibAnim target) {
+  void setImmediately(NibAnim target, {bool keepVelocity = false}) {
+    target = _finiteOnly(target);
     void setDouble(MotionValue<double> value, String key, double? targetValue) {
       if (targetValue == null) return;
       _springSolvers[key]?.stop();
-      _tweenControllers[key]?.stop();
+      _stopTween(key);
       _inertiaSolvers[key]?.stop();
-      value.value = targetValue;
+      value.update(targetValue, velocity: keepVelocity ? value.velocity : 0.0);
     }
 
     setDouble(_opacity, 'opacity', target.opacity);
@@ -798,38 +1329,66 @@ class _NibMotionState extends State<NibMotion>
     setDouble(_rotate, 'rotate', target.rotate);
     setDouble(_skewX, 'skewX', target.skewX);
     setDouble(_skewY, 'skewY', target.skewY);
+    setDouble(_rotateX, 'rotateX', target.rotateX);
+    setDouble(_rotateY, 'rotateY', target.rotateY);
+    setDouble(_blur, 'blur', target.blur);
+
+    final tint = target.tint;
+    if (tint != null) {
+      _stopTween('tint');
+      _tint.value = tint;
+    }
 
     final color = target.color;
     if (color != null) {
-      _tweenControllers['color']?.stop();
+      _stopTween('color');
       _color.value = color;
     }
 
     final borderRadius = target.borderRadius;
     if (borderRadius != null) {
-      _tweenControllers['borderRadius']?.stop();
+      _stopTween('borderRadius');
       _borderRadius.value = borderRadius;
     }
 
     final boxShadow = target.boxShadow;
     if (boxShadow != null) {
-      _tweenControllers['boxShadow']?.stop();
+      _stopTween('boxShadow');
       _boxShadow.value = boxShadow;
     }
   }
 
   @override
   void stopAnimations() {
+    _cancelPendingDelays();
+    _stopKeyframes();
+    _loopController?.stop();
     for (final solver in _springSolvers.values) {
       solver.stop();
     }
-    for (final controller in _tweenControllers.values) {
-      controller.stop();
-    }
+    _tweenControllers.keys.toList().forEach(_stopTween);
     for (final solver in _inertiaSolvers.values) {
       solver.stop();
     }
+    // Frozen means at rest: nothing should inherit momentum from a stop.
+    for (final value in _animatableDoubles) {
+      value.update(value.value);
+    }
   }
+
+  Iterable<MotionValue<double>> get _animatableDoubles => [
+        _opacity,
+        _translateX,
+        _translateY,
+        _scaleX,
+        _scaleY,
+        _rotate,
+        _skewX,
+        _skewY,
+        _rotateX,
+        _rotateY,
+        _blur,
+      ];
 
   @override
   Future<void> replayEntrance() {
@@ -851,17 +1410,33 @@ class _NibMotionState extends State<NibMotion>
       return Future.value();
     }
 
+    _stopKeyframes();
     _keyframeController?.dispose();
 
     final controller =
         AnimationController(vsync: this, duration: effective.duration);
     _keyframeController = controller;
+    _keyframeFinish = () => setImmediately(
+        computeAnimFromKeyframes(keyframes, 1.0, effective.curve));
     controller.addListener(() {
       setImmediately(computeAnimFromKeyframes(
           keyframes, controller.value, effective.curve));
     });
 
-    return controller.forward(from: 0.0).then((_) {});
+    // The completer outlives superseded controllers: a canceled
+    // `TickerFuture` never completes, so resolution is explicit.
+    final future = _keyframeCompleter.begin();
+    controller.forward(from: 0.0).then((_) => _keyframeCompleter.resolve());
+    return future;
+  }
+
+  /// Stops a running keyframe animation (whether started by
+  /// [playKeyframes] or by [NibMotion.keyframes]) and resolves its future.
+  /// Without this a later `animateTo` would be overridden on every tick by
+  /// the keyframe listener until the keyframes finished.
+  void _stopKeyframes() {
+    _keyframeController?.stop();
+    _keyframeCompleter.resolve();
   }
 
   @override
@@ -930,7 +1505,7 @@ class _NibMotionState extends State<NibMotion>
         : (_resolveAnim(widget.animate) ??
             _resolveAnim(widget.initial) ??
             NibAnim.identity);
-    animateTo(target);
+    animateTo(target, transition: widget.reverseTransition);
   }
 
   /// Attaches [_onScrollOrResize] to every ancestor [Scrollable]'s
@@ -1059,7 +1634,7 @@ class _NibMotionState extends State<NibMotion>
     final target = _resolveAnim(widget.animate) ??
         _resolveAnim(widget.initial) ??
         NibAnim.identity;
-    animateTo(target);
+    animateTo(target, transition: widget.reverseTransition);
   }
 
   void _onPanStart(DragStartDetails details) {
@@ -1073,8 +1648,8 @@ class _NibMotionState extends State<NibMotion>
     _springSolvers['translateY']?.stop();
     _inertiaSolvers['translateX']?.stop();
     _inertiaSolvers['translateY']?.stop();
-    _tweenControllers['translateX']?.stop();
-    _tweenControllers['translateY']?.stop();
+    _stopTween('translateX');
+    _stopTween('translateY');
 
     _dragHandler = DragHandler(
       config: drag,
@@ -1106,7 +1681,12 @@ class _NibMotionState extends State<NibMotion>
 
     final snapPoints = drag.snapPoints;
     if (snapPoints != null && snapPoints.isNotEmpty) {
-      final current = Offset(_translateX.value, _translateY.value);
+      // Pick the snap point nearest to where the motion is *heading*, not
+      // just where it is, so a flick lands on the next point.
+      final projectionSeconds =
+          drag.snapProjection.inMicroseconds / Duration.microsecondsPerSecond;
+      final current = Offset(_translateX.value, _translateY.value) +
+          velocity.pixelsPerSecond * projectionSeconds;
       final nearest = snapPoints.reduce(
         (a, b) => (a - current).distanceSquared <= (b - current).distanceSquared
             ? a
@@ -1136,6 +1716,10 @@ class _NibMotionState extends State<NibMotion>
           rotate: base.rotate,
           skewX: base.skewX,
           skewY: base.skewY,
+          rotateX: base.rotateX,
+          rotateY: base.rotateY,
+          blur: base.blur,
+          tint: base.tint,
           opacity: base.opacity,
           color: base.color,
           borderRadius: base.borderRadius,
@@ -1150,8 +1734,8 @@ class _NibMotionState extends State<NibMotion>
         widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
     final spring = transition.spring ?? NibSpringDescription.gentle;
 
-    _tweenControllers['translateX']?.stop();
-    _tweenControllers['translateY']?.stop();
+    _stopTween('translateX');
+    _stopTween('translateY');
     _inertiaSolvers['translateX']?.stop();
     _inertiaSolvers['translateY']?.stop();
 
@@ -1208,18 +1792,27 @@ class _NibMotionState extends State<NibMotion>
   }
 
   void _coastWithInertia(Velocity velocity) {
-    _tweenControllers['translateX']?.stop();
-    _tweenControllers['translateY']?.stop();
+    _stopTween('translateX');
+    _stopTween('translateY');
     _springSolvers['translateX']?.stop();
     _springSolvers['translateY']?.stop();
 
     final solverX = _inertiaSolvers.putIfAbsent(
         'translateX', () => InertiaSolver(vsync: this, value: _translateX));
-    solverX.animateTo(velocity: velocity.pixelsPerSecond.dx);
+    final constraints = widget.drag?.constraints;
+    solverX.animateTo(
+      velocity: velocity.pixelsPerSecond.dx,
+      min: constraints == null ? null : _dragBase.dx + constraints.left,
+      max: constraints == null ? null : _dragBase.dx + constraints.right,
+    );
 
     final solverY = _inertiaSolvers.putIfAbsent(
         'translateY', () => InertiaSolver(vsync: this, value: _translateY));
-    solverY.animateTo(velocity: velocity.pixelsPerSecond.dy);
+    solverY.animateTo(
+      velocity: velocity.pixelsPerSecond.dy,
+      min: constraints == null ? null : _dragBase.dy + constraints.top,
+      max: constraints == null ? null : _dragBase.dy + constraints.bottom,
+    );
   }
 
   @override
@@ -1258,6 +1851,10 @@ class _NibMotionState extends State<NibMotion>
     registry.register('$_debugId.rotate', _rotate);
     registry.register('$_debugId.skewX', _skewX);
     registry.register('$_debugId.skewY', _skewY);
+    registry.register('$_debugId.rotateX', _rotateX);
+    registry.register('$_debugId.rotateY', _rotateY);
+    registry.register('$_debugId.blur', _blur);
+    registry.register('$_debugId.tint', _tint);
     registry.register('$_debugId.color', _color);
     registry.register('$_debugId.borderRadius', _borderRadius);
     registry.register('$_debugId.boxShadow', _boxShadow);
@@ -1274,6 +1871,10 @@ class _NibMotionState extends State<NibMotion>
     registry.unregister('$_debugId.rotate');
     registry.unregister('$_debugId.skewX');
     registry.unregister('$_debugId.skewY');
+    registry.unregister('$_debugId.rotateX');
+    registry.unregister('$_debugId.rotateY');
+    registry.unregister('$_debugId.blur');
+    registry.unregister('$_debugId.tint');
     registry.unregister('$_debugId.color');
     registry.unregister('$_debugId.borderRadius');
     registry.unregister('$_debugId.boxShadow');
@@ -1284,9 +1885,10 @@ class _NibMotionState extends State<NibMotion>
     if (kDebugMode) _unregisterDebugValues();
     _replaySignal?.removeListener(_onReplaySignal);
     _staggerTimer?.cancel();
-    _delayedAnimateTimer?.cancel();
+    _cancelPendingDelays();
     _replayTimer?.cancel();
     _cancelEntranceGate();
+    _keyframeCompleter.resolve();
     _keyframeController?.dispose();
     _loopController?.dispose();
     for (final position in _scrollPositions) {
@@ -1299,6 +1901,9 @@ class _NibMotionState extends State<NibMotion>
     for (final solver in _springSolvers.values) {
       solver.dispose();
     }
+    for (final completer in _tweenCompleters.values) {
+      completer.resolve();
+    }
     for (final controller in _tweenControllers.values) {
       controller.dispose();
     }
@@ -1306,15 +1911,27 @@ class _NibMotionState extends State<NibMotion>
       solver.dispose();
     }
 
+    _layoutDelayTimer?.cancel();
+    _endLayoutActivity(notifyComplete: false);
+    _layoutChannels?.dispose();
+
     final external = widget.motionValues;
     if (external?.opacity == null) _opacity.dispose();
-    if (external?.translateX == null) _translateX.dispose();
-    if (external?.translateY == null) _translateY.dispose();
+    if (external?.translateX == null && !_sharedOffsetChannels) {
+      _translateX.dispose();
+    }
+    if (external?.translateY == null && !_sharedOffsetChannels) {
+      _translateY.dispose();
+    }
     if (external?.scaleX == null) _scaleX.dispose();
     if (external?.scaleY == null) _scaleY.dispose();
     if (external?.rotate == null) _rotate.dispose();
     if (external?.skewX == null) _skewX.dispose();
     if (external?.skewY == null) _skewY.dispose();
+    if (external?.rotateX == null) _rotateX.dispose();
+    if (external?.rotateY == null) _rotateY.dispose();
+    if (external?.blur == null) _blur.dispose();
+    if (external?.tint == null) _tint.dispose();
     if (external?.color == null) _color.dispose();
     if (external?.borderRadius == null) _borderRadius.dispose();
     if (external?.boxShadow == null) _boxShadow.dispose();
@@ -1333,7 +1950,39 @@ class _NibMotionState extends State<NibMotion>
     final effectiveTransition =
         widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
 
-    Widget result = _NibMotionBox(
+    // Interaction wrappers live *inside* the transformed render object so
+    // their hit-test region follows the painted position of the box.
+    Widget inner = VariantsScope(
+      variant: propagatedVariant,
+      delayChildren: effectiveTransition.delayChildren,
+      staggerChildren: effectiveTransition.staggerChildren,
+      indexCounter: _childIndexCounter,
+      child: widget.child,
+    );
+
+    if (widget.whileFocus != null) {
+      inner = Focus(onFocusChange: _onFocusChange, child: inner);
+    }
+
+    if (widget.whileHover != null) {
+      inner = MouseRegion(
+          onEnter: _onHoverEnter, onExit: _onHoverExit, child: inner);
+    }
+
+    if (widget.whileTap != null || widget.drag != null) {
+      inner = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: widget.whileTap != null ? _onTapDown : null,
+        onTapUp: widget.whileTap != null ? (_) => _onTapEnd() : null,
+        onTapCancel: widget.whileTap != null ? _onTapEnd : null,
+        onPanStart: widget.drag != null ? _onPanStart : null,
+        onPanUpdate: widget.drag != null ? _onPanUpdate : null,
+        onPanEnd: widget.drag != null ? _onPanEnd : null,
+        child: inner,
+      );
+    }
+
+    return _NibMotionBox(
       opacity: _opacity,
       translateX: _translateX,
       translateY: _translateY,
@@ -1342,40 +1991,31 @@ class _NibMotionState extends State<NibMotion>
       rotate: _rotate,
       skewX: _skewX,
       skewY: _skewY,
+      rotateX: _rotateX,
+      rotateY: _rotateY,
+      blur: _blur,
+      tint: _tint,
       color: _color,
       borderRadius: _borderRadius,
       boxShadow: _boxShadow,
-      child: VariantsScope(
-        variant: propagatedVariant,
-        delayChildren: effectiveTransition.delayChildren,
-        staggerChildren: effectiveTransition.staggerChildren,
-        indexCounter: _childIndexCounter,
-        child: widget.child,
-      ),
+      layout: _effectiveLayout,
+      layoutSizeMode: widget.layoutSizeMode,
+      layoutChannelMode: widget.layoutChannelMode,
+      layoutChannels: _layoutChannels,
+      layoutId: widget.layoutId,
+      layoutScope: NibLayoutScope.maybeOf(context),
+      onLayoutFlip: _onLayoutFlip,
+      child: inner,
     );
-
-    if (widget.whileFocus != null) {
-      result = Focus(onFocusChange: _onFocusChange, child: result);
-    }
-
-    if (widget.whileHover != null) {
-      result = MouseRegion(
-          onEnter: _onHoverEnter, onExit: _onHoverExit, child: result);
-    }
-
-    if (widget.whileTap != null || widget.drag != null) {
-      result = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: widget.whileTap != null ? _onTapDown : null,
-        onTapUp: widget.whileTap != null ? (_) => _onTapEnd() : null,
-        onTapCancel: widget.whileTap != null ? _onTapEnd : null,
-        onPanStart: widget.drag != null ? _onPanStart : null,
-        onPanUpdate: widget.drag != null ? _onPanUpdate : null,
-        onPanEnd: widget.drag != null ? _onPanEnd : null,
-        child: result,
-      );
-    }
-
-    return result;
   }
+}
+
+/// A delayed `animateTo` waiting for its delay to elapse.
+class _PendingDelay {
+  _PendingDelay(this.keys, this.target, this.completer, this.timer);
+
+  final Set<String> keys;
+  final NibAnim target;
+  final Completer<void> completer;
+  final Timer timer;
 }

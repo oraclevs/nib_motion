@@ -28,6 +28,7 @@ class NibMotionValues {
   /// "let [NibMotion] manage this property as usual".
   const NibMotionValues({
     this.opacity,
+    this.offset,
     this.translateX,
     this.translateY,
     this.scaleX,
@@ -35,6 +36,10 @@ class NibMotionValues {
     this.rotate,
     this.skewX,
     this.skewY,
+    this.rotateX,
+    this.rotateY,
+    this.blur,
+    this.tint,
     this.color,
     this.borderRadius,
     this.boxShadow,
@@ -42,6 +47,15 @@ class NibMotionValues {
 
   /// Drives `RenderNibMotion.opacity` directly when non-null.
   final MotionValue<double>? opacity;
+
+  /// Drives both translate channels from one [Offset] value, paint-only.
+  ///
+  /// Each axis is taken from [translateX]/[translateY] when those are also
+  /// given (an explicit axis value always wins); [offset] fills the rest. A
+  /// `NibOffsetMotionValue` is used as-is; any other `MotionValue<Offset>` is
+  /// split into two derived scalar values owned (and disposed) by the widget.
+  /// The widget never disposes [offset] itself.
+  final MotionValue<Offset>? offset;
 
   /// Drives `RenderNibMotion.translateX` directly when non-null.
   final MotionValue<double>? translateX;
@@ -63,6 +77,18 @@ class NibMotionValues {
 
   /// Drives `RenderNibMotion.skewY` directly when non-null.
   final MotionValue<double>? skewY;
+
+  /// Drives `RenderNibMotion.rotateX` directly when non-null.
+  final MotionValue<double>? rotateX;
+
+  /// Drives `RenderNibMotion.rotateY` directly when non-null.
+  final MotionValue<double>? rotateY;
+
+  /// Drives `RenderNibMotion.blur` directly when non-null.
+  final MotionValue<double>? blur;
+
+  /// Drives `RenderNibMotion.tint` directly when non-null.
+  final MotionValue<Color?>? tint;
 
   /// Drives `RenderNibMotion.color` directly when non-null.
   final MotionValue<Color?>? color;

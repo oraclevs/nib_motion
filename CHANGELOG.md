@@ -1,3 +1,87 @@
+## 0.3.2
+
+Runtime correctness release: interruption, coordinate spaces, presence, reduced
+motion. All API changes are additive.
+
+### Final hardening
+* `NibVisibility` now uses the exit target and timing supplied on the hide build.
+* FLIP under a cached `RepaintBoundary` starts before paint for ordinary scoped boxes. Lazy sliver items retain the after-frame fallback.
+* Verified that default layout channels compose with explicit x/y animation and that evicted lazy-list items reenter without a stale FLIP.
+* The example now bundles Material icons so its Web build renders icons correctly.
+
+### Fixed
+* `MotionValue<double>` rejects non-finite initial values. `mapRange` rejects invalid stops and copies the stop lists, so a later caller edit cannot change an active mapping.
+* Hit testing and `localToGlobal` now follow the painted transform of
+  `NibMotion`, `NibDraggable` and `NibPinch`; gesture wrappers moved inside the
+  transform. Previously a translated/scaled widget could not be tapped or
+  re-grabbed where it was painted, and FLIP measured layout instead of paint.
+* Futures returned by `animateTo`/`controller.start` no longer hang when the
+  animation is superseded, stopped, delayed-then-replaced or its widget is
+  disposed; they complete. `NibMotionController` no longer notifies after
+  dispose.
+* A delayed animation that had not started is cancelled by a later animation on
+  the same properties (a stale target could fire afterwards).
+* `NibPresence`: re-adding a child during its exit now animates it back instead
+  of leaving it faded out; children follow the new order (exiting ones keep
+  their slot).
+* `NibLayoutGroup`: interrupting a FLIP no longer jumps; it continues from the
+  painted position with its velocity.
+* Springs settle exactly on their target with zero velocity.
+* Reduced motion is honoured by `NibText*`, `NibTypewriter`, `NibDrawPath`,
+  `NibPathMotion`, `NibFlip`, `NibShimmer`, `NibDissolve`, `NibDraggable`,
+  `NibPinch`, `NibSwipeDismiss` and `NibNavBar` (previously only `NibMotion`).
+* README examples corrected (`NibTransition.springSnappy`, `controller.start`,
+  `motionValues:`).
+
+### Added/Fixed (hardening pass, from reading Cue and flutter_animate_plus source)
+* Numeric validation: springs, transitions and drivers reject NaN/infinite/zero-mass inputs (`ArgumentError` in debug, ignored in release) so a `MotionValue` can no longer be poisoned with NaN.
+* `NibMotion` reacts when reduced motion turns on mid-animation (springs, tweens, delays, keyframes, loops finish).
+* `NibShaderEffect(sampleChild: true)` feeds the child to the shader as sampler 0 (Impeller).
+* `NibVisibility` (single-child show/hide with retained exit), `NibScrubRelease` modes on `NibTimelineDragScrubber`.
+* `NibGlass`: rim refraction/highlight placed in the glass rect instead of the whole layer; non-finite `lightDirection` handled.
+* `NibLayoutGroup` now runs on the per-widget FLIP; reverse-growth slivers; `NibPageRoute(parallax:)`; `NibSharedSource`.
+
+### Fixed (review pass)
+* Keyframe futures no longer hang when superseded/disposed; `controller.stop()` now stops keyframe and loop animations.
+* Layout frame-hook and shared-layout snapshot leaks fixed; render-object listener cleanup for `rotateX/rotateY/blur/tint` corrected.
+* `NibPageRoute(backSwipe)` shows the page underneath while dragging; `NibReorderable` paints the dragged item on top; `NibSpringTuner` honours its `initial` spring.
+
+### Added (third pass)
+* **Routes:** `NibModalRoute`, `showNibDialog`, `NibPageRoute` (opt-in edge `backSwipe`, `sharedFrom` grow-from-caller). Route stays until its exit settles. See `doc/routes.md`.
+* **Sliver:** `NibSliverProgress`, `NibSliverHeaderDelegate` (progress as a `MotionValue`, safe to listen to). `layout:` now works in `ListView`/`GridView`/slivers (scroll-content space); `NibLayoutFrameHook` catches moves under a `RepaintBoundary` (sliver fallback can start one frame late).
+* **Layout:** `layoutSizeMode: clip|scale`, `layoutTransition.delay`, `NibLayout.inherit` (default) so a child can opt out of `NibLayoutDefaults` with `NibLayout.none`; `NibPresence.layout(axis:)`; per-child `onChildEnter/Exit/Move`; `NibReorderable` spacing and auto-scroll; `NibPageProgress.tab`.
+* **API friction:** `NibMotionController.velocityOf/velocities/motionValueOf`, `NibMotionValues(offset:)` + `NibOffsetMotionValue`, timeline `from:` derived automatically, widgets-only `NibTimelineScrubber`, `NibTransition.of(spring)` and `NibMotion(spring:)`, debug note when `initial` changes.
+* **Tools:** `NibTimelineDragScrubber`, `NibSpringTuner`, `NibHotReloadReplay`.
+* **Fixes:** `NibViewportProgress` publishes in the same frame and handles reversed/RTL scrollables; `NibValueBuilder` gains `transition:` and `withChild`; `NibSimulationDriver` lands exactly on its end.
+* Example app: 21 demo screens (`flutter run -t lib/demos.dart`), 50 smoke/behaviour tests.
+
+### Added (second pass, from the verified competitor comparison)
+* **Layout:** `NibMotion(layout: NibLayout.position|size|both, layoutId:, layoutTransition:, onLayoutAnimationStart/Complete)` and `NibLayoutScope` — FLIP for any parent (Wrap, Stack, Row, Column, RTL), position and size, measured in layout space, interruption keeps painted position and velocity. Shared `layoutId` transitions across parents. `NibReorderable` (long-press drag reorder). `NibPresence`: `exitLayout: pop`, `stagger`/`staggerFrom`, `layoutBuilder`; exiting children are excluded from semantics and focus. See `doc/layout.md`.
+* **Physics/values:** `NibSpringDescription.fromDuration(duration:, bounce:)` and `NibTransition.springWith`; `NibSpring` motion tokens (NibMotion-defined values); `MotionConverter` + `MultiSpringSolver` for independent per-axis physics on Offset/Size/Rect/Alignment/EdgeInsets/Color; `NibValueBuilder<T>`; `NibSimulationDriver` (run any Flutter `Simulation`); `NibSpringCurve`; `NibKeyframe.spring` (spring feel per keyframe segment). See `doc/physics.md`.
+* **NibAnim:** `rotateX`, `rotateY` (perspective 3D), `blur`, `tint`.
+* **Transitions:** `NibMotion.reverseTransition` (release/leave-view), `NibMotion.exitTransition`, `NibMotion.loopMode`.
+* **Progress values:** `NibViewportProgress`, `NibPageProgress`.
+* **Timeline:** relative timing (`after`, labels), `progress`/`seek`, `NibTimelineScrubber`; `NibLoopMode` (restart/pingPong/seamless) on `NibAnimationSequence.loop`. See `doc/timeline.md`.
+* **Shaders:** `NibShaderEffect` (user fragment program with `MotionValue` uniforms), `NibShaderLoader.load`.
+* **Debug:** velocity in the live-values view; reduced-motion toggle in `NibMotionDebugger`.
+
+### Added (first pass)
+* `MotionValue.velocity` and `MotionValue.update(value, velocity:)`; drivers
+  publish velocity and new drivers start from it (spring/inertia/tween/drag/FLIP
+  handoff). `mapRange` carries velocity through the mapping.
+* `MotionValue.computed` / `ComputedMotionValue`: lazy multi-source derived
+  values.
+* `InertiaSolver.animateTo(velocity:, min:, max:)` with elastic overshoot and
+  `boundsSpring`; `NibMotion` drag `inertia` release now respects
+  `NibDragConfig.constraints`.
+* `NibDragConfig.snapProjection`: pick the snap point a flick is heading to.
+* `SpringSolver.animateTo` / `InertiaSolver.animateTo` return a `Future<void>`.
+* `NibMotionConfig.watchReducedMotion` (subscribing lookup).
+* `NibMotionController.set(..., keepVelocity:)`.
+* Docs: `doc/` (architecture, interruption, motion values, accessibility,
+  performance, migration), benchmarks in `benchmark/`, numeric trajectory
+  goldens in `test/runtime/goldens/`.
+
 ## 0.3.1
 
 * Fixed `NibScreenStack` swallowing taps on the incoming screen while its
