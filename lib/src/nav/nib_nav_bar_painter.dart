@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
@@ -25,10 +28,15 @@ class NibNavBarPainter extends CustomPainter {
     required this.indicatorWidth,
     required this.indicatorHeight,
     required this.indicatorOpacity,
+    this.liquidShader,
+    this.liquidTail,
+    this.liquidPhase,
     required this.itemScales,
     required this.itemOpacities,
   }) : super(
           repaint: Listenable.merge(<Listenable>[
+            if (liquidTail != null) liquidTail,
+            if (liquidPhase != null) liquidPhase,
             indicatorX,
             indicatorWidth,
             indicatorHeight,
@@ -37,6 +45,15 @@ class NibNavBarPainter extends CustomPainter {
             ...itemOpacities,
           ]),
         );
+
+  /// Compiled water shader; null uses the painted lens fallback.
+  final ui.FragmentShader? liquidShader;
+
+  /// Lagging edge position for the liquid deformation.
+  final MotionValue<double>? liquidTail;
+
+  /// Finite ripple progress, from zero to one. No ticker runs at rest.
+  final MotionValue<double>? liquidPhase;
 
   /// The tabs to draw.
   final List<NibNavItem> items;
@@ -125,6 +142,10 @@ class NibNavBarPainter extends CustomPainter {
       case NibNavIndicatorType.none:
         return;
 
+      case NibNavIndicatorType.liquid:
+        _paintLiquid(canvas, size);
+        return;
+
       case NibNavIndicatorType.pill:
       case NibNavIndicatorType.highlight:
         final baseColor =
@@ -177,6 +198,79 @@ class NibNavBarPainter extends CustomPainter {
     }
   }
 
+  void _paintLiquid(Canvas canvas, Size size) {
+    final w = indicatorWidth.value;
+    final h = indicatorHeight.value;
+    if (w <= 0 || h <= 0) return;
+    final x = indicatorX.value + w / 2;
+    final tail = ((liquidTail?.value ?? indicatorX.value) - indicatorX.value)
+        .clamp(-w * .65, w * .65);
+    final color = indicator.color ?? style.activeColor.withValues(alpha: .22);
+    final phase = liquidPhase?.value ?? 1;
+    final shader = liquidShader;
+    if (shader != null) {
+      // Uniform order is shared with nav_water.frag. Canvas shader coordinates
+      // are logical pixels on Skia and Impeller; no backdrop texture is needed.
+      final values = <double>[
+        x,
+        size.height / 2,
+        w,
+        h,
+        tail,
+        phase,
+        color.r,
+        color.g,
+        color.b,
+        color.a * indicatorOpacity.value,
+      ];
+      for (var i = 0; i < values.length; i++) {
+        shader.setFloat(i, values[i]);
+      }
+      final left = math.min(x - w / 2, x + tail - w / 2) - 4;
+      canvas.drawRect(
+        Rect.fromLTRB(
+            left, 0, math.max(x + w / 2, x + tail + w / 2) + 4, size.height),
+        Paint()..shader = shader,
+      );
+      return;
+    }
+    // A stretched lens with a directional sheen retains the flow when runtime
+    // shaders are unavailable. This also avoids a blank first frame on load.
+    final rect = Rect.fromCenter(
+      center: Offset(x + tail * .25, size.height / 2),
+      width: w + tail.abs() * .5,
+      height: h,
+    );
+    final shape = RRect.fromRectAndRadius(rect, Radius.circular(h / 2));
+    canvas.drawRRect(
+        shape,
+        Paint()
+          ..shader = ui.Gradient.linear(
+            rect.topLeft,
+            rect.bottomRight,
+            [
+              Color.lerp(color, const Color(0xFFFFFFFF), .18)!,
+              color,
+              Color.lerp(color, style.activeColor, .22)!
+            ],
+            [0, .45, 1],
+          ));
+    canvas.drawRRect(
+        shape.deflate(.75),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..shader = ui.Gradient.linear(rect.topLeft, rect.bottomRight, [
+            const Color(0x99FFFFFF),
+            const Color(0x08FFFFFF),
+            const Color(0x55FFFFFF)
+          ], [
+            0,
+            .5,
+            1
+          ]));
+  }
+
   /// The painting area for items/labels/indicator, after deflating [size] by
   /// [NibNavBarStyle.padding]. The background/border/clip path
   /// (`_backgroundPath`/`_paintBackground`) continue to use the full [size]
@@ -196,22 +290,13 @@ class NibNavBarPainter extends CustomPainter {
 
     final contentRect = _contentRect(size);
     final itemWidth = contentRect.width / items.length;
-    final hasLabels = items.any((item) => item.label != null);
-    final iconCenterY = hasLabels
-        ? contentRect.top + contentRect.height * 0.38
-        : contentRect.top + contentRect.height / 2;
-
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
       final isActive = i == currentIndex;
       final color = isActive ? style.activeColor : style.inactiveColor;
       final itemCenterX = contentRect.left + itemWidth * i + itemWidth / 2;
-      final scale = i < itemScales.length ? itemScales[i].value : 1.0;
 
       canvas.save();
-      canvas.translate(itemCenterX, iconCenterY);
-      canvas.scale(scale);
-      canvas.translate(-itemCenterX, -iconCenterY);
 
       if (item.label != null) {
         final textPainter = TextPainter(
@@ -223,7 +308,7 @@ class NibNavBarPainter extends CustomPainter {
           textDirection: TextDirection.ltr,
           maxLines: 1,
           ellipsis: '…',
-        )..layout(maxWidth: itemWidth - 4);
+        )..layout(maxWidth: math.max(0, itemWidth - 16));
 
         // Clamp the label's vertical position so it always fits within the
         // content rect, even for compact custom heights or large padding —
@@ -324,7 +409,8 @@ class NibNavBarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant NibNavBarPainter oldDelegate) {
-    return oldDelegate.currentIndex != currentIndex ||
+    return oldDelegate.liquidShader != liquidShader ||
+        oldDelegate.currentIndex != currentIndex ||
         oldDelegate.style != style ||
         oldDelegate.indicator != indicator ||
         !listEquals(oldDelegate.items, items);

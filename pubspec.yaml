@@ -25,5 +25,6 @@ flutter:
     - lib/shaders/dissolve.frag
     - lib/shaders/gradient_sweep.frag
     - lib/shaders/liquid_glass.frag
+    - lib/shaders/nav_water.frag
 
 

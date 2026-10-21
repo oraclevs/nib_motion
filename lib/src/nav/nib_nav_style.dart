@@ -161,6 +161,11 @@ class NibNavBarStyle {
 
 /// The visual style of the active-item indicator drawn by a `NibNavBar`.
 enum NibNavIndicatorType {
+  /// A flowing water lens with a trailing lobe, ripples and specular light.
+  /// Uses a fragment shader where available and a gradient lens otherwise.
+  /// Motion stops at rest and respects the reduced-motion preference.
+  liquid,
+
   /// A rounded-rect "pill" drawn behind the active item's icon/label.
   pill,
 
