@@ -1,9 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/niblogo.png" alt="NibMotion Logo" width="120" />
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nibbanner.png" alt="NibMotion Banner" width="100%" />
+  <img src="nibmotion-mark.svg" alt="NibMotion fountain nib drawing an ink N" width="120" />
 </p>
 
 <h1 align="center">NibMotion</h1>
