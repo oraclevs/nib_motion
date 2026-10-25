@@ -445,6 +445,10 @@ class _NibMotionState extends State<NibMotion>
   bool? _wasReducedMotion;
   final DriverCompleter _keyframeCompleter = DriverCompleter();
   AnimationController? _loopController;
+  // Invalidates a deferred loop start whenever its controller is replaced,
+  // stopped, or the widget is disposed. A warmup timer can outlive the
+  // controller it captured while this State is still mounted.
+  int _loopGeneration = 0;
   bool? _wasTickerEnabled;
   bool _isInView = false;
   bool _hasEnteredView = false;
@@ -675,6 +679,10 @@ class _NibMotionState extends State<NibMotion>
   void _startRepeatLoop() {
     if (widget.motionValues != null) return;
 
+    final generation = ++_loopGeneration;
+    _loopController?.dispose();
+    _loopController = null;
+
     final transition =
         widget.transition ?? NibMotionConfig.defaultTransitionOf(context);
     final keyframes = widget.keyframes;
@@ -692,7 +700,6 @@ class _NibMotionState extends State<NibMotion>
       return;
     }
 
-    _loopController?.dispose();
     final controller =
         AnimationController(vsync: this, duration: transition.duration);
     _loopController = controller;
@@ -713,7 +720,11 @@ class _NibMotionState extends State<NibMotion>
     }
 
     _afterEntranceGate(() {
-      if (!mounted) return;
+      if (!mounted ||
+          generation != _loopGeneration ||
+          !identical(_loopController, controller)) {
+        return;
+      }
       controller.repeat(reverse: widget.loopMode == NibLoopMode.pingPong);
     });
   }
@@ -896,6 +907,7 @@ class _NibMotionState extends State<NibMotion>
       if (widget.repeatAnimationInLoop) {
         _startRepeatLoop();
       } else {
+        _loopGeneration++;
         _loopController?.stop();
       }
     }
@@ -1465,6 +1477,7 @@ class _NibMotionState extends State<NibMotion>
     if (enabled) {
       _startRepeatLoop();
     } else {
+      _loopGeneration++;
       _loopController?.stop();
     }
   }
@@ -1940,6 +1953,7 @@ class _NibMotionState extends State<NibMotion>
 
   @override
   void dispose() {
+    _loopGeneration++;
     if (kDebugMode) _unregisterDebugValues();
     _replaySignal?.removeListener(_onReplaySignal);
     _staggerTimer?.cancel();
