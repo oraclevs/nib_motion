@@ -13,18 +13,17 @@ developed together in the same monorepo:
 
 | Package | pub.dev | Path (this monorepo) | Version | What it is |
 |---|---|---|---|---|
-| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.0 | A declarative, physics-based animation framework for Flutter (Framer Motion-style). Zero pub dependencies beyond the Flutter SDK. |
-| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.1.0 | A native, installable Flutter UI component library — 30+ theme-aware, animated, controller-driven widgets, built on `nib_motion`. |
+| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.2 (prepared locally) | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
+| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.1 (prepared locally) | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
 
-`nib_components` depends on `nib_motion` (`^0.3.0`) — installing
+`nib_components` depends on `nib_motion` (`^0.3.1`) — installing
 `nib_components` pulls `nib_motion` in transitively. You can also use
 `nib_motion` completely standalone, on any Flutter widget, with no
 `nib_components` dependency at all.
 
 **Both are normal pub.dev packages, installed via `flutter pub add` and
 imported directly.** Nothing here is copy-pasted by a CLI into your project —
-if you encounter older documentation (a root-level `CLAUDE.md` in this
-monorepo) describing a shadcn/ui-style "registry" + `nib add <component>` CLI
+if you encounter older documentation describing a shadcn/ui-style "registry" + `nib add <component>` CLI
 that copies component source into your app, that describes an **abandoned,
 earlier design**. It was scrapped 2026-07-10 in favor of the two real,
 installable packages described in this file. Do not follow that model.
@@ -290,7 +289,7 @@ The most widget-heavy corner — a full animated bottom-nav app shell.
 `NibNavItem({required icon, activeIcon, label, badge, tooltip})` + `copyWith`. `NibNavBadge({count, color, textColor})` — `count: null` = dot, `0` = hidden, `>99` capped at "99+".
 
 #### `NibNavBarStyle` / `NibNavIndicatorStyle` / `NibNavItemAnimation` (`nib_nav_style.dart`)
-Value classes with full `copyWith`/`==`/`hashCode`. `NibNavBarStyle`: `backgroundColor, activeColor, inactiveColor, height=64, padding, margin, elevation=0, borderRadius, border, iconSize=24, labelStyle, glass=false, glassTint, glassBlur=8, glassHighlight=0.7` (static `standard`). `NibNavIndicatorStyle`: `type = NibNavIndicatorType.pill, color, height, width, borderRadius, spring = NibSpringDescription.snappy` (static `none`). `NibNavIndicatorType`: `pill | dot | line | highlight | none`. `NibNavItemAnimation`: `whileTap = NibAnim(scale: 0.85), whileActive = NibAnim(scale: 1.1), tapTransition = NibTransition.springSnappy` (static `none` sets both anims null).
+Value classes with full `copyWith`/`==`/`hashCode`. `NibNavBarStyle`: `backgroundColor, activeColor, inactiveColor, height=64, padding, margin, elevation=0, borderRadius, border, iconSize=24, labelStyle, glass=false, glassTint, glassBlur=8, glassHighlight=0.7` (static `standard`). `NibNavIndicatorStyle`: `type = NibNavIndicatorType.pill, color, height, width, borderRadius, spring = NibSpringDescription.snappy` (static `none`). `NibNavIndicatorType`: `liquid | pill | dot | line | highlight | none`; `liquid` uses a water shader where supported and a gradient fallback, and honours reduced motion. `NibNavItemAnimation`: `whileTap = NibAnim(scale: 0.85), whileActive = NibAnim(scale: 1.1), tapTransition = NibTransition.springSnappy` (static `none` sets both anims null).
 
 #### `NibNavBarPainter` (`nib_nav_bar_painter.dart`)
 `CustomPainter` used internally by `NibNavBar` — exported for advanced customization but rarely instantiated directly.
@@ -1846,8 +1845,11 @@ Main widget: `NibInput` (`lib/src/input/nib_input.dart`), `extends FormField<Str
 - `obscureText: bool = false`
 - `keyboardType: TextInputType? = null`
 - `textInputAction: TextInputAction? = null`
+- `maxLength: int? = null` — limits user-entered text without adding a counter.
+- `inputFormatters: List<TextInputFormatter>? = null` — applied before `maxLength`.
 - `disabled: bool = false` — disables interaction, dims the field (maps to `FormField.enabled = !disabled`).
 - `padding: EdgeInsetsGeometry? = null` — default `EdgeInsets.symmetric(horizontal: 12, vertical: 12)`.
+- `minHeight: double? = null` — minimum decorated field height, excluding label/footer; can grow with text scaling.
 - `borderRadius: BorderRadius? = null` — default `BorderRadius.circular(theme.radiusDefault)`.
 - `style: TextStyle? = null` — merged onto default text style.
 - `labelStyle: TextStyle? = null`
@@ -2441,6 +2443,7 @@ Constructor:
 - `maxDropdownHeight: double = 280`
 - `semanticLabel: String?` — defaults to `placeholder`
 - `controller: NibSelectController<T>?`
+- `minHeight: double?` — minimum closed-trigger height (default 46).
 
 Constructor asserts exactly one of `options`/`groups` is provided.
 
@@ -2791,6 +2794,7 @@ A native, token-driven multi-line text field that extends `FormField<String>` �
 - `minLines: int = 3`.
 - `maxLines: int?` — height ceiling in lines; `null` = unbounded growth; must be `>= minLines` when set (assert).
 - `maxLength: int?` — caps character count; `null` = unlimited.
+- `minHeight: double?` — minimum decorated field height, excluding label/footer.
 - `showCounter: bool = false` — shows `current/max` (or just `current` if `maxLength` null) below field.
 - `disabled: bool = false` (constructor param named `disabled`; internally stored as field `disabled`, and forwarded to `FormField.enabled` as `!disabled`).
 - `padding: EdgeInsetsGeometry?` — default `EdgeInsets.symmetric(horizontal: 12, vertical: 10)`.
@@ -2910,6 +2914,7 @@ A row of toggleable segments (single- or multi-select) where each segment is a `
 - `disabled: bool = false` — disables every segment regardless of per-option `disabled`.
 - `size: NibButtonSize = NibButtonSize.md`.
 - `itemWidth: double?` — fixed width per segment; `null` sizes to content.
+- `fillWidth: bool = false` — horizontal segments share a finite parent width equally.
 - `spacing: double?` — default 8.
 - `animated: bool = false`.
 - `transition: NibTransition?`.

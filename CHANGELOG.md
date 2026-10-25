@@ -3,6 +3,15 @@
 Runtime correctness release: interruption, coordinate spaces, presence, reduced
 motion. All API changes are additive.
 
+### ivent integration fixes
+* `NibMotion` now rechecks viewport visibility after ancestor layout changes,
+  including changes that do not rebuild the motion widget or move a scroll offset.
+* Deferred repeat loops no longer run against a replaced or disposed controller.
+* `NibPresence` reports missing and duplicate child keys before a child can be
+  silently lost from its keyed collection.
+* The bottom navigation indicator supports a liquid water style with a shader
+  path and a gradient fallback, and stops moving for reduced-motion users.
+
 ### Final hardening
 * `NibVisibility` now uses the exit target and timing supplied on the hide build.
 * FLIP under a cached `RepaintBoundary` starts before paint for ordinary scoped boxes. Lazy sliver items retain the after-frame fallback.

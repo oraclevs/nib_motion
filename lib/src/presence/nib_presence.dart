@@ -211,6 +211,21 @@ class _NibPresenceState extends State<NibPresence> {
   final Set<Key> _activeMoves = <Key>{};
   bool _aggregateActive = false;
 
+  Map<Key, Widget> _validatedChildren() {
+    final children = <Key, Widget>{};
+    for (final child in widget.children) {
+      final key = child.key;
+      if (key == null) {
+        throw FlutterError('NibPresence children must each have a key.');
+      }
+      if (children.containsKey(key)) {
+        throw FlutterError('NibPresence child keys must be unique: $key.');
+      }
+      children[key] = child;
+    }
+    return children;
+  }
+
   late final NibPresenceRegistration _registration = NibPresenceRegistration(
     register: (key, animator) => _registry[key] = animator,
     unregister: (key) => _registry.remove(key),
@@ -253,8 +268,9 @@ class _NibPresenceState extends State<NibPresence> {
   @override
   void initState() {
     super.initState();
-    for (final child in widget.children) {
-      final key = child.key!;
+    for (final entry in _validatedChildren().entries) {
+      final key = entry.key;
+      final child = entry.value;
       _entries[key] = NibPresenceEntry(key: key, child: child);
     }
     _assignEnterDelays([for (final child in widget.children) child.key!]);
@@ -264,9 +280,7 @@ class _NibPresenceState extends State<NibPresence> {
   void didUpdateWidget(NibPresence oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final newChildren = <Key, Widget>{
-      for (final child in widget.children) child.key!: child
-    };
+    final newChildren = _validatedChildren();
     final newKeys = newChildren.keys.toSet();
     final oldKeys = _entries.keys.toSet();
     final oldOrder = _entries.keys.toList();

@@ -34,6 +34,24 @@ double _opacityOf(WidgetTester tester, String id) {
 
 void main() {
   group('NibPresence lifecycle', () {
+    testWidgets('rejects missing child keys with an actionable error',
+        (tester) async {
+      await tester.pumpWidget(const Directionality(
+        textDirection: TextDirection.ltr,
+        child: NibPresence(children: [SizedBox(width: 20, height: 20)]),
+      ));
+      expect(tester.takeException(), isA<FlutterError>());
+    });
+
+    testWidgets('rejects duplicate child keys before losing an entry',
+        (tester) async {
+      await tester.pumpWidget(Directionality(
+        textDirection: TextDirection.ltr,
+        child: NibPresence(children: [_item('a'), _item('a')]),
+      ));
+      expect(tester.takeException(), isA<FlutterError>());
+    });
+
     testWidgets('child removed then re-added mid-exit animates back in',
         (tester) async {
       await tester.pumpWidget(_host(['a']));

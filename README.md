@@ -43,13 +43,14 @@
 
 ## Why NibMotion?
 
-Flutter animations require `AnimationController` boilerplate, tweens everywhere, and complex rebuild logic. NibMotion replaces that with a simple mental model:
+NibMotion lets you describe a widget's starting state, target state, and
+transition in one place. Use a spring when the movement should respond to
+interruption; use a tween when timing matters more.
 
 > Describe how your UI should look in different states — NibMotion handles the rest.
 
-**No controllers. No tweens. Just state.**
-
-Under the declarative surface is one runtime: reactive `MotionValue`s that carry
+The basic `NibMotion` widget does not require a controller. One is available
+when an interaction needs imperative control. Underneath, `MotionValue`s carry
 velocity, drivers (spring / tween / inertia / drag) that hand momentum to each
 other, and render objects that repaint without rebuilding. Gestures, scroll,
 layout, presence and shaders all sit on that same model — see
@@ -96,7 +97,8 @@ NibMotion(
 | **Keyframes** | Multi-step animations with easing control |
 | **Text** | Per-char/word/line — `NibText`, `NibTypewriter`, `NibGradientText`, `NibTextReveal` |
 | **Shaders** | GPU effects — `NibShimmer`, `NibDissolve` |
-| **Liquid Glass** | `NibGlass` — Apple-style glass with real refraction, chromatic aberration & specular light; glass `NibNavBar`/`NibScaffold` |
+| **Liquid Glass** | `NibGlass` with shader refraction where supported and a blur fallback; glass `NibNavBar`/`NibScaffold` |
+| **Navigation** | `NibNavBar` with spring-driven pill, dot, line, highlight, or liquid water indicators |
 | **Presets** | `NibShake`, `NibBounce`, `NibPulse`, `NibFloat`, `NibFlip`, `NibRubberBand` |
 | **Gestures+** | `NibDraggable`, `NibPinch`, `NibSwipeDismiss` |
 | **Timeline** | `NibTimeline`, `NibAnimationSequence` for orchestration |
@@ -245,6 +247,23 @@ NibGlass(
 )
 ```
 
+Shader refraction depends on the renderer. On unsupported renderers, the glass
+uses a frosted blur fallback.
+
+### Liquid navigation indicator
+
+`NibNavBar` can draw a liquid indicator that travels between items. The shader
+has a gradient fallback, and reduced motion leaves the indicator at rest.
+
+```dart
+NibNavBar(
+  items: items,
+  currentIndex: selectedIndex,
+  onIndexChanged: (index) => setState(() => selectedIndex = index),
+  indicator: const NibNavIndicatorStyle(type: NibNavIndicatorType.liquid),
+)
+```
+
 ### Scroll-Linked Motion
 
 ```dart
@@ -284,11 +303,11 @@ NibMotionConfig(
 
 ## Philosophy
 
-NibMotion is built around one idea:
-
-> UI should be described, not animated manually.
-
-It gives Flutter a motion model closer to modern UI frameworks like Framer Motion — but fully native, performant, and Flutter-optimized. **Animating never triggers a widget rebuild** — `MotionValue` notifications call `markNeedsPaint` directly on the render object.
+For continuous motion, `MotionValue` notifications repaint the render object
+without rebuilding the widget tree on every frame. Discrete content changes,
+such as a typewriter advancing to its next character, still rebuild when they
+need to. Your widgets can move without asking your build method to dance on
+every frame.
 
 ---
 
