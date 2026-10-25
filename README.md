@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="nibmotion-mark.svg" alt="NibMotion fountain nib drawing an ink N" width="120" />
+  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nibmotion-ink-mark.png" alt="NibMotion fountain nib drawing an ink N" width="120" />
 </p>
 
 <h1 align="center">NibMotion</h1>
