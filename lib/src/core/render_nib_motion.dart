@@ -47,6 +47,7 @@ class RenderNibMotion extends RenderProxyBox
     this.layoutId,
     this.layoutScope,
     this.onLayoutFlip,
+    this.onPaintBoundsChanged,
     RenderBox? child,
   })  : _layoutMode = layout,
         _layoutSizeMode = layoutSizeMode,
@@ -140,6 +141,15 @@ class RenderNibMotion extends RenderProxyBox
   /// the render object paints the flip itself, so there is no flash frame.
   void Function(NibLayoutFlip flip)? onLayoutFlip;
 
+  /// Called when this box is painted at a new global position or size.
+  ///
+  /// Viewport triggers use this to remeasure after ancestor layout changes
+  /// that do not change a scroll offset or rebuild this widget. The callback
+  /// must defer any visibility updates until after paint.
+  ValueChanged<Rect>? onPaintBoundsChanged;
+
+  Rect? _lastPaintBounds;
+
   Rect? _committed;
   NibLayoutFlip? _pending;
 
@@ -180,6 +190,7 @@ class RenderNibMotion extends RenderProxyBox
 
   @override
   void detach() {
+    _lastPaintBounds = null;
     super.detach();
     // After `super.detach()` so `attached` is false and the box leaves the
     // static frame-hook registry (it used to stay there forever).
@@ -614,6 +625,14 @@ class RenderNibMotion extends RenderProxyBox
   @override
   void paint(PaintingContext context, Offset offset) {
     if (_layoutMode != NibLayout.none) _measureLayout();
+    final onBoundsChanged = onPaintBoundsChanged;
+    if (onBoundsChanged != null) {
+      final bounds = localToGlobal(Offset.zero) & size;
+      if (bounds != _lastPaintBounds) {
+        _lastPaintBounds = bounds;
+        onBoundsChanged(bounds);
+      }
+    }
     final opacityValue = _opacity.value;
     if (opacityValue <= 0.0) return;
 

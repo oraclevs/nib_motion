@@ -1,6 +1,49 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter/rendering.dart';
 
 import '../values/motion_value.dart';
+
+class _ViewportPaintProbe extends SingleChildRenderObjectWidget {
+  const _ViewportPaintProbe({
+    required this.onPaintBoundsChanged,
+    required super.child,
+  });
+
+  final VoidCallback onPaintBoundsChanged;
+
+  @override
+  _RenderViewportPaintProbe createRenderObject(BuildContext context) =>
+      _RenderViewportPaintProbe(onPaintBoundsChanged);
+
+  @override
+  void updateRenderObject(
+      BuildContext context, _RenderViewportPaintProbe renderObject) {
+    renderObject.onPaintBoundsChanged = onPaintBoundsChanged;
+  }
+}
+
+class _RenderViewportPaintProbe extends RenderProxyBox {
+  _RenderViewportPaintProbe(this.onPaintBoundsChanged);
+
+  VoidCallback onPaintBoundsChanged;
+  Rect? _lastPaintBounds;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final bounds = localToGlobal(Offset.zero) & size;
+    if (bounds != _lastPaintBounds) {
+      _lastPaintBounds = bounds;
+      onPaintBoundsChanged();
+    }
+    super.paint(context, offset);
+  }
+
+  @override
+  void detach() {
+    _lastPaintBounds = null;
+    super.detach();
+  }
+}
 
 /// Holds the continuous scroll-through progress of a [NibViewportProgress]
 /// child as [MotionValue]s, so any `NibMotion` (via `motionValues`) or
@@ -275,5 +318,8 @@ class _NibViewportProgressState extends State<NibViewportProgress> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) => _ViewportPaintProbe(
+        onPaintBoundsChanged: _schedule,
+        child: widget.child,
+      );
 }

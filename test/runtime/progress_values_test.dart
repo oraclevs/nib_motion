@@ -29,6 +29,52 @@ Widget _list(NibViewportProgressController c, ScrollController s,
 
 void main() {
   group('NibViewportProgress', () {
+    testWidgets('remeasures when ancestor layout moves a mounted child',
+        (tester) async {
+      final c = NibViewportProgressController();
+      final headerHeight = ValueNotifier<double>(900);
+      addTearDown(c.dispose);
+      addTearDown(headerHeight.dispose);
+      await tester.pumpWidget(Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(size: Size(400, 600)),
+          child: SizedBox(
+            width: 400,
+            height: 600,
+            child: SingleChildScrollView(
+              child: ValueListenableBuilder<double>(
+                valueListenable: headerHeight,
+                builder: (context, height, child) => Column(children: [
+                  SizedBox(height: height),
+                  child!,
+                  const SizedBox(height: 900),
+                ]),
+                child: NibViewportProgress(
+                  controller: c,
+                  child: const SizedBox(height: 100, width: 400),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      expect(c.visibleFraction.value, 0);
+
+      headerHeight.value = 100;
+      await tester.pump();
+      await tester.pump();
+      expect(c.visibleFraction.value, 1,
+          reason: 'on-screen motion should resume after layout moves the card');
+
+      headerHeight.value = 900;
+      await tester.pump();
+      await tester.pump();
+      expect(c.visibleFraction.value, 0,
+          reason: 'offscreen motion should pause after layout moves the card');
+    });
+
     testWidgets('progress runs 0 → 0.5 → 1 as the child crosses the viewport',
         (tester) async {
       final c = NibViewportProgressController();

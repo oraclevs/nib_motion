@@ -61,6 +61,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
     required this.layoutId,
     required this.layoutScope,
     required this.onLayoutFlip,
+    required this.onPaintBoundsChanged,
     super.child,
   });
 
@@ -71,6 +72,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
   final Object? layoutId;
   final NibLayoutScopeData? layoutScope;
   final void Function(NibLayoutFlip flip)? onLayoutFlip;
+  final ValueChanged<Rect>? onPaintBoundsChanged;
 
   final MotionValue<double> opacity;
   final MotionValue<double> translateX;
@@ -113,6 +115,7 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
       layoutId: layoutId,
       layoutScope: layoutScope,
       onLayoutFlip: onLayoutFlip,
+      onPaintBoundsChanged: onPaintBoundsChanged,
     );
   }
 
@@ -140,7 +143,8 @@ class _NibMotionBox extends SingleChildRenderObjectWidget {
       ..layoutChannels = layoutChannels
       ..layoutId = layoutId
       ..layoutScope = layoutScope
-      ..onLayoutFlip = onLayoutFlip;
+      ..onLayoutFlip = onLayoutFlip
+      ..onPaintBoundsChanged = onPaintBoundsChanged;
   }
 }
 
@@ -443,6 +447,8 @@ class _NibMotionState extends State<NibMotion>
   AnimationController? _loopController;
   bool? _wasTickerEnabled;
   bool _isInView = false;
+  bool _hasEnteredView = false;
+  bool _inViewCheckScheduled = false;
   Set<ScrollPosition> _scrollPositions = const {};
   NibMotionReplaySignal? _replaySignal;
 
@@ -776,6 +782,16 @@ class _NibMotionState extends State<NibMotion>
   void _replayEntranceAnimation() {
     if (widget.motionValues != null) return;
 
+    // A once-only reveal remains at its visible target across route/tab
+    // returns. Resetting it to `initial` while it is currently offscreen
+    // could otherwise leave it hidden for the rest of the route's lifetime.
+    if (widget.whileInView != null &&
+        (widget.viewport?.once ?? false) &&
+        _hasEnteredView) {
+      setImmediately(widget.whileInView!);
+      return;
+    }
+
     _gestureState = NibGestureState.none;
 
     if (widget.whileInView != null) {
@@ -867,7 +883,12 @@ class _NibMotionState extends State<NibMotion>
       }
       _scrollPositions = const {};
       _isInView = false;
+      _hasEnteredView = false;
     } else if (widget.whileInView != null && oldWidget.whileInView == null) {
+      _scheduleInViewCheck();
+    }
+    if (widget.whileInView != null && widget.viewport != oldWidget.viewport) {
+      _attachScrollListener();
       _scheduleInViewCheck();
     }
 
@@ -1518,6 +1539,13 @@ class _NibMotionState extends State<NibMotion>
   /// moves it on/off screen. Listening to every ancestor scroll position
   /// covers nested scrollables in any combination.
   void _attachScrollListener() {
+    if (_hasEnteredView && (widget.viewport?.once ?? false)) {
+      for (final position in _scrollPositions) {
+        position.removeListener(_onScrollOrResize);
+      }
+      _scrollPositions = const {};
+      return;
+    }
     final positions = <ScrollPosition>{};
     context.visitAncestorElements((element) {
       final state = element is StatefulElement ? element.state : null;
@@ -1544,9 +1572,17 @@ class _NibMotionState extends State<NibMotion>
   /// caught up with the latest scroll offset or size yet when this is
   /// called.
   void _scheduleInViewCheck() {
+    if (_inViewCheckScheduled) return;
+    _inViewCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _inViewCheckScheduled = false;
       if (mounted) _checkInView();
     });
+  }
+
+  void _onPaintBoundsChanged(Rect bounds) {
+    if (_hasEnteredView && (widget.viewport?.once ?? false)) return;
+    _scheduleInViewCheck();
   }
 
   /// Like [_scheduleInViewCheck], but keeps re-checking for up to
@@ -1598,20 +1634,42 @@ class _NibMotionState extends State<NibMotion>
       screenSize.height + margin.bottom,
     );
 
-    final intersection = bounds.intersect(viewportBounds);
+    var intersection = bounds.intersect(viewportBounds);
+    // A card can be inside the physical screen but clipped by a narrow or
+    // nested scroll viewport. Check all enclosing scroll viewports before
+    // deciding whether its entrance (or an offscreen loop) should run.
+    context.visitAncestorElements((element) {
+      final state = element is StatefulElement ? element.state : null;
+      if (state is ScrollableState) {
+        final viewport = state.context.findRenderObject();
+        if (viewport is RenderBox && viewport.attached && viewport.hasSize) {
+          final origin = viewport.localToGlobal(Offset.zero);
+          final clip = Rect.fromLTRB(
+            origin.dx - margin.left,
+            origin.dy - margin.top,
+            origin.dx + viewport.size.width + margin.right,
+            origin.dy + viewport.size.height + margin.bottom,
+          );
+          intersection = intersection.intersect(clip);
+        }
+      }
+      return !intersection.isEmpty;
+    });
     final visibleArea =
         intersection.isEmpty ? 0.0 : intersection.width * intersection.height;
     final totalArea = bounds.width * bounds.height;
     final visibleFraction = totalArea <= 0 ? 0.0 : visibleArea / totalArea;
 
-    _updateInView(visibleFraction >= config.amount);
+    _updateInView(visibleArea > 0 && visibleFraction >= config.amount);
   }
 
   void _updateInView(bool inView) {
+    if (!inView && _hasEnteredView && (widget.viewport?.once ?? false)) return;
     if (inView == _isInView) return;
     _isInView = inView;
 
     if (inView) {
+      _hasEnteredView = true;
       final target = widget.whileInView;
       if (target != null) {
         _afterEntranceGate(() {
@@ -2005,6 +2063,8 @@ class _NibMotionState extends State<NibMotion>
       layoutId: widget.layoutId,
       layoutScope: NibLayoutScope.maybeOf(context),
       onLayoutFlip: _onLayoutFlip,
+      onPaintBoundsChanged:
+          widget.whileInView == null ? null : _onPaintBoundsChanged,
       child: inner,
     );
   }
