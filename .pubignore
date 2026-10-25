@@ -3,8 +3,8 @@ build/
 coverage/
 *.log
 
-# Large README media use absolute raw.githubusercontent.com URLs. The new
-# SVG mark lives at the package root so pub.dev can render the README too.
+# Large README media use absolute raw.githubusercontent.com URLs. The ink
+# mark's PNG export is in assets/; its editable SVG stays at the package root.
 assets/
 
 # Website MDX docs — these are for the nib website, not the pub package

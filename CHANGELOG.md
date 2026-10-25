@@ -1,3 +1,7 @@
+## 0.3.3
+
+* Render the approved ink mark in the pub.dev README with a PNG export. The SVG remains in the package as the editable source.
+
 ## 0.3.2
 
 Runtime correctness release: interruption, coordinate spaces, presence, reduced
