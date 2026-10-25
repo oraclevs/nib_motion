@@ -9,8 +9,20 @@ import '../core/nib_motion_animator.dart';
 /// the scope changes.
 class NibPresenceRegistration {
   /// Creates a registration with the given callbacks.
-  const NibPresenceRegistration(
-      {required this.register, required this.unregister});
+  const NibPresenceRegistration({
+    required this.register,
+    required this.unregister,
+    this.takeEnterDelay,
+    this.layoutAnimation,
+  });
+
+  /// Returns (and forgets) the stagger delay `NibPresence` assigned to the
+  /// entering child with [key], or `null`.
+  final Duration? Function(Key key)? takeEnterDelay;
+
+  /// Called by a `NibMotion` child when a layout animation starts
+  /// (`started: true`) and when it ends or is superseded (`started: false`).
+  final void Function(Key key, bool started)? layoutAnimation;
 
   /// Called with the `NibMotion`'s [Key] and its [NibMotionAnimator] when it
   /// mounts under a [NibPresenceScope].

@@ -22,4 +22,15 @@ class NibPresenceEntry {
   /// Resolves once the exit animation started for this entry has run to
   /// completion (or is superseded by re-entry).
   Completer<void>? exitCompleter;
+
+  /// Identity of this entry's wrapper, so it can move between the layout flow
+  /// and the exit overlay without remounting (and losing its animation).
+  final GlobalKey wrapperKey = GlobalKey();
+
+  /// Where the entry was, in `NibPresence` coordinates, when its exit began.
+  /// Used by `NibExitLayout.pop` to overlay it while siblings reflow.
+  Rect? exitRect;
+
+  /// Pending staggered start of the exit animation.
+  Timer? exitTimer;
 }

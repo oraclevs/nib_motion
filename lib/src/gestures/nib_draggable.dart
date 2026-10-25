@@ -2,8 +2,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../physics/spring_description.dart';
 import '../physics/spring_solver.dart';
+import '../core/paint_transform_hit_test.dart';
 import '../values/motion_value.dart';
 
 /// Bridges the [MotionValue]s owned by [NibDraggable] to
@@ -30,7 +32,7 @@ class _NibDraggableBox extends SingleChildRenderObjectWidget {
 
 /// Paints [child] translated by [x]/[y], reading both directly during
 /// [paint] so dragging never triggers a widget rebuild.
-class _RenderNibDraggable extends RenderProxyBox {
+class _RenderNibDraggable extends RenderProxyBox with PaintTransformHitTest {
   _RenderNibDraggable(
       {required MotionValue<double> x, required MotionValue<double> y})
       : _x = x,
@@ -80,10 +82,7 @@ class _RenderNibDraggable extends RenderProxyBox {
   }
 
   @override
-  void applyPaintTransform(RenderObject child, Matrix4 transform) {
-    transform.multiply(Matrix4.translationValues(_x.value, _y.value, 0.0));
-    super.applyPaintTransform(child, transform);
-  }
+  Matrix4 get paintMatrix => Matrix4.translationValues(_x.value, _y.value, 0.0);
 
   @override
   void dispose() {
@@ -157,7 +156,7 @@ class NibDraggable extends StatefulWidget {
 }
 
 class _NibDraggableState extends State<NibDraggable>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, NibReducedMotionMixin {
   final MotionValue<double> _x = MotionValue<double>(0.0);
   final MotionValue<double> _y = MotionValue<double>(0.0);
 
@@ -214,6 +213,15 @@ class _NibDraggableState extends State<NibDraggable>
     if (widget.snapBack) {
       final target = widget.snapTarget ?? Offset.zero;
 
+      // Finger-following stays; the settling spring is decorative.
+      if (reduceMotion) {
+        _springX?.stop();
+        _springY?.stop();
+        _x.value = target.dx;
+        _y.value = target.dy;
+        return;
+      }
+
       final solverX = _springX ??=
           SpringSolver(vsync: this, value: _x, spring: widget.spring);
       solverX.spring = widget.spring;
@@ -230,12 +238,18 @@ class _NibDraggableState extends State<NibDraggable>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanStart: _handlePanStart,
-      onPanUpdate: _handlePanUpdate,
-      onPanEnd: _handlePanEnd,
-      child: _NibDraggableBox(x: _x, y: _y, child: widget.child),
+    // The detector sits inside the transformed box so it can be grabbed where
+    // it is painted, not where it was laid out.
+    return _NibDraggableBox(
+      x: _x,
+      y: _y,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: _handlePanStart,
+        onPanUpdate: _handlePanUpdate,
+        onPanEnd: _handlePanEnd,
+        child: widget.child,
+      ),
     );
   }
 }

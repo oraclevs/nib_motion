@@ -97,6 +97,21 @@ class NibMotionConfig extends InheritedWidget {
     return mediaQuery?.data.disableAnimations ?? false;
   }
 
+  /// Like [shouldReduceMotion], but registers a dependency on the nearest
+  /// [NibMotionConfig] and `MediaQuery`, so the calling element rebuilds
+  /// (and `didChangeDependencies` runs) when the preference changes.
+  static bool watchReducedMotion(BuildContext context) {
+    final override = _reducedMotionOverride;
+    if (override != null) return override;
+
+    final config =
+        context.dependOnInheritedWidgetOfExactType<NibMotionConfig>();
+    final configValue = config?.reducedMotion;
+    if (configValue != null) return configValue;
+
+    return MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+  }
+
   /// Resolves the default transition for `NibMotion` widgets that don't
   /// specify their own [NibMotion.transition].
   static NibTransition defaultTransitionOf(BuildContext context) {

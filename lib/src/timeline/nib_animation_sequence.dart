@@ -52,6 +52,23 @@ class _CallStep extends _SequenceStep {
   }
 }
 
+/// How a looping [NibAnimationSequence] repeats.
+enum NibLoopMode {
+  /// Every repetition replays the steps from the first one.
+  restart,
+
+  /// Alternates direction: forward passes replay the steps in order; backward
+  /// passes replay them in reverse, animating back through the earlier
+  /// animate targets until the first target is reached again. `call` and
+  /// `wait` steps run in both directions.
+  pingPong,
+
+  /// Like [restart], but when the first animate step targets exactly the
+  /// state the last animate step ended on, that step is skipped on repeats so
+  /// there is no dead time at the seam.
+  seamless,
+}
+
 /// A fluent builder for a sequence of animation steps driven against a
 /// single [NibMotionController].
 ///
@@ -88,8 +105,10 @@ class NibAnimationSequence {
   /// and `-1` (set by `.loop()` with no argument) repeats forever until
   /// [stop] is called.
   int? _loopCount;
+  NibLoopMode _loopMode = NibLoopMode.restart;
 
-  bool _stopped = false;
+  int _generation = 0;
+  Completer<void>? _active;
 
   /// Queues an animation step that animates [controller] toward [target]
   /// using [transition] (or each attached `NibMotion`'s default transition
@@ -117,10 +136,12 @@ class NibAnimationSequence {
   ///
   /// Must be called at most once, after recording the steps to repeat and
   /// before calling [play].
-  NibAnimationSequence loop([int? times]) {
+  NibAnimationSequence loop(
+      [int? times, NibLoopMode mode = NibLoopMode.restart]) {
     assert(times == null || times > 0,
         'NibAnimationSequence.loop: times must be positive if provided.');
     _loopCount = times ?? -1;
+    _loopMode = mode;
     return this;
   }
 
@@ -136,24 +157,62 @@ class NibAnimationSequence {
   /// Calling [play] again while already playing has no additional effect
   /// beyond returning a new future tracking the (still in-progress) run.
   Future<void> play() {
-    _stopped = false;
+    final active = _active;
+    if (active != null && !active.isCompleted) return active.future;
+
+    _generation++;
     final completer = Completer<void>();
-
-    unawaited(_run(completer));
-
+    _active = completer;
+    unawaited(_run(_generation, completer));
     return completer.future;
   }
 
-  Future<void> _run(Completer<void> completer) async {
+  List<_SequenceStep> _stepsForPass(int pass) {
+    switch (_loopMode) {
+      case NibLoopMode.restart:
+        return _steps;
+      case NibLoopMode.seamless:
+        if (pass == 0) return _steps;
+        final animates = _steps.whereType<_AnimateStep>().toList();
+        if (animates.length < 2 ||
+            animates.first.target != animates.last.target) {
+          return _steps;
+        }
+        final skip = animates.first;
+        return [
+          for (final step in _steps)
+            if (!identical(step, skip)) step,
+        ];
+      case NibLoopMode.pingPong:
+        if (pass.isEven) return _steps;
+        final result = <_SequenceStep>[];
+        for (var i = _steps.length - 1; i >= 0; i--) {
+          final step = _steps[i];
+          if (step is! _AnimateStep) {
+            result.add(step);
+            continue;
+          }
+          // Animate back to the previous animate step's target, if any.
+          final previous = _steps.sublist(0, i).whereType<_AnimateStep>();
+          if (previous.isEmpty) continue;
+          result.add(_AnimateStep(previous.last.target, step.transition));
+        }
+        return result;
+    }
+  }
+
+  Future<void> _run(int generation, Completer<void> completer) async {
     final loopCount = _loopCount;
     final forever = loopCount == -1;
     // No loop() call -> play once. Finite loop() -> that many repetitions.
     final repetitions = forever ? null : (loopCount ?? 1);
 
+    // `generation` changes on stop(), so a stopped run that is still awaiting
+    // a step can never resume alongside a run started after it.
     var iteration = 0;
-    while (!_stopped && (forever || iteration < repetitions!)) {
-      for (final step in _steps) {
-        if (_stopped) break;
+    while (generation == _generation && (forever || iteration < repetitions!)) {
+      for (final step in _stepsForPass(iteration)) {
+        if (generation != _generation) break;
         await step.run(controller);
       }
       iteration++;
@@ -162,13 +221,15 @@ class NibAnimationSequence {
     if (!completer.isCompleted && !forever) {
       completer.complete();
     }
+    if (identical(_active, completer)) _active = null;
   }
 
   /// Cancels an in-progress or looping sequence. Steps already started will
   /// still finish their current `run` (e.g. an in-flight animation or
   /// wait), but no further steps will execute.
   void stop() {
-    _stopped = true;
+    _generation++;
+    _active = null;
     controller.stop();
   }
 

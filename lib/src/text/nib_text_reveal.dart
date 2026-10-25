@@ -2,6 +2,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/nib_motion_controller.dart';
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 
 /// The edge from which a [NibTextReveal] wipes its child into view.
@@ -64,7 +65,7 @@ class NibTextReveal extends StatefulWidget {
 }
 
 class _NibTextRevealState extends State<NibTextReveal>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   late final MotionValue<double> _factor = MotionValue<double>(0.0);
   AnimationController? _tweenController;
   VoidCallback? _tweenListener;
@@ -75,7 +76,19 @@ class _NibTextRevealState extends State<NibTextReveal>
     _scheduleReveal();
   }
 
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced) {
+      _tweenController?.stop();
+      _factor.value = 1.0;
+    }
+  }
+
   void _scheduleReveal() {
+    if (reduceMotion) {
+      _factor.value = 1.0;
+      return;
+    }
     if (widget.delay > Duration.zero) {
       Future.delayed(widget.delay, _runReveal);
     } else {

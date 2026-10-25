@@ -3,9 +3,8 @@ build/
 coverage/
 *.log
 
-# README media (logo, banner, GIFs). The README references these via absolute
-# raw.githubusercontent.com URLs, so they ship on GitHub (kept in git) and don't
-# need to bloat the published pub package.
+# Large README media use absolute raw.githubusercontent.com URLs. The new
+# SVG mark lives at the package root so pub.dev can render the README too.
 assets/
 
 # Website MDX docs — these are for the nib website, not the pub package
@@ -13,6 +12,11 @@ doc/
 
 # Showcase apps — large standalone demos, browsable on GitHub but not needed on pub.dev
 showcase/
+
+# Generated example platform projects are local and not tracked for release.
+example/android/
+example/linux/
+example/web/
 
 # IDE
 *.iml

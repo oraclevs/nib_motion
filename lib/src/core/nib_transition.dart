@@ -34,6 +34,28 @@ class NibTransition {
     this.delayChildren = Duration.zero,
   });
 
+  /// A spring-driven transition using [spring] (for instance a `NibSpring`
+  /// token): `NibTransition.of(NibSpring.smooth)`.
+  ///
+  /// Equivalent to `NibTransition(spring: spring)` and to the
+  /// `spring.transition` extension.
+  static NibTransition of(NibSpringDescription spring) =>
+      NibTransition(spring: spring);
+
+  /// A spring transition described by how it should feel: [duration] is the
+  /// perceptual settling time and [bounce] is `-1..1` (`0` = no overshoot).
+  /// See [NibSpringDescription.fromDuration].
+  factory NibTransition.springWith({
+    Duration duration = const Duration(milliseconds: 500),
+    double bounce = 0.0,
+    Duration delay = Duration.zero,
+  }) =>
+      NibTransition(
+        spring: NibSpringDescription.fromDuration(
+            duration: duration, bounce: bounce),
+        delay: delay,
+      );
+
   /// A gentle spring transition (see [NibSpringDescription.gentle]).
   static const NibTransition springGentle = NibTransition(
     spring: NibSpringDescription.gentle,
@@ -72,6 +94,66 @@ class NibTransition {
   /// [delayChildren], for staggering descendants that resolve their `animate`
   /// from this widget's propagated variant.
   final Duration staggerChildren;
+
+  /// A copy with the given fields replaced. Pass [clearSpring] to switch a
+  /// spring transition back to curve tweening.
+  NibTransition copyWith({
+    Duration? duration,
+    Curve? curve,
+    Duration? delay,
+    NibSpringDescription? spring,
+    bool clearSpring = false,
+    Duration? staggerChildren,
+    Duration? delayChildren,
+  }) {
+    return NibTransition(
+      duration: duration ?? this.duration,
+      curve: curve ?? this.curve,
+      delay: delay ?? this.delay,
+      spring: clearSpring ? null : (spring ?? this.spring),
+      staggerChildren: staggerChildren ?? this.staggerChildren,
+      delayChildren: delayChildren ?? this.delayChildren,
+    );
+  }
+
+  /// Throws an [ArgumentError] if any duration or delay is negative.
+  ///
+  /// `const` constructors cannot assert on a [Duration], so animation entry
+  /// points call this (in debug builds) and clamp in release builds.
+  void validate() {
+    void check(String name, Duration value) {
+      if (value.isNegative) {
+        throw ArgumentError.value(value, name, 'must not be negative');
+      }
+    }
+
+    check('duration', duration);
+    check('delay', delay);
+    check('delayChildren', delayChildren);
+    check('staggerChildren', staggerChildren);
+  }
+
+  /// A copy with negative durations and delays replaced by [Duration.zero].
+  ///
+  /// Used by release builds, where [validate] is skipped, so a bad value
+  /// degrades to "instant" instead of reaching `AnimationController`.
+  NibTransition sanitized() {
+    Duration clamp(Duration d) => d.isNegative ? Duration.zero : d;
+    if (!duration.isNegative &&
+        !delay.isNegative &&
+        !delayChildren.isNegative &&
+        !staggerChildren.isNegative) {
+      return this;
+    }
+    return NibTransition(
+      duration: clamp(duration),
+      curve: curve,
+      delay: clamp(delay),
+      spring: spring,
+      staggerChildren: clamp(staggerChildren),
+      delayChildren: clamp(delayChildren),
+    );
+  }
 
   /// Whether this transition is driven by [spring] physics or by
   /// [duration]/[curve] tweening.

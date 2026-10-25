@@ -1,9 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/niblogo.png" alt="NibMotion Logo" width="120" />
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nibbanner.png" alt="NibMotion Banner" width="100%" />
+  <img src="nibmotion-mark.svg" alt="NibMotion fountain nib drawing an ink N" width="120" />
 </p>
 
 <h1 align="center">NibMotion</h1>
@@ -43,11 +39,18 @@
 
 ## Why NibMotion?
 
-Flutter animations require `AnimationController` boilerplate, tweens everywhere, and complex rebuild logic. NibMotion replaces that with a simple mental model:
+NibMotion lets you describe a widget's starting state, target state, and
+transition in one place. Use a spring when the movement should respond to
+interruption; use a tween when timing matters more.
 
 > Describe how your UI should look in different states — NibMotion handles the rest.
 
-**No controllers. No tweens. Just state.**
+The basic `NibMotion` widget does not require a controller. One is available
+when an interaction needs imperative control. Underneath, `MotionValue`s carry
+velocity, drivers (spring / tween / inertia / drag) that hand momentum to each
+other, and render objects that repaint without rebuilding. Gestures, scroll,
+layout, presence and shaders all sit on that same model — see
+[doc/architecture.md](doc/architecture.md).
 
 ---
 
@@ -84,19 +87,21 @@ NibMotion(
 | **Variants** | State-driven UI with cascading parent → child propagation |
 | **Presence** | Exit animations before unmount |
 | **Viewport** | Scroll-triggered entrance animations |
-| **Layout** | FLIP animations for reorder/resize |
-| **Motion Values** | High-performance reactive values — no widget rebuilds |
+| **Layout** | `NibMotion(layout:)` FLIP for position + size in any parent, shared `layoutId`, `NibReorderable`, `NibLayoutGroup` |
+| **Motion Values** | Reactive values with velocity, `mapRange`, lazy `MotionValue.computed` — no widget rebuilds |
+| **Physics** | Springs (mass/stiffness/damping or duration+bounce), `NibSpring` tokens, bounded inertia, independent per-axis physics (`MultiSpringSolver`), custom `Simulation`s, velocity handoff between drivers |
 | **Keyframes** | Multi-step animations with easing control |
 | **Text** | Per-char/word/line — `NibText`, `NibTypewriter`, `NibGradientText`, `NibTextReveal` |
 | **Shaders** | GPU effects — `NibShimmer`, `NibDissolve` |
-| **Liquid Glass** | `NibGlass` — Apple-style glass with real refraction, chromatic aberration & specular light; glass `NibNavBar`/`NibScaffold` |
+| **Liquid Glass** | `NibGlass` with shader refraction where supported and a blur fallback; glass `NibNavBar`/`NibScaffold` |
+| **Navigation** | `NibNavBar` with spring-driven pill, dot, line, highlight, or liquid water indicators |
 | **Presets** | `NibShake`, `NibBounce`, `NibPulse`, `NibFloat`, `NibFlip`, `NibRubberBand` |
 | **Gestures+** | `NibDraggable`, `NibPinch`, `NibSwipeDismiss` |
 | **Timeline** | `NibTimeline`, `NibAnimationSequence` for orchestration |
 | **Path** | `NibPathMotion`, `NibDrawPath` |
 | **Scroll** | `NibParallax`, `NibScrollReveal` |
 | **Debug** | `NibMotionDebugger`, `NibPerfOverlay` |
-| **Accessibility** | Automatic reduced-motion support |
+| **Accessibility** | One reduced-motion policy (`NibMotionConfig`) honoured by every animated widget |
 
 ---
 
@@ -180,7 +185,49 @@ NibLayoutGroup(
 ```dart
 NibMotion(
   animate: const NibAnim(x: 100),
-  transition: NibTransition.spring(NibSpringDescription.snappy),
+  transition: NibTransition.springSnappy,
+  child: YourWidget(),
+)
+```
+
+Springs are **interruptible**: change `animate` mid-flight and the new motion
+starts from the current position *and velocity*, whatever driver was running
+(spring, tween, inertia, drag). See [doc/interruption.md](doc/interruption.md).
+
+### Reactive Motion Values
+
+```dart
+final progress = MotionValue<double>(0);
+final boost = MotionValue<double>(1);
+
+// Single source, eager, velocity flows through the mapping:
+final opacity = progress.mapRange([0, 1], [0.2, 1]);
+
+// Several sources, lazy — evaluated when painted:
+final scale = MotionValue.computed(
+  [progress, boost],
+  () => 0.9 + progress.value * 0.1 * boost.value,
+);
+```
+
+See [doc/motion-values.md](doc/motion-values.md).
+
+### Drag with Inertia, Bounds and Snap
+
+```dart
+NibMotion(
+  drag: NibDragConfig(
+    constraints: Rect.fromLTRB(-200, 0, 200, 0),
+    releaseMode: NibDragReleaseMode.inertia, // coasts, bounces off the bounds
+  ),
+  child: YourWidget(),
+)
+
+NibMotion(
+  drag: NibDragConfig(
+    snapPoints: [Offset(0, 0), Offset(0, 300)],
+    snapProjection: Duration(milliseconds: 150), // a flick reaches the next point
+  ),
   child: YourWidget(),
 )
 ```
@@ -196,13 +243,32 @@ NibGlass(
 )
 ```
 
+Shader refraction depends on the renderer. On unsupported renderers, the glass
+uses a frosted blur fallback.
+
+### Liquid navigation indicator
+
+`NibNavBar` can draw a liquid indicator that travels between items. The shader
+has a gradient fallback, and reduced motion leaves the indicator at rest.
+
+```dart
+NibNavBar(
+  items: items,
+  currentIndex: selectedIndex,
+  onIndexChanged: (index) => setState(() => selectedIndex = index),
+  indicator: const NibNavIndicatorStyle(type: NibNavIndicatorType.liquid),
+)
+```
+
 ### Scroll-Linked Motion
 
 ```dart
-final scrollY = ScrollMotionBridge(controller: scrollController);
+final bridge = ScrollMotionBridge(controller: scrollController);
 
 NibMotion(
-  animate: NibAnim(opacity: scrollY.mapRange([0, 200], [1, 0])),
+  motionValues: NibMotionValues(
+    opacity: bridge.scrollY.mapRange([0, 200], [1, 0]),
+  ),
   child: YourWidget(),
 )
 ```
@@ -217,7 +283,7 @@ NibMotion(
   child: YourWidget(),
 );
 
-await controller.animateTo(const NibAnim(scale: 1.2));
+await controller.start(target: const NibAnim(scale: 1.2));
 ```
 
 ### Reduced Motion
@@ -233,11 +299,11 @@ NibMotionConfig(
 
 ## Philosophy
 
-NibMotion is built around one idea:
-
-> UI should be described, not animated manually.
-
-It gives Flutter a motion model closer to modern UI frameworks like Framer Motion — but fully native, performant, and Flutter-optimized. **Animating never triggers a widget rebuild** — `MotionValue` notifications call `markNeedsPaint` directly on the render object.
+For continuous motion, `MotionValue` notifications repaint the render object
+without rebuilding the widget tree on every frame. Discrete content changes,
+such as a typewriter advancing to its next character, still rebuild when they
+need to. Your widgets can move without asking your build method to dance on
+every frame.
 
 ---
 

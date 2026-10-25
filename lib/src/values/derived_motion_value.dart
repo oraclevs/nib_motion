@@ -11,7 +11,12 @@ import 'motion_value.dart';
 /// chained: `source.transform(...).transform(...)`.
 class DerivedMotionValue<S, T> extends MotionValue<T> {
   /// Creates a value derived from `source` by applying [mapper].
-  DerivedMotionValue(this._source, this.mapper) : super(mapper(_source.value)) {
+  ///
+  /// If [velocityMapper] is given it converts the source's `(value, velocity)`
+  /// into this value's velocity (e.g. `mapRange` multiplies by the segment
+  /// slope); otherwise the derived velocity is `0`.
+  DerivedMotionValue(this._source, this.mapper, {this.velocityMapper})
+      : super(mapper(_source.value)) {
     _source.addListener(_recompute);
   }
 
@@ -20,8 +25,14 @@ class DerivedMotionValue<S, T> extends MotionValue<T> {
   /// The function applied to the source value to produce this value.
   final T Function(S) mapper;
 
+  /// Maps the source's value and velocity to this value's velocity.
+  final double Function(S value, double velocity)? velocityMapper;
+
   void _recompute() {
-    value = mapper(_source.value);
+    update(
+      mapper(_source.value),
+      velocity: velocityMapper?.call(_source.value, _source.velocity) ?? 0.0,
+    );
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import 'nib_text.dart';
 
 /// Reveals [text] character by character at [speed], with an optional
@@ -67,7 +68,8 @@ class NibTypewriter extends StatefulWidget {
 
 enum _Phase { waiting, typing, pausedAtEnd, deleting }
 
-class _NibTypewriterState extends State<NibTypewriter> {
+class _NibTypewriterState extends State<NibTypewriter>
+    with NibReducedMotionMixin {
   late List<String> _graphemes;
   int _revealedCount = 0;
   _Phase _phase = _Phase.waiting;
@@ -82,8 +84,35 @@ class _NibTypewriterState extends State<NibTypewriter> {
   void initState() {
     super.initState();
     _graphemes = splitGraphemes(widget.text);
+    if (reduceMotion) {
+      _showAll(notify: false);
+      return;
+    }
     _scheduleStart();
     _startBlinking();
+  }
+
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced) _showAll(notify: true);
+  }
+
+  /// Reduced motion: show the whole text at once, keep the cursor solid, and
+  /// still report completion.
+  void _showAll({required bool notify}) {
+    _delayTimer?.cancel();
+    _typeTimer?.cancel();
+    _blinkTimer?.cancel();
+    _revealedCount = _graphemes.length;
+    _phase = _Phase.pausedAtEnd;
+    _cursorVisible = true;
+    if (notify) setState(() {});
+    if (!_onCompleteCalled) {
+      _onCompleteCalled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onComplete?.call();
+      });
+    }
   }
 
   @override

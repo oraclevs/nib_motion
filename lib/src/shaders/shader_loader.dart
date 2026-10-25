@@ -1,5 +1,7 @@
 import 'dart:ui' show FragmentProgram;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 /// Asset paths for every fragment shader bundled with `nib_motion`.
 ///
 /// These must match the `flutter.shaders` entries in `pubspec.yaml`.
@@ -36,6 +38,18 @@ class NibShaderLoader {
 
   static final Map<String, Future<FragmentProgram>> _cache = {};
 
+  /// Maps an asset key to the key actually passed to
+  /// `FragmentProgram.fromAsset`. `null` (the default) uses keys as-is.
+  ///
+  /// Test-friendly: inside this package's own `flutter test` runs, the
+  /// bundled shaders resolve under the root-package key
+  /// (`lib/shaders/shimmer.frag`), not `packages/nib_motion/lib/shaders/…`
+  /// (which only exists in a consuming app). Set
+  /// `(key) => key.replaceFirst('packages/nib_motion/', '')` to exercise the
+  /// real shaders; [resetForTesting] clears it.
+  @visibleForTesting
+  static String Function(String assetKey)? assetKeyResolver;
+
   /// Returns the cached or newly-started [Future] that resolves to the
   /// compiled [FragmentProgram] for the shimmer shader.
   static Future<FragmentProgram> shimmer() => _load(NibShaderAssets.shimmer);
@@ -54,9 +68,18 @@ class NibShaderLoader {
   static Future<FragmentProgram> liquidGlass() =>
       _load(NibShaderAssets.liquidGlass);
 
+  /// Loads (and caches) any fragment program by [assetKey].
+  ///
+  /// For your own shader declare it under `flutter: shaders:` in your app's
+  /// pubspec and pass its asset path (for a package asset,
+  /// `packages/<package>/<path>`). Used by `NibShaderEffect`.
+  static Future<FragmentProgram> load(String assetKey) => _load(assetKey);
+
   static Future<FragmentProgram> _load(String assetKey) {
     return _cache.putIfAbsent(
-        assetKey, () => FragmentProgram.fromAsset(assetKey));
+        assetKey,
+        () => FragmentProgram.fromAsset(
+            assetKeyResolver?.call(assetKey) ?? assetKey));
   }
 
   /// Kicks off compilation of every bundled shader and waits for all of
@@ -85,5 +108,6 @@ class NibShaderLoader {
   /// Intended for tests.
   static void resetForTesting() {
     _cache.clear();
+    assetKeyResolver = null;
   }
 }

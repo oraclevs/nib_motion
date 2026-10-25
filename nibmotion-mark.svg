@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">NibMotion ink mark</title>
+  <desc id="desc">A fountain pen nib draws a flowing blue N and a loose ink flourish.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#112836"/>
+      <stop offset="1" stop-color="#071A25"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#A8EBED"/>
+      <stop offset="0.47" stop-color="#62C8DD"/>
+      <stop offset="1" stop-color="#268CAF"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFF1CD"/>
+      <stop offset="0.53" stop-color="#D9B86C"/>
+      <stop offset="1" stop-color="#916C37"/>
+    </linearGradient>
+    <radialGradient id="wash">
+      <stop stop-color="#3A9DAB" stop-opacity="0.37"/>
+      <stop offset="1" stop-color="#3A9DAB" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soften" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <rect width="320" height="320" rx="66" fill="url(#paper)"/>
+  <path d="M38 121 C58 37 160 32 195 66 C248 116 302 178 272 242 C228 299 153 281 77 262 C23 241 22 182 38 121Z" fill="url(#wash)"/>
+  <path d="M40 231 C53 253 94 274 137 278 C99 284 53 265 37 243Z" fill="#73C9C4" opacity="0.11" filter="url(#soften)"/>
+  <path d="M231 56 C268 39 297 67 283 96 C277 118 259 134 239 138 C250 107 231 77 231 56Z" fill="#DAB676" opacity="0.16" filter="url(#soften)"/>
+
+  <!-- Three hand-painted strokes form the N; the broken highlights keep it from looking machined. -->
+  <path d="M75 232 L75 89 M75 89 C125 109 172 203 221 226 M221 99 L221 227" fill="none" stroke="#052433" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" opacity="0.68"/>
+  <path d="M75 232 L75 89 M75 89 C125 109 172 203 221 226 M221 99 L221 227" fill="none" stroke="url(#ink)" stroke-width="31" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M67 187 L67 108 M87 111 C105 125 121 146 137 165 M150 181 C172 207 185 218 198 222" fill="none" stroke="#DDF9ED" stroke-width="3.3" stroke-linecap="round" opacity="0.55"/>
+  <path d="M88 236 L88 198 M114 135 C130 155 145 178 152 186 M206 111 L206 139" fill="none" stroke="#16799A" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+
+  <!-- Ink runs out from the pen point into an imperfect, looping flourish. -->
+  <path d="M221 228 C202 249 172 261 139 259 C103 257 83 270 62 257" fill="none" stroke="#62C8DD" stroke-width="7" stroke-linecap="round" opacity="0.87"/>
+  <path d="M62 257 C54 251 54 243 65 241 C79 241 81 255 71 264" fill="none" stroke="#8DDEE1" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="107" cy="276" r="2.6" fill="#7BD0D5" opacity="0.72"/>
+  <circle cx="127" cy="269" r="1.4" fill="#DFF9EA" opacity="0.7"/>
+  <path d="M162 268 l8 4 M82 278 l5 2" stroke="#8DDEE1" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- A fountain nib, with shoulders, breather hole and split tines. -->
+  <path d="M255 65 L289 84 Q293 87 291 92 L267 143 L235 125Z" fill="#193B49" stroke="#D9EADD" stroke-width="2"/>
+  <path d="M263 72 L285 84 L261 134 L241 123Z" fill="#E4EFE7"/>
+  <path d="M237 126 Q225 161 222 227 Q248 205 263 149 L266 143Z" fill="url(#metal)" stroke="#F6E4B3" stroke-width="2.8" stroke-linejoin="round"/>
+  <path d="M242 141 C236 163 230 186 225 219" fill="none" stroke="#8B693D" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="242" cy="163" r="4.7" fill="#173D49" stroke="#F8E9C5" stroke-width="1.7"/>
+  <path d="M224 227 L230 220" fill="none" stroke="#0A3447" stroke-width="2" stroke-linecap="round"/>
+</svg>

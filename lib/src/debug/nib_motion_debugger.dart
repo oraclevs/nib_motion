@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../core/reduced_motion.dart';
 import 'motion_value_inspector.dart';
 import 'nib_perf_overlay.dart';
+import '../values/motion_value.dart';
 
 /// A conditional debug overlay for `nib_motion` apps.
 ///
@@ -28,6 +30,7 @@ class NibMotionDebugger extends StatelessWidget {
     this.showBoundingBoxes = true,
     this.showMotionValues = true,
     this.showFps = true,
+    this.showReducedMotionToggle = true,
   });
 
   /// The widget subtree being debugged. Always rendered, regardless of
@@ -71,6 +74,12 @@ class NibMotionDebugger extends StatelessWidget {
   /// Whether to show the [NibPerfOverlay] FPS counter.
   final bool showFps;
 
+  /// Whether to show a switch that previews reduced motion by setting the
+  /// global `NibMotionConfig.setReducedMotion` override (cleared when the
+  /// debugger is removed). It affects animations as they start; ones already
+  /// running finish normally.
+  final bool showReducedMotionToggle;
+
   @override
   Widget build(BuildContext context) {
     if (!enabled) {
@@ -87,6 +96,7 @@ class NibMotionDebugger extends StatelessWidget {
             showBoundingBoxes: showBoundingBoxes,
             showMotionValues: showMotionValues,
             showFps: showFps,
+            showReducedMotionToggle: showReducedMotionToggle,
           ),
         ),
       ],
@@ -103,11 +113,13 @@ class _DebugPanel extends StatefulWidget {
     required this.showBoundingBoxes,
     required this.showMotionValues,
     required this.showFps,
+    required this.showReducedMotionToggle,
   });
 
   final bool showBoundingBoxes;
   final bool showMotionValues;
   final bool showFps;
+  final bool showReducedMotionToggle;
 
   @override
   State<_DebugPanel> createState() => _DebugPanelState();
@@ -121,8 +133,19 @@ class _DebugPanelState extends State<_DebugPanel> {
   // app where the primary scroll view was elsewhere on screen).
   final ScrollController _valuesScrollController = ScrollController();
 
+  bool _reduced = false;
+
+  /// Previews reduced motion by setting the global override
+  /// (`NibMotionConfig.setReducedMotion`). Animations already running are not
+  /// interrupted; the policy applies to each animation as it starts.
+  void _setReduced(bool value) {
+    setState(() => _reduced = value);
+    NibMotionConfig.setReducedMotion(value ? true : null);
+  }
+
   @override
   void dispose() {
+    if (_reduced) NibMotionConfig.setReducedMotion(null);
     _valuesScrollController.dispose();
     super.dispose();
   }
@@ -160,6 +183,29 @@ class _DebugPanelState extends State<_DebugPanel> {
               const SizedBox(height: 6),
               const NibPerfOverlay(),
             ],
+            if (widget.showReducedMotionToggle) ...[
+              const SizedBox(height: 4),
+              GestureDetector(
+                key: const ValueKey('nib_debugger_reduced_motion'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _setReduced(!_reduced),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _reduced
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      size: 14,
+                      color: Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('Reduce motion',
+                        style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  ],
+                ),
+              ),
+            ],
             if (widget.showMotionValues) ...[
               const SizedBox(height: 6),
               Text(
@@ -182,12 +228,7 @@ class _DebugPanelState extends State<_DebugPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         for (final entry in registeredValues.entries)
-                          Text(
-                            '${entry.key}: ${entry.value.value}',
-                            style: const TextStyle(
-                                color: Colors.white54, fontSize: 10),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          _ValueRow(id: entry.key, value: entry.value),
                       ],
                     ),
                   ),
@@ -197,6 +238,34 @@ class _DebugPanelState extends State<_DebugPanel> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One live row of the values list: `id: value  v=velocity`.
+///
+/// Listens to its own [MotionValue], so the debugger shows moving numbers
+/// without rebuilding the rest of the panel or the app.
+class _ValueRow extends StatelessWidget {
+  const _ValueRow({required this.id, required this.value});
+
+  final String id;
+  final MotionValue<dynamic> value;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: value,
+      builder: (context, _) {
+        final velocity = value.velocity;
+        final suffix =
+            velocity == 0 ? '' : '  v=${velocity.toStringAsFixed(1)}/s';
+        return Text(
+          '$id: ${value.value}$suffix',
+          style: const TextStyle(color: Colors.white54, fontSize: 10),
+          overflow: TextOverflow.ellipsis,
+        );
+      },
     );
   }
 }

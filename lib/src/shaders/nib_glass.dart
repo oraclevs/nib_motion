@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'shader_loader.dart';
@@ -127,6 +128,13 @@ class _NibGlassState extends State<NibGlass> {
 
   double get _radius => widget.borderRadius.topLeft.x;
 
+  /// [NibGlass.lightDirection] with non-finite components replaced by the
+  /// default direction, shared by the shader and fallback paths.
+  Offset get _light {
+    final ld = widget.lightDirection;
+    return Offset(ld.dx.isFinite ? ld.dx : -0.4, ld.dy.isFinite ? ld.dy : -1.0);
+  }
+
   /// [size] is the logical widget size; [dpr] the device pixel ratio.
   /// `ImageFilter.shader` runs in physical pixels, so the size and every
   /// pixel-valued uniform (radius, thickness) are scaled by [dpr].
@@ -135,14 +143,23 @@ class _NibGlassState extends State<NibGlass> {
   /// declaration order exactly:
   /// 0-1 uSize, 2 uRadius, 3 uThickness, 4 uRefractiveIndex,
   /// 5 uChromaticAberration, 6 uSaturation, 7 uLightIntensity,
-  /// 8-9 uLight, 10-13 uTint.
-  ui.ImageFilter? _shaderFilter(Size size, double dpr) {
+  /// 8-9 uLight, 10-13 uTint, 14-15 uOrigin, 16-17 uGlassSize.
+  ///
+  /// Indices 0-1 (`uSize`) are overwritten by Impeller with the size of the
+  /// backdrop texture, which is the whole enclosing layer, not the glass; the
+  /// glass's own size travels in `uGlassSize`.
+  ///
+  /// [origin] is the glass's top-left in the enclosing layer's logical
+  /// coordinates: inside an `ImageFilter.shader`, `FlutterFragCoord()` and the
+  /// backdrop texture are expressed in the *layer's* space, not relative to
+  /// the widget, so the shader needs it to place the glass shape and to sample
+  /// the backdrop.
+  ui.ImageFilter? _shaderFilter(Size size, double dpr, Offset origin) {
     if (!_canUseShader || !size.isFinite || size.isEmpty) return null;
     final shader = _program!.fragmentShader();
     final t = widget.tint;
-    final ld = widget.lightDirection;
-    final lx = ld.dx.isFinite ? ld.dx : -0.4;
-    final ly = ld.dy.isFinite ? ld.dy : -1.0;
+    final lx = _light.dx;
+    final ly = _light.dy;
     shader
       ..setFloat(0, size.width * dpr)
       ..setFloat(1, size.height * dpr)
@@ -157,7 +174,11 @@ class _NibGlassState extends State<NibGlass> {
       ..setFloat(10, t.r)
       ..setFloat(11, t.g)
       ..setFloat(12, t.b)
-      ..setFloat(13, t.a);
+      ..setFloat(13, t.a)
+      ..setFloat(14, origin.dx * dpr)
+      ..setFloat(15, origin.dy * dpr)
+      ..setFloat(16, size.width * dpr)
+      ..setFloat(17, size.height * dpr);
     return ui.ImageFilter.compose(
       outer: ui.ImageFilter.shader(shader),
       inner: ui.ImageFilter.blur(
@@ -178,11 +199,16 @@ class _NibGlassState extends State<NibGlass> {
     return _clip(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final filter = _shaderFilter(constraints.biggest, dpr);
-          if (filter != null) {
+          if (_canUseShader &&
+              constraints.biggest.isFinite &&
+              !constraints.biggest.isEmpty) {
             // Shader path: refraction + frost + tint + rim all live in the
-            // backdrop filter; the child paints on top.
-            return BackdropFilter(filter: filter, child: widget.child);
+            // backdrop filter; the child paints on top. The filter is built at
+            // paint time because it needs the glass's position in its layer.
+            return _GlassBackdrop(
+              filterFor: (size, origin) => _shaderFilter(size, dpr, origin),
+              child: widget.child,
+            );
           }
           // Fallback: frosted blur, then a painted tint + rim, then the child.
           return Stack(
@@ -202,7 +228,7 @@ class _NibGlassState extends State<NibGlass> {
                   painter: _GlassFallbackPainter(
                     tint: widget.tint,
                     highlight: widget.highlight,
-                    lightDirection: widget.lightDirection,
+                    lightDirection: _light,
                   ),
                 ),
               ),
@@ -264,4 +290,58 @@ class _GlassFallbackPainter extends CustomPainter {
       old.tint != tint ||
       old.highlight != highlight ||
       old.lightDirection != lightDirection;
+}
+
+/// A `BackdropFilter` whose [ui.ImageFilter] is built at paint time from the
+/// box's size and its offset within the enclosing layer.
+class _GlassBackdrop extends SingleChildRenderObjectWidget {
+  const _GlassBackdrop({required this.filterFor, super.child});
+
+  final ui.ImageFilter? Function(Size size, Offset origin) filterFor;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderGlassBackdrop(filterFor);
+
+  @override
+  void updateRenderObject(
+      BuildContext context, _RenderGlassBackdrop renderObject) {
+    renderObject.filterFor = filterFor;
+  }
+}
+
+class _RenderGlassBackdrop extends RenderProxyBox {
+  _RenderGlassBackdrop(this._filterFor);
+
+  ui.ImageFilter? Function(Size size, Offset origin) _filterFor;
+  final LayerHandle<BackdropFilterLayer> _layer =
+      LayerHandle<BackdropFilterLayer>();
+
+  set filterFor(ui.ImageFilter? Function(Size size, Offset origin) value) {
+    _filterFor = value;
+    markNeedsPaint();
+  }
+
+  @override
+  bool get alwaysNeedsCompositing => child != null;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    final filter = _filterFor(size, offset);
+    if (filter == null) {
+      _layer.layer = null;
+      super.paint(context, offset);
+      return;
+    }
+    final layer = (_layer.layer ??= BackdropFilterLayer());
+    layer.filter = filter;
+    context.pushLayer(layer, super.paint, offset);
+  }
+
+  @override
+  void dispose() {
+    _layer.layer = null;
+    super.dispose();
+  }
 }

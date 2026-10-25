@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 
 /// A 3D card-flip widget that reveals [back] in place of [front] (or vice
@@ -60,7 +61,8 @@ class NibFlip extends StatefulWidget {
   State<NibFlip> createState() => _NibFlipState();
 }
 
-class _NibFlipState extends State<NibFlip> with SingleTickerProviderStateMixin {
+class _NibFlipState extends State<NibFlip>
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   late final MotionValue<double> _progress;
   Ticker? _ticker;
   double _from = 0.0;
@@ -70,6 +72,14 @@ class _NibFlipState extends State<NibFlip> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _progress = MotionValue<double>(widget.isFlipped ? 1.0 : 0.0);
+  }
+
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced) {
+      _ticker?.stop();
+      _progress.value = widget.isFlipped ? 1.0 : 0.0;
+    }
   }
 
   @override
@@ -86,6 +96,11 @@ class _NibFlipState extends State<NibFlip> with SingleTickerProviderStateMixin {
   /// `SpringSolver`/`InertiaSolver` use, since [_progress] is not one of
   /// `NibMotion`'s own animatable properties.
   void _animateTo(double target) {
+    if (reduceMotion) {
+      _ticker?.stop();
+      _progress.value = target;
+      return;
+    }
     _from = _progress.value;
     _to = target;
     _ticker?.stop();

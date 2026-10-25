@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/reduced_motion_mixin.dart';
 import '../values/motion_value.dart';
 import 'shader_loader.dart';
 
@@ -63,7 +64,7 @@ class NibShimmer extends StatefulWidget {
 }
 
 class _NibShimmerState extends State<NibShimmer>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   final MotionValue<double> _time = MotionValue<double>(0);
   Ticker? _ticker;
   FragmentProgram? _program;
@@ -86,7 +87,18 @@ class _NibShimmerState extends State<NibShimmer>
     }
   }
 
+  @override
+  void onReducedMotionChanged(bool reduced) {
+    if (reduced) {
+      _ticker?.stop();
+    } else if (widget.enabled) {
+      _startTicker();
+    }
+  }
+
   void _startTicker() {
+    // Decorative loop: reduced motion leaves the shimmer at a static frame.
+    if (reduceMotion) return;
     (_ticker ??= createTicker(_onTick)).start();
   }
 
