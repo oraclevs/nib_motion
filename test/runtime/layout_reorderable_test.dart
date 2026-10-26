@@ -62,6 +62,53 @@ Future<TestGesture> _grab(WidgetTester tester, Offset at) async {
 
 void main() {
   group('NibReorderable', () {
+    Widget scaledHost(List<Widget> children, List<(int, int)> log) =>
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Transform.scale(
+              scale: 2,
+              alignment: Alignment.topLeft,
+              child: NibReorderable(
+                dragScale: 1,
+                onReorder: (oldIndex, newIndex) =>
+                    log.add((oldIndex, newIndex)),
+                children: children,
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('scaled ancestor keeps dragged item under pointer',
+        (tester) async {
+      final log = <(int, int)>[];
+      await tester.pumpWidget(scaledHost([_tile('a'), _tile('b')], log));
+      await tester.pumpAndSettle();
+      final gesture = await _grab(tester, const Offset(50, 50));
+      await gesture.moveBy(const Offset(0, 60));
+      await tester.pump();
+      expect(_origin(tester, 'a').dy, closeTo(60, 0.5));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(log, isEmpty);
+    });
+
+    testWidgets('scaled ancestor uses painted item sizes for reorder threshold',
+        (tester) async {
+      final log = <(int, int)>[];
+      await tester
+          .pumpWidget(scaledHost([_tile('a'), _tile('b', size: 100)], log));
+      await tester.pumpAndSettle();
+      final gesture = await _grab(tester, const Offset(50, 50));
+      await gesture.moveBy(const Offset(0, 130));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(log, isEmpty,
+          reason: 'first center at 180 is still above second center at 200');
+    });
+
     testWidgets('dragging an item follows the pointer and siblings make way',
         (tester) async {
       final log = <(int, int)>[];

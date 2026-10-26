@@ -50,7 +50,7 @@ when an interaction needs imperative control. Underneath, `MotionValue`s carry
 velocity, drivers (spring / tween / inertia / drag) that hand momentum to each
 other, and render objects that repaint without rebuilding. Gestures, scroll,
 layout, presence and shaders all sit on that same model — see
-[doc/architecture.md](doc/architecture.md).
+[doc/architecture.md](https://github.com/oraclevs/nib_motion/blob/main/doc/architecture.md).
 
 ---
 
@@ -87,7 +87,7 @@ NibMotion(
 | **Variants** | State-driven UI with cascading parent → child propagation |
 | **Presence** | Exit animations before unmount |
 | **Viewport** | Scroll-triggered entrance animations |
-| **Layout** | `NibMotion(layout:)` FLIP for position + size in any parent, shared `layoutId`, `NibReorderable`, `NibLayoutGroup` |
+| **Layout** | `NibMotion(layout:)` FLIP for position + size under tested affine parents, shared `layoutId`, `NibReorderable`, `NibLayoutGroup` |
 | **Motion Values** | Reactive values with velocity, `mapRange`, lazy `MotionValue.computed` — no widget rebuilds |
 | **Physics** | Springs (mass/stiffness/damping or duration+bounce), `NibSpring` tokens, bounded inertia, independent per-axis physics (`MultiSpringSolver`), custom `Simulation`s, velocity handoff between drivers |
 | **Keyframes** | Multi-step animations with easing control |
@@ -102,6 +102,14 @@ NibMotion(
 | **Scroll** | `NibParallax`, `NibScrollReveal` |
 | **Debug** | `NibMotionDebugger`, `NibPerfOverlay` |
 | **Accessibility** | One reduced-motion policy (`NibMotionConfig`) honoured by every animated widget |
+
+Layout and gesture coordinates are local logical pixels. The current geometry
+regressions cover scaled reorder, rotated/nonuniform presence bounds and drag,
+and hit exclusion during pop exits. Perspective, near-singular transforms,
+reorder under rotation, and pop exits that must preserve an ancestor clip
+across coordinate spaces are outside the verified contract. See the
+[layout geometry contract](https://github.com/oraclevs/nib_motion/blob/main/doc/layout.md)
+for the tested cases and lifecycle rules.
 
 ---
 
@@ -192,7 +200,7 @@ NibMotion(
 
 Springs are **interruptible**: change `animate` mid-flight and the new motion
 starts from the current position *and velocity*, whatever driver was running
-(spring, tween, inertia, drag). See [doc/interruption.md](doc/interruption.md).
+(spring, tween, inertia, drag). See [doc/interruption.md](https://github.com/oraclevs/nib_motion/blob/main/doc/interruption.md).
 
 ### Reactive Motion Values
 
@@ -210,7 +218,7 @@ final scale = MotionValue.computed(
 );
 ```
 
-See [doc/motion-values.md](doc/motion-values.md).
+See [doc/motion-values.md](https://github.com/oraclevs/nib_motion/blob/main/doc/motion-values.md).
 
 ### Drag with Inertia, Bounds and Snap
 

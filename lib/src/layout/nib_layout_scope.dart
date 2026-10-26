@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -35,6 +37,12 @@ class NibLayoutScope extends StatefulWidget {
 
 class _NibLayoutScopeState extends State<NibLayoutScope> {
   final NibLayoutScopeData _data = NibLayoutScopeData();
+
+  @override
+  void dispose() {
+    _data.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,8 +100,9 @@ class _Snapshot {
 /// The last-seen rectangle of every `layoutId` in a [NibLayoutScope].
 class NibLayoutScopeData {
   final Map<Object, _Snapshot> _snapshots = <Object, _Snapshot>{};
+  final Set<Timer> _expiryTimers = <Timer>{};
 
-  /// A snapshot older than this (measured in frame time) is not reused.
+  /// Handoff window for a detached shared-layout snapshot.
   static const Duration maxAge = Duration(milliseconds: 250);
 
   Duration _now() => SchedulerBinding.instance.currentSystemFrameTimeStamp;
@@ -103,6 +112,34 @@ class NibLayoutScopeData {
     final now = _now();
     _snapshots[id] = _Snapshot(rect, owner, now);
     if (_snapshots.length > 32 && now - _lastPrune > maxAge) _prune(now);
+  }
+
+  /// Removes a snapshot when its attached owner changes id or scope.
+  void forgetOwner(Object id, RenderObject owner) {
+    if (identical(_snapshots[id]?.owner, owner)) _snapshots.remove(id);
+  }
+
+  /// Releases a detached owner's snapshot after the shared-transition window.
+  void ownerDetached(Object id, RenderObject owner) {
+    final snapshot = _snapshots[id];
+    if (snapshot == null || !identical(snapshot.owner, owner)) return;
+    late final Timer timer;
+    timer = Timer(maxAge, () {
+      _expiryTimers.remove(timer);
+      if (!owner.attached && identical(_snapshots[id], snapshot)) {
+        _snapshots.remove(id);
+      }
+    });
+    _expiryTimers.add(timer);
+  }
+
+  /// Cancels expiry work when the enclosing scope unmounts.
+  void dispose() {
+    for (final timer in _expiryTimers) {
+      timer.cancel();
+    }
+    _expiryTimers.clear();
+    _snapshots.clear();
   }
 
   // Entries of unmounted owners are only useful for `maxAge`; without pruning

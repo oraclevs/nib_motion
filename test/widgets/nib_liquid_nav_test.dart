@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/nib_motion.dart';
@@ -78,16 +79,19 @@ void main() {
     final semantics = tester.ensureSemantics();
     int? selected;
     await tester.pumpWidget(bar(0, onChanged: (index) => selected = index));
-    expect(
-        tester.getSemantics(find.bySemanticsLabel('Discover')),
-        matchesSemantics(
-            label: 'Discover',
-            isButton: true,
-            isSelected: true,
-            hasSelectedState: true,
-            hasTapAction: true,
-            isFocusable: true,
-            hasFocusAction: true));
+    final discover = tester
+        .getSemantics(find.bySemanticsLabel('Discover'))
+        .getSemanticsData();
+    expect(discover.label, 'Discover');
+    // Flutter 3.29 has hasFlag but not the newer flagsCollection API.
+    // ignore: deprecated_member_use
+    expect(discover.hasFlag(SemanticsFlag.isButton), isTrue);
+    // ignore: deprecated_member_use
+    expect(discover.hasFlag(SemanticsFlag.isSelected), isTrue);
+    // ignore: deprecated_member_use
+    expect(discover.hasFlag(SemanticsFlag.isFocusable), isTrue);
+    expect(discover.hasAction(SemanticsAction.tap), isTrue);
+    expect(discover.hasAction(SemanticsAction.focus), isTrue);
     await tester.tap(find.bySemanticsLabel('Explore'));
     expect(selected, 1);
     await tester.pumpAndSettle();

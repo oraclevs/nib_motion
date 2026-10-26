@@ -153,6 +153,73 @@ void main() {
   });
 
   group('layout scope snapshot registry does not grow without bound', () {
+    testWidgets('changing an attached layoutId removes its old snapshot',
+        (tester) async {
+      NibLayoutScopeData? data;
+      Widget build(Object? id) => _host(NibLayoutScope(
+            child: Builder(builder: (context) {
+              data = NibLayoutScope.maybeOf(context);
+              return NibMotion(
+                layout: NibLayout.position,
+                layoutId: id,
+                child: const SizedBox(width: 10, height: 10),
+              );
+            }),
+          ));
+
+      await tester.pumpWidget(build('first'));
+      expect(data!.length, 1);
+      await tester.pumpWidget(build('second'));
+      expect(data!.length, 1,
+          reason: 'the attached owner no longer uses the first id');
+      await tester.pumpWidget(build(null));
+      expect(data!.length, 0);
+    });
+
+    testWidgets('changing an attached layout scope clears the old scope',
+        (tester) async {
+      NibLayoutScopeData? original;
+      await tester.pumpWidget(_host(NibLayoutScope(
+        child: Builder(builder: (context) {
+          original = NibLayoutScope.maybeOf(context);
+          return const NibMotion(
+            layout: NibLayout.position,
+            layoutId: 'item',
+            child: SizedBox(width: 10, height: 10),
+          );
+        }),
+      )));
+      expect(original!.length, 1);
+
+      _render(tester).layoutScope = NibLayoutScopeData();
+      expect(original!.length, 0,
+          reason: 'the attached owner no longer belongs to the old scope');
+    });
+
+    testWidgets('detached ids expire without subsequent layout records',
+        (tester) async {
+      NibLayoutScopeData? data;
+      Widget build(bool show) => _host(NibLayoutScope(
+            child: Builder(builder: (context) {
+              data = NibLayoutScope.maybeOf(context);
+              return show
+                  ? NibMotion(
+                      layout: NibLayout.position,
+                      layoutId: 'gone',
+                      child: const SizedBox(width: 10, height: 10),
+                    )
+                  : const SizedBox();
+            }),
+          ));
+
+      await tester.pumpWidget(build(true));
+      expect(data!.length, 1);
+      await tester.pumpWidget(build(false));
+      await tester.pump(NibLayoutScopeData.maxAge);
+      expect(data!.length, 0,
+          reason: 'a quiet scope must release detached render objects');
+    });
+
     testWidgets('stale ids of unmounted widgets are pruned', (tester) async {
       NibLayoutScopeData? data;
       Widget build(Iterable<int> ids) => _host(NibLayoutScope(

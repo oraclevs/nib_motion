@@ -31,6 +31,43 @@ double _readOffset(RenderObject renderNibSwipeDismiss) {
 
 void main() {
   group('NibSwipeDismiss', () {
+    testWidgets('scaled parent settles using local release velocity',
+        (tester) async {
+      await tester.pumpWidget(_wrap(
+        Transform.scale(
+          scale: 2,
+          child: SizedBox(
+            width: 200,
+            height: 80,
+            child: NibSwipeDismiss(
+              onDismissed: () {},
+              dismissThreshold: 0.9,
+              child: Container(
+                key: const ValueKey('scaled-swipe-box'),
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ),
+      ));
+      final renderObject = _findRenderNibSwipeDismiss(tester);
+      final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('scaled-swipe-box'))));
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(
+          const Offset(20, 0),
+          timeStamp: Duration(milliseconds: (i + 1) * 10),
+        );
+      }
+      final atRelease = _readOffset(renderObject);
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      final afterFrame = _readOffset(renderObject);
+      expect(atRelease, closeTo(50, 10));
+      expect(afterFrame, lessThan(70));
+    });
+
     testWidgets('swiping past dismissThreshold calls onDismissed',
         (tester) async {
       var dismissed = false;

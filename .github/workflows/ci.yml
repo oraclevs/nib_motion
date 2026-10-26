@@ -8,15 +8,19 @@ on:
 
 jobs:
   analyze-and-test:
-    name: Analyze & Test
+    name: Analyze & Test (Flutter ${{ matrix.flutter }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter: ['3.29.0', '3.47.8']
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.3'
+          flutter-version: ${{ matrix.flutter }}
           channel: stable
           cache: true
 
@@ -36,7 +40,7 @@ jobs:
         run: dart pub publish --dry-run
 
   wasm-build:
-    name: Web (Wasm) build
+    name: Web (Wasm and shader asset compile)
     runs-on: ubuntu-latest
 
     steps:
@@ -44,7 +48,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.3'
+          flutter-version: '3.47.8'
           channel: stable
           cache: true
 
@@ -54,3 +58,22 @@ jobs:
         run: |
           flutter create --platforms=web --project-name nib_motion_example .
           flutter build web --wasm
+
+  shader-renderer:
+    name: Shader renderer tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.8'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run shader renderer tests
+        run: flutter test --enable-impeller test/shaders

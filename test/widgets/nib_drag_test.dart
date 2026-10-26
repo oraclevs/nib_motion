@@ -24,6 +24,29 @@ RenderNibMotion _findRenderNibMotion(WidgetTester tester) {
 
 void main() {
   group('DragHandler', () {
+    testWidgets('release velocity uses the same local units as drag offset',
+        (tester) async {
+      Velocity? released;
+      final handler = DragHandler(
+        config: const NibDragConfig(),
+        onUpdate: (_) {},
+        onRelease: (_, velocity) => released = velocity,
+      );
+
+      handler.handlePanStart(DragStartDetails());
+      for (var i = 1; i <= 5; i++) {
+        handler.handlePanUpdate(DragUpdateDetails(
+          sourceTimeStamp: Duration(milliseconds: i * 10),
+          globalPosition: Offset(i * 20.0, 0),
+          delta: const Offset(10, 0),
+        ));
+      }
+      handler.handlePanEnd(DragEndDetails());
+
+      expect(released, isNotNull);
+      expect(released!.pixelsPerSecond.dx, closeTo(1000, 250));
+    });
+
     testWidgets(
         'reports the raw drag offset, which a NibMotion writes to translateX',
         (tester) async {

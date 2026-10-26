@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nib_motion/src/gestures/nib_draggable.dart';
@@ -9,6 +11,98 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('NibDraggable', () {
+    testWidgets('nested rotation and nonuniform scale keep release units local',
+        (tester) async {
+      Offset? releasedOffset;
+      Offset? releasedVelocity;
+      await tester.pumpWidget(_wrap(
+        Transform.rotate(
+          angle: math.pi / 2,
+          alignment: Alignment.topLeft,
+          child: Transform.scale(
+            scaleX: 2,
+            scaleY: 0.5,
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 200,
+              height: 200,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: NibDraggable(
+                  snapBack: false,
+                  onDragEnd: (offset, velocity) {
+                    releasedOffset = offset;
+                    releasedVelocity = velocity;
+                  },
+                  child: const SizedBox(
+                    width: 50,
+                    height: 50,
+                    key: ValueKey('rotated-drag-box'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+
+      final box = find.byKey(const ValueKey('rotated-drag-box'));
+      final before = tester.getCenter(box);
+      final gesture = await tester.startGesture(before);
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(
+          const Offset(0, 20),
+          timeStamp: Duration(milliseconds: (i + 1) * 10),
+        );
+      }
+      await tester.pump();
+      expect(tester.getCenter(box).dy, closeTo(before.dy + 100, 20),
+          reason: 'the hit target follows the painted drag direction');
+      await gesture.up();
+
+      expect(releasedOffset, isNotNull);
+      expect(releasedVelocity, isNotNull);
+      expect(releasedOffset!.dx, closeTo(50, 10));
+      expect(releasedOffset!.dy, closeTo(0, 1));
+      expect(releasedVelocity!.dx, closeTo(1000, 300));
+      expect(releasedVelocity!.dy, closeTo(0, 50));
+    });
+
+    testWidgets('scaled parent reports release velocity in drag-offset units',
+        (tester) async {
+      Offset? releasedOffset;
+      Offset? releasedVelocity;
+      await tester.pumpWidget(_wrap(
+        Transform.scale(
+          scale: 2,
+          child: NibDraggable(
+            snapBack: false,
+            onDragEnd: (offset, velocity) {
+              releasedOffset = offset;
+              releasedVelocity = velocity;
+            },
+            child: const SizedBox(
+                width: 50, height: 50, key: ValueKey('scaled-drag-box')),
+          ),
+        ),
+      ));
+
+      final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('scaled-drag-box'))));
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(
+          const Offset(20, 0),
+          timeStamp: Duration(milliseconds: (i + 1) * 10),
+        );
+      }
+      await gesture.up();
+
+      expect(releasedOffset, isNotNull);
+      expect(releasedVelocity, isNotNull);
+      expect(releasedOffset!.dx, closeTo(50, 10));
+      expect(releasedVelocity!.dx, closeTo(1000, 300));
+    });
+
     testWidgets('dragging moves the widget by the drag delta', (tester) async {
       Offset? lastUpdate;
       await tester.pumpWidget(

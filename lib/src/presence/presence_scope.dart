@@ -55,3 +55,18 @@ class NibPresenceScope extends InheritedWidget {
   @override
   bool updateShouldNotify(NibPresenceScope oldWidget) => false;
 }
+
+/// Marks a popped exit subtree: its captured paint transform already fixes
+/// its position, so moving it to the overlay must not start another FLIP.
+class NibPresenceExitOverlay extends InheritedWidget {
+  /// Wraps an exiting child while it is painted in the pop overlay.
+  const NibPresenceExitOverlay({super.key, required super.child});
+
+  /// Whether this widget is currently inside a popped exit subtree.
+  static bool contains(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<NibPresenceExitOverlay>() !=
+      null;
+
+  @override
+  bool updateShouldNotify(NibPresenceExitOverlay oldWidget) => false;
+}

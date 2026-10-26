@@ -13,8 +13,8 @@ developed together in the same monorepo:
 
 | Package | pub.dev | Path (this monorepo) | Version | What it is |
 |---|---|---|---|---|
-| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.2 (prepared locally) | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
-| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.1 (prepared locally) | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
+| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.4 (candidate source; 0.3.3 hosted) | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
+| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.2 (candidate source; 0.2.1 hosted) | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
 
 `nib_components` depends on `nib_motion` (`^0.3.1`) — installing
 `nib_components` pulls `nib_motion` in transitively. You can also use
@@ -42,6 +42,11 @@ flutter pub add nib_components
 import 'package:nib_motion/nib_motion.dart';
 import 'package:nib_components/nib_components.dart'; // if using components
 ```
+
+The current motion source requires Flutter 3.29 or newer for its shader
+APIs. Its hosted 0.3.3 pubspec still advertises an older floor; the correction
+is staged locally for a future patch. Use Flutter 3.29+ when generating code
+against either the current source or the hosted motion archive.
 
 ## Design Philosophy
 
@@ -232,10 +237,10 @@ Gotcha (general awareness): the `SpringSimulation` this drives resolves `onCompl
 Only `NibDragConfig` and `NibDragReleaseMode` are exported from `drag_handler.dart` (its `DragHandler` class and `applyElastic` function are package-internal).
 
 #### `NibDragConfig` (`drag_handler.dart`)
-`{axis: Axis?, constraints: Rect?, elastic = false, elasticFactor = 0.2, onDragStart, onDragEnd: void Function(Velocity)?, releaseMode = NibDragReleaseMode.springBack, snapPoints: List<Offset>?}`. `NibDragReleaseMode`: `springBack | inertia | stay`. Feeds `NibMotion.drag`.
+`{axis: Axis?, constraints: Rect?, elastic = false, elasticFactor = 0.2, onDragStart, onDragEnd: void Function(Velocity)?, releaseMode = NibDragReleaseMode.springBack, snapPoints: List<Offset>?}`. `NibDragReleaseMode`: `springBack | inertia | stay`. Feeds `NibMotion.drag`. In candidate 0.3.4, release velocity uses receiver-local pixels/second, matching the drag offset under transformed ancestors.
 
 #### `NibDraggable` (`nib_draggable.dart`)
-Standalone drag widget (no `NibMotion` integration) — `{required child, axis, bounds, snapBack = false, snapTarget, onDragStart, onDragUpdate, onDragEnd, spring = NibSpringDescription.gentle}`.
+Standalone drag widget (no `NibMotion` integration) — `{required child, axis, bounds, snapBack = false, snapTarget, onDragStart, onDragUpdate, onDragEnd, spring = NibSpringDescription.gentle}`. Candidate 0.3.4 reports release velocity in receiver-local pixels/second.
 ```dart
 NibDraggable(
   bounds: const Rect.fromLTWH(-100, -100, 200, 200),

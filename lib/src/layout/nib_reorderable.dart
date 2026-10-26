@@ -6,6 +6,7 @@ import '../core/nib_anim.dart';
 import '../core/nib_motion_controller.dart';
 import '../core/nib_motion_widget.dart';
 import '../core/nib_transition.dart';
+import '../core/render_nib_motion.dart';
 import 'nib_layout.dart';
 import 'nib_layout_scope.dart';
 
@@ -131,22 +132,32 @@ class _NibReorderableState extends State<NibReorderable>
   double _mainSize(RenderBox box) =>
       _horizontal ? box.size.width : box.size.height;
 
-  /// Layout position (excluding the item's own transform) along the main axis.
-  double _layoutOrigin(Key key) => _main(_box(key)!.localToGlobal(Offset.zero));
+  RenderBox? _space() {
+    final object = context.findRenderObject();
+    return object is RenderBox && object.attached && object.hasSize
+        ? object
+        : null;
+  }
+
+  /// Layout position (excluding the item's own transform) in list space.
+  double _layoutOrigin(Key key, RenderBox space) =>
+      _main(_box(key)!.localToGlobal(Offset.zero, ancestor: space));
 
   void _start(Key key, Offset pointer) {
     final box = _box(key);
-    if (box == null) return;
+    final space = _space();
+    if (box == null || space == null) return;
     final order = _givenKeys;
     setState(() {
       _dragged = key;
       _order = order;
       _originalIndex = order.indexOf(key);
     });
-    // Painted position: the layout origin plus any transform in flight.
-    final painted = box.getTransformTo(null).getTranslation();
-    final paintedOrigin = _horizontal ? painted.x : painted.y;
-    _grabOffset = _main(pointer) - paintedOrigin;
+    // Keep pointer, layout slots, and paint translation in the same space.
+    final paintedBox = box is RenderNibMotion ? box.child ?? box : box;
+    final paintedOrigin =
+        _main(paintedBox.localToGlobal(Offset.zero, ancestor: space));
+    _grabOffset = _main(space.globalToLocal(pointer)) - paintedOrigin;
     _lastPointer = pointer;
     _updateAutoScroll();
   }
@@ -165,11 +176,9 @@ class _NibReorderableState extends State<NibReorderable>
   double _scrollVelocity(ScrollableState state) {
     final box = state.context.findRenderObject();
     if (box is! RenderBox || !box.attached) return 0;
-    final start = _main(box.localToGlobal(Offset.zero));
-    final end = start + _mainSize(box);
-    final p = _main(_lastPointer);
-    final toStart = p - start;
-    final toEnd = end - p;
+    final p = _main(box.globalToLocal(_lastPointer));
+    final toStart = p;
+    final toEnd = _mainSize(box) - p;
     if (toStart < _edgeZone) {
       return -_maxScrollSpeed * ((_edgeZone - toStart) / _edgeZone).clamp(0, 1);
     }
@@ -222,9 +231,10 @@ class _NibReorderableState extends State<NibReorderable>
     final order = _order;
     if (dragged == null || order == null) return;
     final draggedBox = _box(dragged);
-    if (draggedBox == null) return;
+    final space = _space();
+    if (draggedBox == null || space == null) return;
 
-    final paintedOrigin = _main(pointer) - _grabOffset;
+    final paintedOrigin = _main(space.globalToLocal(pointer)) - _grabOffset;
     final draggedCenter = paintedOrigin + _mainSize(draggedBox) / 2;
 
     // Where does the dragged item belong among its siblings?
@@ -236,7 +246,7 @@ class _NibReorderableState extends State<NibReorderable>
     for (final key in siblings) {
       final box = _box(key);
       if (box == null) continue;
-      final center = _layoutOrigin(key) + _mainSize(box) / 2;
+      final center = _layoutOrigin(key, space) + _mainSize(box) / 2;
       if (center < draggedCenter) newIndex++;
     }
 
@@ -247,7 +257,7 @@ class _NibReorderableState extends State<NibReorderable>
     var listStart = double.infinity;
     for (final key in order) {
       if (_box(key) != null) {
-        final origin = _layoutOrigin(key);
+        final origin = _layoutOrigin(key, space);
         if (origin < listStart) listStart = origin;
       }
     }

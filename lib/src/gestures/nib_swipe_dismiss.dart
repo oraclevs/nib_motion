@@ -160,6 +160,7 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss>
   SpringSolver? _springSolver;
   Ticker? _flingTicker;
   VelocityTracker? _velocityTracker;
+  Offset _velocityPosition = Offset.zero;
 
   bool get _vertical => widget.dismissDirection == DismissDirection.vertical;
 
@@ -177,13 +178,18 @@ class _NibSwipeDismissState extends State<NibSwipeDismiss>
   void _handlePanStart(DragStartDetails details) {
     _springSolver?.stop();
     _flingTicker?.stop();
+    _velocityPosition = Offset.zero;
     _velocityTracker =
         VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
+    // The rendered offset uses receiver-local deltas, so the release spring
+    // must receive velocity in the same coordinate space.
+    _velocityPosition +=
+        _vertical ? Offset(0, details.delta.dy) : Offset(details.delta.dx, 0);
     _velocityTracker?.addPosition(
-        details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
+        details.sourceTimeStamp ?? Duration.zero, _velocityPosition);
 
     var newOffset = _offset.value + _axisDelta(details);
 

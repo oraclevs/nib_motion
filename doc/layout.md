@@ -1,8 +1,9 @@
 # Layout animation
 
 `NibMotion(layout: …)` animates its own layout changes — FLIP (First, Last,
-Invert, Play) — in **any parent**: `Column`, `Row`, `Wrap`, `Stack`, grids,
-custom render objects. `NibLayoutGroup` (a keyed `Column`) is the same
+Invert, Play) — in supported box and sliver layouts such as `Column`, `Row`,
+`Wrap`, `Stack`, and grids. Transformed, clipped, and custom parents have the
+geometry limits documented below. `NibLayoutGroup` (a keyed `Column`) is the same
 mechanism: each child is a `NibMotion(layout: NibLayout.position,
 layoutChannelMode: NibLayoutChannelMode.translate)` inside a `NibLayoutScope`.
 
@@ -48,8 +49,9 @@ NibLayoutScope(                       // optional: defines the coordinate space
 3. **Play.** The channels are animated back to identity by the normal drivers,
    so an interruption starts from the painted position *and velocity*
    (`MotionValue.velocity`) — there is no separate layout engine. The
-   translation is applied in the widget's own coordinate space, so it is
-   correct under scaled or rotated ancestors. Nothing rebuilds per frame.
+   translation is applied in the widget's own coordinate space. Numeric tests
+   cover selected scaled and rotated ancestors; the full transform matrix is
+   not verified. Nothing rebuilds per frame.
 4. **Size** is a scale about the centre by default (`both` also moves the
    centre; `size` holds the position). With `layoutSizeMode: clip` the box keeps
    its top-left fixed, is never scaled, and a clip (hit testing and semantics
@@ -57,6 +59,33 @@ NibLayoutScope(                       // optional: defines the coordinate space
    widget shows its new content at once: the old pixels no longer exist.
 5. **Reduced motion** (`NibMotionConfig`) jumps: channels go straight to
    identity, no ticker.
+
+## Geometry and lifecycle contract for this candidate
+
+Layout movement and shared snapshots use the nearest `NibLayoutScope`'s layout
+coordinates; drag offsets and release velocities use the receiving widget's
+local logical pixels and logical pixels per second. The pop exit overlay keeps
+the child's pre-exit layout size and painted affine transform. While exiting,
+that child is excluded from pointer hits, focus, and semantics. Re-adding its
+key during exit returns it to the layout flow; disposal cancels pending motion.
+
+Numeric widget regressions cover a translated, rotated, nonuniformly scaled
+presence builder; nested rotation and nonuniform scale for draggable offset,
+painted hit target, and release velocity; and uniform 2x scaling for reorder
+thresholds and auto-scroll. These tests do not establish all combinations of
+scrolling, clips, and independently transformed overlays. In particular,
+`NibReorderable` under rotation or perspective, pop exits whose ancestor clip
+would need to move between coordinate spaces, and near-singular transforms
+(including zero or extremely small scale) are outside the verified geometry
+contract. Do not use those combinations for release-critical interactions
+without an application-specific test. Perspective transforms are not supported
+for layout FLIP or reorder geometry in this candidate.
+
+A detached `layoutId` snapshot is available for at most 250 ms of frame time
+and is released by a timer even if no further layout occurs. An attached owner
+that changes ID or scope removes its old snapshot immediately. The timer count
+and allocation cost under sustained churn still need a measured run; the
+cleanup tests establish retention behavior only.
 
 ## Shared layout (`layoutId`)
 

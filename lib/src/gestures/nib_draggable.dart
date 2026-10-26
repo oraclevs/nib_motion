@@ -143,8 +143,8 @@ class NibDraggable extends StatefulWidget {
   /// Called with the current drag offset on every pan update.
   final ValueChanged<Offset>? onDragUpdate;
 
-  /// Called when a drag gesture ends, with the final offset and the release
-  /// velocity.
+  /// Called when a drag gesture ends, with the final offset and release
+  /// velocity in receiver-local pixels per second.
   final void Function(Offset finalOffset, Offset velocity)? onDragEnd;
 
   /// The spring physics used to animate back to the origin or [snapTarget]
@@ -164,6 +164,7 @@ class _NibDraggableState extends State<NibDraggable>
   SpringSolver? _springY;
 
   VelocityTracker? _velocityTracker;
+  Offset _velocityPosition = Offset.zero;
 
   @override
   void dispose() {
@@ -175,19 +176,21 @@ class _NibDraggableState extends State<NibDraggable>
   void _handlePanStart(DragStartDetails details) {
     _springX?.stop();
     _springY?.stop();
+    _velocityPosition = Offset.zero;
     _velocityTracker =
         VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
     widget.onDragStart?.call();
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
-    _velocityTracker?.addPosition(
-        details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
-
     var dx = details.delta.dx;
     var dy = details.delta.dy;
     if (widget.axis == Axis.vertical) dx = 0.0;
     if (widget.axis == Axis.horizontal) dy = 0.0;
+    // Keep release velocity in the same local coordinates as the offset.
+    _velocityPosition += Offset(dx, dy);
+    _velocityTracker?.addPosition(
+        details.sourceTimeStamp ?? Duration.zero, _velocityPosition);
 
     var newX = _x.value + dx;
     var newY = _y.value + dy;

@@ -1,3 +1,22 @@
+## 0.3.4
+
+* Keep duration-and-bounce spring parameters identical on Flutter 3.29 and
+  newer SDKs without requiring the constructor introduced after 3.29.
+* Keep exiting layout-enabled children at their painted bounds under rotated,
+  nonuniformly scaled presence builders.
+* Bundle Cupertino icon assets in the example Web build.
+* Require Flutter 3.29 or newer because the shader APIs used by this package
+  are unavailable in earlier supported SDKs.
+* Keep drag, swipe, and reorder coordinates in their local spaces under scaled
+  ancestors, including release velocity and reorder thresholds.
+* Preserve the painted transform and child layout size when a presence exit is
+  popped from a translated or scaled layout builder.
+* Release detached layout snapshots after the shared-transition window, even
+  when the scope receives no more layout records. Changing an attached
+  `layoutId` or scope also removes the old snapshot.
+* Point README links at the GitHub documentation because `doc/` is excluded
+  from the pub archive.
+
 ## 0.3.3
 
 * Render the approved ink mark in the pub.dev README with a PNG export. The SVG remains in the package as the editable source.

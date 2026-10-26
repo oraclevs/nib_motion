@@ -52,7 +52,8 @@ class NibDragConfig {
   /// Called when a drag gesture begins.
   final VoidCallback? onDragStart;
 
-  /// Called when a drag gesture ends, with the release velocity.
+  /// Called when a drag gesture ends, with velocity in receiver-local
+  /// pixels per second (the same units as the drag offset).
   final void Function(Velocity velocity)? onDragEnd;
 
   /// How the widget settles once the drag gesture ends. Ignored if
@@ -100,6 +101,7 @@ class DragHandler {
   final void Function(Offset offset, Velocity velocity) onRelease;
 
   VelocityTracker? _velocityTracker;
+  Offset _velocityPosition = Offset.zero;
   Offset _offset = Offset.zero;
 
   /// The current drag offset relative to the gesture's start.
@@ -108,6 +110,7 @@ class DragHandler {
   /// Call from `GestureDetector.onPanStart`.
   void handlePanStart(DragStartDetails details) {
     _offset = Offset.zero;
+    _velocityPosition = Offset.zero;
     _velocityTracker =
         VelocityTracker.withKind(details.kind ?? PointerDeviceKind.touch);
     config.onDragStart?.call();
@@ -115,13 +118,15 @@ class DragHandler {
 
   /// Call from `GestureDetector.onPanUpdate`.
   void handlePanUpdate(DragUpdateDetails details) {
-    _velocityTracker?.addPosition(
-        details.sourceTimeStamp ?? Duration.zero, details.globalPosition);
-
     var dx = details.delta.dx;
     var dy = details.delta.dy;
     if (config.axis == Axis.vertical) dx = 0.0;
     if (config.axis == Axis.horizontal) dy = 0.0;
+    // The translation channels use receiver-local delta units. Track their
+    // release velocity in those same units even under a transformed ancestor.
+    _velocityPosition += Offset(dx, dy);
+    _velocityTracker?.addPosition(
+        details.sourceTimeStamp ?? Duration.zero, _velocityPosition);
 
     var newX = _offset.dx + dx;
     var newY = _offset.dy + dy;

@@ -44,12 +44,14 @@ class RenderNibMotion extends RenderProxyBox
     NibLayoutSizeMode layoutSizeMode = NibLayoutSizeMode.scale,
     NibLayoutChannelMode layoutChannelMode = NibLayoutChannelMode.channels,
     NibLayoutChannels? layoutChannels,
-    this.layoutId,
-    this.layoutScope,
+    Object? layoutId,
+    NibLayoutScopeData? layoutScope,
     this.onLayoutFlip,
     this.onPaintBoundsChanged,
     RenderBox? child,
-  })  : _layoutMode = layout,
+  })  : _layoutId = layoutId,
+        _layoutScope = layoutScope,
+        _layoutMode = layout,
         _layoutSizeMode = layoutSizeMode,
         _layoutChannelMode = layoutChannelMode,
         _layoutChannels = layoutChannels,
@@ -131,10 +133,28 @@ class RenderNibMotion extends RenderProxyBox
   NibLayoutChannels? _layoutChannels;
 
   /// Identity shared across the tree for shared-layout transitions.
-  Object? layoutId;
+  Object? get layoutId => _layoutId;
+  Object? _layoutId;
+  set layoutId(Object? value) {
+    if (_layoutId == value) return;
+    final oldId = _layoutId;
+    if (oldId != null) _layoutScope?.forgetOwner(oldId, this);
+    _layoutId = value;
+    markNeedsPaint();
+  }
 
   /// Registry of shared ids in the enclosing `NibLayoutScope`, if any.
-  NibLayoutScopeData? layoutScope;
+  NibLayoutScopeData? get layoutScope => _layoutScope;
+  NibLayoutScopeData? _layoutScope;
+  set layoutScope(NibLayoutScopeData? value) {
+    if (identical(_layoutScope, value)) return;
+    final id = _layoutId;
+    if (id != null) _layoutScope?.forgetOwner(id, this);
+    _layoutScope = value;
+    _committed = null;
+    _pending = null;
+    markNeedsPaint();
+  }
 
   /// Called (post-frame) with the FLIP that inverts a layout change. The
   /// callback must write the flip into the layout channels; until it returns
@@ -192,6 +212,8 @@ class RenderNibMotion extends RenderProxyBox
   void detach() {
     _lastPaintBounds = null;
     super.detach();
+    final id = layoutId;
+    if (id != null) layoutScope?.ownerDetached(id, this);
     // After `super.detach()` so `attached` is false and the box leaves the
     // static frame-hook registry (it used to stay there forever).
     _syncRegistration();

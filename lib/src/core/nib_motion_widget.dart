@@ -2054,6 +2054,7 @@ class _NibMotionState extends State<NibMotion>
       );
     }
 
+    final inPopExitOverlay = NibPresenceExitOverlay.contains(context);
     return _NibMotionBox(
       opacity: _opacity,
       translateX: _translateX,
@@ -2070,10 +2071,10 @@ class _NibMotionState extends State<NibMotion>
       color: _color,
       borderRadius: _borderRadius,
       boxShadow: _boxShadow,
-      layout: _effectiveLayout,
+      layout: inPopExitOverlay ? NibLayout.none : _effectiveLayout,
       layoutSizeMode: widget.layoutSizeMode,
       layoutChannelMode: widget.layoutChannelMode,
-      layoutChannels: _layoutChannels,
+      layoutChannels: inPopExitOverlay ? null : _layoutChannels,
       layoutId: widget.layoutId,
       layoutScope: NibLayoutScope.maybeOf(context),
       onLayoutFlip: _onLayoutFlip,

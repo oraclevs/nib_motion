@@ -34,6 +34,21 @@ void main() {
       expect(stiff.damping, 28.0);
     });
 
+    test('duration and bounce map to stable physical parameters', () {
+      const duration = Duration(milliseconds: 500);
+      final critical = NibSpringDescription.fromDuration(duration: duration);
+      final bouncy =
+          NibSpringDescription.fromDuration(duration: duration, bounce: 0.25);
+      final overdamped =
+          NibSpringDescription.fromDuration(duration: duration, bounce: -0.5);
+      expect(critical.mass, 1.0);
+      expect(critical.stiffness,
+          closeTo(16 * 3.141592653589793 * 3.141592653589793, 1e-10));
+      expect(critical.damping, closeTo(8 * 3.141592653589793, 1e-10));
+      expect(bouncy.damping, closeTo(6 * 3.141592653589793, 1e-10));
+      expect(overdamped.damping, closeTo(16 * 3.141592653589793, 1e-10));
+    });
+
     test('toFlutter() converts to a matching flutter SpringDescription', () {
       const spring = NibSpringDescription.wobbly;
 

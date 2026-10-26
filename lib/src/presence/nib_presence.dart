@@ -205,6 +205,7 @@ class NibPresence extends StatefulWidget {
 
 class _NibPresenceState extends State<NibPresence> {
   final Map<Key, NibPresenceEntry> _entries = <Key, NibPresenceEntry>{};
+  final Map<Key, ({Matrix4 transform, Size size})> _exitGeometry = {};
   final Map<Key, NibMotionAnimator> _registry = <Key, NibMotionAnimator>{};
   final Map<Key, Duration> _enterDelays = <Key, Duration>{};
   final Set<Key> _activeExits = <Key>{};
@@ -294,6 +295,7 @@ class _NibPresenceState extends State<NibPresence> {
         entry.isExiting = false;
         entry.exitCompleter = null;
         entry.exitRect = null;
+        _exitGeometry.remove(key);
         entry.exitTimer?.cancel();
         entry.exitTimer = null;
         _activeExits.remove(key);
@@ -373,12 +375,19 @@ class _NibPresenceState extends State<NibPresence> {
       ..addAll(reordered);
   }
 
-  Rect? _measure(NibPresenceEntry entry) {
+  ({Matrix4 transform, Size size, Rect bounds})? _measure(
+      NibPresenceEntry entry) {
     final space = context.findRenderObject();
     final box = entry.wrapperKey.currentContext?.findRenderObject();
     if (space is! RenderBox || box is! RenderBox) return null;
     if (!box.attached || !box.hasSize) return null;
-    return box.localToGlobal(Offset.zero, ancestor: space) & box.size;
+    final transform = box.getTransformTo(space);
+    final size = box.size;
+    return (
+      transform: transform,
+      size: size,
+      bounds: MatrixUtils.transformRect(transform, Offset.zero & size),
+    );
   }
 
   void _beginExit(Key key, Duration delay) {
@@ -397,7 +406,12 @@ class _NibPresenceState extends State<NibPresence> {
     _activeExits.add(key);
     _updateAggregate();
     if (widget.exitLayout == NibExitLayout.pop) {
-      entry.exitRect = _measure(entry);
+      final geometry = _measure(entry);
+      entry.exitRect = geometry?.bounds;
+      if (geometry != null) {
+        _exitGeometry[key] =
+            (transform: geometry.transform, size: geometry.size);
+      }
     }
     final completer = Completer<void>();
     entry.exitCompleter = completer;
@@ -417,6 +431,7 @@ class _NibPresenceState extends State<NibPresence> {
             current.exitCompleter != completer) {
           return;
         }
+        _exitGeometry.remove(key);
         setState(() => _entries.remove(key));
         _activeExits.remove(key);
         _later(() => widget.onChildExit?.call(key));
@@ -439,6 +454,20 @@ class _NibPresenceState extends State<NibPresence> {
       entry.exitTimer?.cancel();
     }
     super.dispose();
+  }
+
+  Widget _popped(NibPresenceEntry entry) {
+    final geometry = _exitGeometry[entry.key]!;
+    return Positioned(
+      left: 0,
+      top: 0,
+      width: geometry.size.width,
+      height: geometry.size.height,
+      child: Transform(
+        transform: geometry.transform,
+        child: NibPresenceExitOverlay(child: _wrap(entry)),
+      ),
+    );
   }
 
   Widget _wrap(NibPresenceEntry entry) {
@@ -473,14 +502,7 @@ class _NibPresenceState extends State<NibPresence> {
         children: [
           content,
           for (final entry in _entries.values)
-            if (overlaid(entry))
-              Positioned(
-                left: entry.exitRect!.left,
-                top: entry.exitRect!.top,
-                width: entry.exitRect!.width,
-                height: entry.exitRect!.height,
-                child: _wrap(entry),
-              ),
+            if (overlaid(entry)) _popped(entry),
         ],
       );
     }

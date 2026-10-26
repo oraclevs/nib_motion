@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
+import '../recipes/retarget_card_recipe.dart';
 import 'demo_scaffold.dart';
 
 /// Tap the track to retarget a spring mid-flight; it keeps its momentum.
@@ -69,6 +70,10 @@ class _InterruptionScreenState extends State<InterruptionScreen>
                 Text('x = ${x.toStringAsFixed(1)}   velocity = '
                     '${_x.velocity.toStringAsFixed(0)} px/s'),
           ),
+          const SizedBox(height: 32),
+          const Text('Copyable spring retarget recipe'),
+          const SizedBox(height: 8),
+          const RetargetCardRecipe(),
           const SizedBox(height: 32),
           const Text('Declarative: NibMotion(animate: NibAnim(x: …))'),
           const SizedBox(height: 8),

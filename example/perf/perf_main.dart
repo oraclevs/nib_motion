@@ -62,9 +62,9 @@ class _RunnerState extends State<_Runner> {
   int _index = -1;
   final List<FrameTiming> _timings = <FrameTiming>[];
   bool _recording = false;
-  late final TimingsCallback _callback = (list) {
+  void _callback(List<FrameTiming> list) {
     if (_recording) _timings.addAll(list);
-  };
+  }
 
   @override
   void initState() {

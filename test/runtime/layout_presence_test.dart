@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,6 +48,12 @@ double _y(WidgetTester tester, String id) => tester
     .localToGlobal(Offset.zero)
     .dy;
 
+Rect _paintRect(WidgetTester tester, String id) {
+  final box = tester.renderObject<RenderBox>(find.byKey(ValueKey('box-$id')));
+  return MatrixUtils.transformRect(
+      box.getTransformTo(null), Offset.zero & box.size);
+}
+
 /// Whether a node labelled [label] is in the live semantics tree. (The
 /// `find.bySemanticsLabel` finder reads possibly-stale render-object state.)
 bool _inSemanticsTree(WidgetTester tester, String label) {
@@ -64,6 +72,123 @@ bool _inSemanticsTree(WidgetTester tester, String label) {
 
 void main() {
   group('NibPresence exiting children', () {
+    testWidgets('pop preserves size inside translated and scaled builder',
+        (tester) async {
+      Widget host(bool show) => _cfg(NibPresence(
+            exitLayout: NibExitLayout.pop,
+            layoutBuilder: (context, children) => Transform.translate(
+              offset: const Offset(30, 40),
+              child: Transform.scale(
+                scale: 2,
+                alignment: Alignment.topLeft,
+                child:
+                    Column(mainAxisSize: MainAxisSize.min, children: children),
+              ),
+            ),
+            children: [
+              if (show)
+                const NibMotion(
+                  key: ValueKey('a'),
+                  exit: NibAnim(opacity: 0),
+                  transition: _fast,
+                  child:
+                      SizedBox(key: ValueKey('box-a'), width: 50, height: 50),
+                ),
+            ],
+          ));
+
+      await tester.pumpWidget(host(true));
+      await tester.pumpAndSettle();
+      final before = _paintRect(tester, 'a');
+      expect(before, const Rect.fromLTWH(30, 40, 100, 100));
+
+      await tester.pumpWidget(host(false));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('a')), findsOneWidget);
+      expect(_paintRect(tester, 'a'), before,
+          reason: 'exiting child must keep its painted rectangle');
+      expect(tester.getSize(find.byKey(const ValueKey('box-a'))),
+          const Size(50, 50),
+          reason: 'the overlay must paint a scale, not relayout child content');
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('pop preserves rotated nonuniform bounds and excludes hits',
+        (tester) async {
+      var taps = 0;
+      Widget host(bool show) => _cfg(NibPresence(
+            exitLayout: NibExitLayout.pop,
+            layoutBuilder: (context, children) => Transform.translate(
+              offset: const Offset(60, -100),
+              child: Transform.rotate(
+                angle: math.pi / 2,
+                alignment: Alignment.topLeft,
+                child: Transform.scale(
+                  scaleX: 2,
+                  scaleY: 0.5,
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: children,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            children: [
+              if (show)
+                NibMotion(
+                  key: const ValueKey('a'),
+                  layout: NibLayout.position,
+                  exit: const NibAnim(opacity: 0),
+                  transition: _fast,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => taps++,
+                    child: const SizedBox(
+                        key: ValueKey('box-a'), width: 50, height: 50),
+                  ),
+                ),
+            ],
+          ));
+      await tester.pumpWidget(host(true));
+      await tester.pumpAndSettle();
+      final before = _paintRect(tester, 'a');
+      expect(before.left, closeTo(35, 0.01));
+      expect(before.top, closeTo(50, 0.01));
+      expect(before.width, closeTo(25, 0.01));
+      expect(before.height, closeTo(100, 0.01));
+      await tester.tapAt(before.center);
+      await tester.pump();
+      expect(taps, 1, reason: 'the painted target is active before exit');
+
+      await tester.pumpWidget(host(false));
+      await tester.pump();
+      final exiting = _paintRect(tester, 'a');
+      expect(exiting.left, closeTo(before.left, 0.01));
+      expect(exiting.top, closeTo(before.top, 0.01));
+      expect(exiting.width, closeTo(before.width, 0.01));
+      expect(exiting.height, closeTo(before.height, 0.01));
+      await tester.tapAt(before.center);
+      expect(taps, 1, reason: 'the exit overlay cannot receive a tap');
+
+      await tester.pumpWidget(host(true));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('a')), findsOneWidget);
+      expect(_paintRect(tester, 'a'), before,
+          reason: 're-entry restores the original layout coordinates');
+      await tester.tapAt(before.center);
+      await tester.pump();
+      expect(taps, 2, reason: 'the re-entered target receives taps again');
+
+      await tester.pumpWidget(host(false));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('a')), findsNothing);
+    });
+
     testWidgets('are removed from semantics and focus while exiting',
         (tester) async {
       final handle = tester.ensureSemantics();

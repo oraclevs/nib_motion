@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/physics.dart' as flutter_physics;
 
@@ -57,14 +59,16 @@ class NibSpringDescription {
   }) {
     assert(duration > Duration.zero, 'duration must be positive');
     assert(bounce > -1.0 && bounce < 1.0, 'bounce must be in (-1, 1)');
-    final spring = flutter_physics.SpringDescription.withDurationAndBounce(
-      duration: duration,
-      bounce: bounce,
-    );
+    assert(duration.inMilliseconds > 0, 'duration must be at least 1 ms');
+    // Equivalent to Flutter's duration/bounce spring conversion, which was
+    // added in Flutter 3.32. Keep the same physics on the supported 3.29 floor.
+    final seconds = duration.inMilliseconds / 1000.0;
+    final stiffness = 4 * math.pi * math.pi / (seconds * seconds);
+    final dampingRatio = bounce > 0 ? 1.0 - bounce : 1.0 / (bounce + 1.0);
     return NibSpringDescription(
-      mass: spring.mass,
-      stiffness: spring.stiffness,
-      damping: spring.damping,
+      mass: 1.0,
+      stiffness: stiffness,
+      damping: dampingRatio * 2 * math.sqrt(stiffness),
     );
   }
 
