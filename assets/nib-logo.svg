@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="52 55 355 210" role="img" aria-labelledby="title desc">
+<title id="title">Nib — the writing I</title><desc id="desc">The fountain nib becomes the I. Its tip draws a continuous underline beneath NIB.</desc>
+<g fill="none" stroke="#ffb511" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+     <path d="M78 204V90L166 204V90"/>
+     <path d="M295 90V204H340C389 204 393 146 342 146H295M295 90H335C379 90 379 146 340 146"/>
+     </g>
+     <path d="M230 204C225 235 288 232 324 230C394 226 400 250 350 252H92" fill="none" stroke="#ffb511" stroke-width="5" stroke-linecap="round"/>
+     <g transform="translate(230 204) rotate(0) scale(1.25)">
+    <path d="M-18-108H18V-84H-18Z" fill="#f5e9c9"/>
+    <path d="M-21-78L-28-58Q-20-27 0 0Q20-27 28-58L21-78Z" fill="#f5e9c9"/>
+    <path d="M0-48V-2" stroke="#111210" stroke-width="3"/>
+    <circle cy="-48" r="6" fill="#111210"/>
+    <path d="M-17-57L-9-37M17-57L9-37" stroke="#111210" stroke-width="1.5" fill="none"/>
+    </g>
+</svg>

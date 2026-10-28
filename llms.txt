@@ -13,10 +13,10 @@ developed together in the same monorepo:
 
 | Package | pub.dev | Path (this monorepo) | Version | What it is |
 |---|---|---|---|---|
-| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.4 (candidate source; 0.3.3 hosted) | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
-| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.2 (candidate source; 0.2.1 hosted) | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
+| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.4 | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
+| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.2 | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
 
-`nib_components` depends on `nib_motion` (`^0.3.1`) — installing
+`nib_components` depends on `nib_motion` (`^0.3.4`) — installing
 `nib_components` pulls `nib_motion` in transitively. You can also use
 `nib_motion` completely standalone, on any Flutter widget, with no
 `nib_components` dependency at all.
@@ -43,10 +43,10 @@ import 'package:nib_motion/nib_motion.dart';
 import 'package:nib_components/nib_components.dart'; // if using components
 ```
 
-The current motion source requires Flutter 3.29 or newer for its shader
-APIs. Its hosted 0.3.3 pubspec still advertises an older floor; the correction
-is staged locally for a future patch. Use Flutter 3.29+ when generating code
-against either the current source or the hosted motion archive.
+Motion 0.3.4 requires Flutter 3.29 or newer for its shader APIs. Components
+0.2.2 requires Dart 3.12.1 or newer as well. These are the versions described
+by this source reference; consult pub.dev for currently hosted releases.
+Official guides and examples: https://www.nibmotion.xyz.
 
 ## Design Philosophy
 

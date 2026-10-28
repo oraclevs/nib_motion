@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nibmotion-ink-mark.png" alt="NibMotion fountain nib drawing an ink N" width="120" />
+  <img src="https://www.nibmotion.xyz/brand/nib-mark.svg" alt="Nib logo with a fountain nib forming the I" width="180" />
 </p>
 
 <h1 align="center">NibMotion</h1>
 
 <p align="center">
-  A declarative, physics-based animation framework for Flutter — inspired by Framer Motion.
+  Declarative animation for Flutter with springs, gestures, layout transitions, and shaders.
 </p>
 
 <p align="center">
@@ -16,8 +16,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.nibmotion.xyz/motion">Live Demo</a> ·
-  <a href="https://www.nibmotion.xyz/docs">Documentation</a> ·
+  <a href="https://www.nibmotion.xyz">Website</a> ·
+  <a href="https://www.nibmotion.xyz/examples">Examples</a> ·
+  <a href="https://www.nibmotion.xyz/playground/spring-retarget">Playground</a> ·
+  <a href="https://www.nibmotion.xyz/docs/motion/introduction">Documentation</a> ·
   <a href="https://pub.dev/packages/nib_motion">pub.dev</a>
 </p>
 
@@ -29,7 +31,7 @@
   <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nib_preview.gif" alt="NibMotion preview" width="720" />
 </p>
 
-## App Demo
+## App demo
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/daily_focus.gif" alt="Daily Focus app demo" width="340" />
@@ -37,13 +39,11 @@
 
 ---
 
-## Why NibMotion?
+## How it works
 
 NibMotion lets you describe a widget's starting state, target state, and
 transition in one place. Use a spring when the movement should respond to
 interruption; use a tween when timing matters more.
-
-> Describe how your UI should look in different states — NibMotion handles the rest.
 
 The basic `NibMotion` widget does not require a controller. One is available
 when an interaction needs imperative control. Underneath, `MotionValue`s carry
@@ -56,6 +56,8 @@ layout, presence and shaders all sit on that same model — see
 
 ## Installation
 
+Requires Flutter 3.29 or newer. The package depends only on the Flutter SDK.
+
 ```bash
 flutter pub add nib_motion
 ```
@@ -66,7 +68,7 @@ import 'package:nib_motion/nib_motion.dart';
 
 ---
 
-## Quick Start
+## Quick start
 
 ```dart
 NibMotion(
@@ -94,6 +96,7 @@ NibMotion(
 | **Text** | Per-char/word/line — `NibText`, `NibTypewriter`, `NibGradientText`, `NibTextReveal` |
 | **Shaders** | GPU effects — `NibShimmer`, `NibDissolve` |
 | **Liquid Glass** | `NibGlass` with shader refraction where supported and a blur fallback; glass `NibNavBar`/`NibScaffold` |
+| **Water (experimental)** | `NibWaterController` and `NibWaterSurface` for bounded decorative droplets and waves over a captured Flutter subtree |
 | **Navigation** | `NibNavBar` with spring-driven pill, dot, line, highlight, or liquid water indicators |
 | **Presets** | `NibShake`, `NibBounce`, `NibPulse`, `NibFloat`, `NibFlip`, `NibRubberBand` |
 | **Gestures+** | `NibDraggable`, `NibPinch`, `NibSwipeDismiss` |
@@ -115,7 +118,7 @@ for the tested cases and lifecycle rules.
 
 ## Usage
 
-### Gesture Animations
+### Gesture animations
 
 ```dart
 NibMotion(
@@ -125,7 +128,7 @@ NibMotion(
 )
 ```
 
-### Variants (State System)
+### Variants
 
 ```dart
 NibMotion(
@@ -152,7 +155,7 @@ NibMotion(
 )
 ```
 
-### Exit Animations (Presence)
+### Exit animations (presence)
 
 ```dart
 NibPresence(
@@ -169,7 +172,7 @@ NibPresence(
 )
 ```
 
-### Viewport Animations
+### Viewport animations
 
 ```dart
 NibMotion(
@@ -180,7 +183,7 @@ NibMotion(
 )
 ```
 
-### Layout Animations (FLIP)
+### Layout animations (FLIP)
 
 ```dart
 NibLayoutGroup(
@@ -188,7 +191,7 @@ NibLayoutGroup(
 )
 ```
 
-### Spring Physics
+### Spring physics
 
 ```dart
 NibMotion(
@@ -202,7 +205,7 @@ Springs are **interruptible**: change `animate` mid-flight and the new motion
 starts from the current position *and velocity*, whatever driver was running
 (spring, tween, inertia, drag). See [doc/interruption.md](https://github.com/oraclevs/nib_motion/blob/main/doc/interruption.md).
 
-### Reactive Motion Values
+### Reactive motion values
 
 ```dart
 final progress = MotionValue<double>(0);
@@ -220,7 +223,7 @@ final scale = MotionValue.computed(
 
 See [doc/motion-values.md](https://github.com/oraclevs/nib_motion/blob/main/doc/motion-values.md).
 
-### Drag with Inertia, Bounds and Snap
+### Drag with inertia, bounds, and snap
 
 ```dart
 NibMotion(
@@ -240,7 +243,7 @@ NibMotion(
 )
 ```
 
-### Liquid Glass
+### Liquid glass
 
 ```dart
 NibGlass(
@@ -268,7 +271,7 @@ NibNavBar(
 )
 ```
 
-### Scroll-Linked Motion
+### Scroll-linked motion
 
 ```dart
 final bridge = ScrollMotionBridge(controller: scrollController);
@@ -281,7 +284,7 @@ NibMotion(
 )
 ```
 
-### Imperative Controller
+### Imperative controller
 
 ```dart
 final controller = NibMotionController();
@@ -294,7 +297,7 @@ NibMotion(
 await controller.start(target: const NibAnim(scale: 1.2));
 ```
 
-### Reduced Motion
+### Reduced motion
 
 ```dart
 NibMotionConfig(
@@ -310,10 +313,28 @@ NibMotionConfig(
 For continuous motion, `MotionValue` notifications repaint the render object
 without rebuilding the widget tree on every frame. Discrete content changes,
 such as a typewriter advancing to its next character, still rebuild when they
-need to. Your widgets can move without asking your build method to dance on
-every frame.
+need to. `NibFlip` also rebuilds its focus and semantics wrappers when the
+visible face changes.
 
 ---
+
+## Examples and support
+
+Browse [motion examples](https://www.nibmotion.xyz/examples), read the
+[guides](https://www.nibmotion.xyz/docs/motion/introduction), or try the
+[playground](https://www.nibmotion.xyz/playground/spring-retarget).
+The [example app](https://github.com/oraclevs/nib_motion/tree/main/example)
+contains runnable demos. From its directory, run `flutter pub get`, then
+`flutter run -t lib/demos.dart`.
+
+The experimental water surface samples its designated Flutter background,
+with a static outline fallback if shader loading or capture fails. It does not
+sample platform views or content outside that subtree. It models decorative
+2D bodies and waves; physical device GPU, touch, and frame-budget validation
+remains incomplete. See the public API docs for controller ownership and bounds.
+
+For bugs and feature requests, [open an issue](https://github.com/oraclevs/nib_motion/issues)
+with a small reproduction, your Flutter version, platform, and renderer.
 
 ## License
 

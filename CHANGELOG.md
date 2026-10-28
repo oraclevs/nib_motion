@@ -1,5 +1,15 @@
 ## 0.3.4
 
+* Add experimental `NibWaterController` and `NibWaterSurface` APIs for bounded
+  decorative droplets, merge/split interactions, and waves. The surface samples
+  a designated Flutter subtree, reuses unchanged captures, and falls back to
+  static outlines when capture or shader loading is unavailable.
+* Pause water work when hidden, backgrounded, or disabled, and honor the package,
+  widget, and system reduced-motion settings. Physical device GPU and touch
+  validation remains incomplete.
+* Preserve `NibFlip` progress when its duration changes or `TickerMode` pauses it.
+  Exclude the hidden face from keyboard focus and semantics.
+* Use the shared Nib logo and link to the official guides, examples, and playground.
 * Keep duration-and-bounce spring parameters identical on Flutter 3.29 and
   newer SDKs without requiring the constructor introduced after 3.29.
 * Keep exiting layout-enabled children at their painted bounds under rotated,

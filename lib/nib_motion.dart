@@ -91,3 +91,6 @@ export 'src/scroll/nib_sliver_progress.dart';
 export 'src/timeline/nib_timeline_drag_scrubber.dart';
 export 'src/debug/nib_hot_reload_replay.dart';
 export 'src/debug/nib_spring_tuner.dart';
+
+export 'src/water/nib_water_controller.dart';
+export 'src/water/nib_water_surface.dart';

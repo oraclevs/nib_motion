@@ -50,6 +50,10 @@ class NibFlip extends StatefulWidget {
   final bool isFlipped;
 
   /// How long the flip animation takes to play out.
+  ///
+  /// Changing this during a flip preserves its position and scales its
+  /// remaining time. A non-positive duration settles at the target immediately.
+  /// [TickerMode] pauses the flip without counting time spent disabled.
   final Duration duration;
 
   /// The axis the card rotates around: [Axis.horizontal] rotates around the
@@ -64,22 +68,47 @@ class NibFlip extends StatefulWidget {
 class _NibFlipState extends State<NibFlip>
     with SingleTickerProviderStateMixin, NibReducedMotionMixin {
   late final MotionValue<double> _progress;
+  late final ValueNotifier<bool> _showingBack;
   Ticker? _ticker;
   double _from = 0.0;
   double _to = 0.0;
+  double _phase = 1.0;
+  Duration _lastElapsed = Duration.zero;
+  bool _animating = false;
+  bool _tickersEnabled = true;
 
   @override
   void initState() {
     super.initState();
     _progress = MotionValue<double>(widget.isFlipped ? 1.0 : 0.0);
+    _showingBack = ValueNotifier(widget.isFlipped);
+    _progress.addListener(_updateVisibleFace);
+  }
+
+  void _updateVisibleFace() {
+    // Only crossing the midpoint rebuilds the focus/semantics wrappers.
+    // The render objects still consume every other progress update directly.
+    _showingBack.value = _progress.value >= 0.5;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Keep compatibility with the package's Flutter 3.29 minimum.
+    // ignore: deprecated_member_use
+    final enabled = TickerMode.of(context);
+    if (_tickersEnabled == enabled) return;
+    _tickersEnabled = enabled;
+    if (!enabled) {
+      _ticker?.stop();
+    } else if (_animating) {
+      _startTicker();
+    }
   }
 
   @override
   void onReducedMotionChanged(bool reduced) {
-    if (reduced) {
-      _ticker?.stop();
-      _progress.value = widget.isFlipped ? 1.0 : 0.0;
-    }
+    if (reduced) _settleAt(widget.isFlipped ? 1.0 : 0.0);
   }
 
   @override
@@ -87,35 +116,52 @@ class _NibFlipState extends State<NibFlip>
     super.didUpdateWidget(oldWidget);
     if (widget.isFlipped != oldWidget.isFlipped) {
       _animateTo(widget.isFlipped ? 1.0 : 0.0);
+    } else if (_animating && widget.duration <= Duration.zero) {
+      _settleAt(_to);
     }
   }
 
-  /// Starts (or restarts) a [Ticker]-driven tween of [_progress] from its
-  /// current value to [target], easing with [Curves.easeInOut] over
-  /// [NibFlip.duration]. Mirrors the manual elapsed-time tracking pattern
-  /// `SpringSolver`/`InertiaSolver` use, since [_progress] is not one of
-  /// `NibMotion`'s own animatable properties.
+  /// Starts a tween from the currently painted position. The normalized
+  /// phase advances by elapsed deltas, so changing duration preserves the
+  /// current curve position and applies the new rate to its remaining time.
   void _animateTo(double target) {
-    if (reduceMotion) {
-      _ticker?.stop();
-      _progress.value = target;
+    _ticker?.stop();
+    if (reduceMotion || widget.duration <= Duration.zero) {
+      _settleAt(target);
       return;
     }
     _from = _progress.value;
     _to = target;
-    _ticker?.stop();
+    _phase = 0.0;
+    _animating = _from != _to;
+    if (_animating && _tickersEnabled) _startTicker();
+  }
+
+  void _startTicker() {
+    _lastElapsed = Duration.zero;
     (_ticker ??= createTicker(_onTick)).start();
   }
 
+  void _settleAt(double target) {
+    _ticker?.stop();
+    _animating = false;
+    _phase = 1.0;
+    _to = target;
+    _progress.value = target;
+  }
+
   void _onTick(Duration elapsed) {
+    final delta = elapsed - _lastElapsed;
+    _lastElapsed = elapsed;
     final durationMicros = widget.duration.inMicroseconds;
-    final elapsedMicros = elapsed.inMicroseconds;
-    final rawT = durationMicros <= 0
+    _phase = durationMicros <= 0
         ? 1.0
-        : (elapsedMicros / durationMicros).clamp(0.0, 1.0);
-    final curvedT = Curves.easeInOut.transform(rawT);
+        : (_phase + delta.inMicroseconds / durationMicros).clamp(0.0, 1.0);
+    if (_phase >= 1.0 - 1e-9) _phase = 1.0;
+    final curvedT = Curves.easeInOut.transform(_phase);
     _progress.value = _from + (_to - _from) * curvedT;
-    if (rawT >= 1.0) {
+    if (_phase >= 1.0) {
+      _animating = false;
       _ticker?.stop();
     }
   }
@@ -123,17 +169,34 @@ class _NibFlipState extends State<NibFlip>
   @override
   void dispose() {
     _ticker?.dispose();
+    _progress.removeListener(_updateVisibleFace);
     _progress.dispose();
+    _showingBack.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return _NibFlipBox(
-      progress: _progress,
-      flipAxis: widget.flipAxis,
-      front: widget.front,
-      back: widget.back,
+    return ValueListenableBuilder<bool>(
+      valueListenable: _showingBack,
+      builder: (context, showingBack, _) => _NibFlipBox(
+        progress: _progress,
+        flipAxis: widget.flipAxis,
+        front: ExcludeFocus(
+          excluding: showingBack,
+          child: ExcludeSemantics(
+            excluding: showingBack,
+            child: widget.front,
+          ),
+        ),
+        back: ExcludeFocus(
+          excluding: !showingBack,
+          child: ExcludeSemantics(
+            excluding: !showingBack,
+            child: widget.back,
+          ),
+        ),
+      ),
     );
   }
 }
