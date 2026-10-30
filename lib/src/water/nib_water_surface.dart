@@ -7,6 +7,10 @@ import '../core/reduced_motion.dart';
 import '../shaders/shader_loader.dart';
 import '../viewport/nib_viewport_progress.dart';
 import 'nib_water_controller.dart';
+import 'nib_water_quality.dart';
+import 'nib_water_material.dart';
+
+part 'water_sample_layer.dart';
 
 /// Explicit pointer modes, preventing surface wakes and body drags competing.
 enum NibWaterInteraction {
@@ -25,7 +29,7 @@ enum NibWaterRenderPath {
   /// A captured Flutter subtree is bound to the optical shader.
   refractive,
 
-  /// Static outlines only, without refraction.
+  /// Direct source or static outlines, without refraction.
   fallback,
 }
 
@@ -37,7 +41,13 @@ class NibWaterRenderStatus {
       {required this.path,
       this.captureCount = 0,
       this.lastCaptureMicros = 0,
-      this.message = ''});
+      this.message = '',
+      this.backend = 'snapshot',
+      this.resolution,
+      this.sampleSequence = 0,
+      this.boundSequence = 0,
+      this.submittedAt = Duration.zero,
+      this.boundAt = Duration.zero});
 
   /// Bound shader/image, loading, or explicit fallback.
   final NibWaterRenderPath path;
@@ -45,20 +55,42 @@ class NibWaterRenderStatus {
   /// Background images captured since mount.
   final int captureCount;
 
-  /// CPU elapsed time awaiting capture, not GPU frame time.
+  /// CPU capture/submission time, not GPU completion or frame time.
   final int lastCaptureMicros;
 
   /// Explanation of the selected path.
   final String message;
+
+  /// Actual selected renderer, not a platform capability prediction.
+  final String backend;
+
+  /// Requested and effective input quality, when an image is available.
+  final NibWaterResolution? resolution;
+
+  /// Composition sample sequence, not a GPU completion counter.
+  final int sampleSequence;
+
+  /// Sequence bound to the output picture.
+  final int boundSequence;
+
+  /// Scheduler timestamp when sampling was submitted.
+  final Duration submittedAt;
+
+  /// Scheduler timestamp when the image was bound for composition.
+  /// This does not measure physical display presentation or GPU completion.
+  final Duration boundAt;
 }
 
 /// Experimental optical water over a designated Flutter background subtree.
 ///
-/// Requires finite bounds. Only [background] is captured after painting, with
-/// one capture in flight, capped to two million pixels. Unchanged backgrounds
-/// reuse the image while water repaints without rebuilding widgets. Platform
-/// views and content outside [background] are not sampled. Sampling clamps to
-/// the local image edges: include background padding when appropriate.
+/// Requires finite bounds. [sampling] defaults to the recoverable legacy
+/// asynchronous path. Opt into [NibWaterSampling.live] for composition-time
+/// layer sampling at device-relative [quality]. Static and throttled policies
+/// explicitly trade freshness for work. The candidate retains one input image
+/// and one output picture; engine intermediates are outside its input budget.
+/// Platform views and content outside [background] are unsupported. Refraction
+/// clamps to local image edges; provide padded content when needed. No offscreen
+/// neighbors or inverse-warp hit-testing are inferred.
 ///
 /// One surface drives one [controller] in receiver-local logical pixels. The
 /// caller disposes the controller. This widget owns its shader and images.
@@ -76,6 +108,10 @@ class NibWaterSurface extends StatefulWidget {
       this.paused = false,
       this.reducedMotion = false,
       this.captureScale = 1,
+      this.sampling = NibWaterSampling.legacy,
+      this.material,
+      this.quality = const NibWaterQuality(),
+      this.sampleInterval = const Duration(milliseconds: 33),
       this.backgroundChanges,
       this.onStatus});
 
@@ -110,6 +146,19 @@ class NibWaterSurface extends StatefulWidget {
   /// Independent of device pixel ratio.
   final double captureScale;
 
+  /// Opt-in content policy. Legacy preserves the original absolute scale API.
+  final NibWaterSampling sampling;
+
+  /// Optional optics for the layer sampler. Null keeps controller optics.
+  /// Legacy sampling ignores this setting; keep it null for legacy consumers.
+  final NibWaterMaterial? material;
+
+  /// Device-relative quality for non-legacy sampling; never changes optics.
+  final NibWaterQuality quality;
+
+  /// Minimum interval for throttled sampling; must be positive.
+  final Duration sampleInterval;
+
   /// Resource-path reports, never emitted for every wave frame.
   final ValueChanged<NibWaterRenderStatus>? onStatus;
   @override
@@ -127,6 +176,7 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
   ui.FragmentShader? _shader;
   ui.Image? _image;
   Duration? _previousTick;
+  Size _sceneSize = Size.zero;
   bool _enabled = true, _foreground = true;
   bool _captureQueued = false, _capturing = false, _needsCapture = true;
   int _captureCount = 0, _lastCaptureMicros = 0, _generation = 0;
@@ -145,6 +195,11 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
   }
 
   void _validateScale() {
+    widget.quality.validate();
+    widget.material?.validate();
+    if (widget.sampleInterval <= Duration.zero) {
+      throw ArgumentError.value(widget.sampleInterval, 'sampleInterval');
+    }
     if (!widget.captureScale.isFinite ||
         widget.captureScale < .5 ||
         widget.captureScale > 2) {
@@ -165,8 +220,9 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
     } catch (_) {
       if (!mounted) return;
       _failed = true;
-      _report(
-          'Water shader unavailable. Static outline fallback; no refraction.');
+      _report(widget.sampling == NibWaterSampling.legacy
+          ? 'Water shader unavailable. Static outline fallback; no refraction.'
+          : 'Water shader unavailable. Direct live source; no refraction. Remount to retry.');
       _revision.value++;
     }
   }
@@ -188,14 +244,25 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
     }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_syncTicker);
-      oldWidget.controller.cancelInputs();
+      if (!oldWidget.controller.isDisposed) oldWidget.controller.cancelInputs();
+      _generation++;
+      _needsCapture = true;
       widget.controller.addListener(_syncTicker);
       _repaint = Listenable.merge([widget.controller, _revision]);
       _contacts.clear();
     }
     if (oldWidget.interaction != widget.interaction) _cancelContacts();
+    if (oldWidget.sampling != widget.sampling) {
+      _generation++;
+      _needsCapture = true;
+      _image?.dispose();
+      _image = null;
+    }
     if (oldWidget.captureScale != widget.captureScale) {
       _generation++;
+      _needsCapture = true;
+    }
+    if (oldWidget.material?.blurSigma != widget.material?.blurSigma) {
       _needsCapture = true;
     }
     _updatePolicy();
@@ -213,7 +280,11 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
     final tickerEnabled = TickerMode.of(context);
     final enabled = !widget.paused && tickerEnabled && _foreground && _visible;
     if (_enabled && !enabled) _cancelContacts();
+    final changed = _enabled != enabled;
     _enabled = enabled;
+    if (changed && widget.sampling != NibWaterSampling.legacy) {
+      _revision.value++;
+    }
     widget.controller.setReducedMotion(widget.reducedMotion ||
         MediaQuery.disableAnimationsOf(context) ||
         NibMotionConfig.watchReducedMotion(context));
@@ -243,13 +314,15 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
     final previous = _previousTick;
     _previousTick = elapsed;
     if (previous != null && _enabled) {
-      widget.controller.advance((elapsed - previous).inMicroseconds / 1000000);
+      widget.controller.advance((elapsed - previous).inMicroseconds / 1000000,
+          bounds: _sceneSize);
     }
     _syncTicker();
   }
 
   void _backgroundPainted() {
     _needsCapture = true;
+    if (widget.sampling != NibWaterSampling.legacy) _revision.value++;
     _queueCapture();
   }
 
@@ -257,6 +330,7 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
     if (!_enabled || _captureQueued || _capturing || !mounted || _failed) {
       return;
     }
+    if (widget.sampling != NibWaterSampling.legacy) return;
     _captureQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _captureQueued = false;
@@ -318,6 +392,9 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
   }
 
   void _report(String message) => widget.onStatus?.call(NibWaterRenderStatus(
+      backend: widget.sampling == NibWaterSampling.legacy
+          ? 'snapshot'
+          : (_failed ? 'direct' : 'layerSampler'),
       path: _failed
           ? NibWaterRenderPath.fallback
           : _shader != null && _image != null
@@ -357,7 +434,7 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
 
   void _cancelContacts() {
     _contacts.clear();
-    widget.controller.cancelInputs();
+    if (!widget.controller.isDisposed) widget.controller.cancelInputs();
   }
 
   @override
@@ -382,6 +459,7 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
           throw FlutterError(
               'NibWaterSurface requires finite width and height.');
         }
+        _sceneSize = bounds.biggest;
         return NibViewportProgress(
             controller: _viewport,
             child: ClipRect(
@@ -392,25 +470,34 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
                     onPointerUp: (e) => _end(e.pointer),
                     onPointerCancel: (e) => _end(e.pointer, cancelled: true),
                     child: Stack(fit: StackFit.expand, children: [
-                      _WaterBackgroundBoundary(
-                          key: _backgroundKey,
-                          onPaint: _backgroundPainted,
-                          child: NotificationListener<ScrollNotification>(
-                              onNotification: (_) {
-                                _backgroundPainted();
-                                return false;
-                              },
-                              child: widget.background)),
-                      IgnorePointer(
-                          child: RepaintBoundary(
-                              child: CustomPaint(
-                                  painter: _WaterPainter(
-                                      controller: widget.controller,
-                                      repaint: _repaint,
-                                      shader: () => _shader,
-                                      image: () => _image,
-                                      surface: widget.surface,
-                                      failed: () => _failed)))),
+                      if (widget.sampling != NibWaterSampling.legacy)
+                        _WaterSampleWidget(
+                          surfaceState: this,
+                          devicePixelRatio:
+                              MediaQuery.devicePixelRatioOf(context),
+                          child: widget.background,
+                        ),
+                      if (widget.sampling == NibWaterSampling.legacy)
+                        _WaterBackgroundBoundary(
+                            key: _backgroundKey,
+                            onPaint: _backgroundPainted,
+                            child: NotificationListener<ScrollNotification>(
+                                onNotification: (_) {
+                                  _backgroundPainted();
+                                  return false;
+                                },
+                                child: widget.background)),
+                      if (widget.sampling == NibWaterSampling.legacy)
+                        IgnorePointer(
+                            child: RepaintBoundary(
+                                child: CustomPaint(
+                                    painter: _WaterPainter(
+                                        controller: widget.controller,
+                                        repaint: _repaint,
+                                        shader: () => _shader,
+                                        image: () => _image,
+                                        surface: widget.surface,
+                                        failed: () => _failed)))),
                       if (widget.child != null) widget.child!,
                     ]))));
       });
@@ -447,13 +534,19 @@ class _WaterPainter extends CustomPainter {
       required this.shader,
       required this.image,
       required this.surface,
-      required this.failed})
+      required this.failed,
+      this.compositeSource = false,
+      this.sourceScale = 1,
+      this.material})
       : super(repaint: repaint);
   final NibWaterController controller;
   final ui.FragmentShader? Function() shader;
   final ui.Image? Function() image;
   final bool surface;
   final bool Function() failed;
+  final bool compositeSource;
+  final double sourceScale;
+  final NibWaterMaterial? material;
   @override
   void paint(Canvas canvas, Size size) {
     final program = shader();
@@ -486,8 +579,8 @@ class _WaterPainter extends CustomPainter {
       config.waveSpeed,
       config.damping,
       config.wavelength,
-      config.refraction,
-      config.highlight,
+      material?.refraction ?? config.refraction,
+      material?.highlight ?? config.highlight,
       impulses.length.toDouble()
     ]) {
       program.setFloat(index++, value);
@@ -514,6 +607,21 @@ class _WaterPainter extends CustomPainter {
         program.setFloat(index++, value);
       }
     }
+    program.setFloat(index++, compositeSource ? 1 : 0);
+    program.setFloat(index++, sourceScale);
+    final tint = material?.tint ?? const Color(0xFF000000);
+    for (final value in <double>[
+      material?.depth ?? 0,
+      material?.absorption ?? 0,
+      tint.r,
+      tint.g,
+      tint.b,
+      tint.a
+    ]) {
+      program.setFloat(index++, value);
+    }
+    program.setFloat(
+        index, compositeSource && controller.emitter != null ? 1 : 0);
     program.setImageSampler(0, background);
     canvas.drawRect(Offset.zero & size, Paint()..shader = program);
   }

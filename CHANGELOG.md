@@ -1,3 +1,25 @@
+## 0.3.5
+
+* Add opt-in live water sampling that includes independently repainted child
+  layers in the current composition. Preserve transparency without drawing the
+  sampled background twice. Existing callers retain legacy snapshot sampling.
+* Add device-relative `NibWaterQuality` with pixel, byte and texture-size limits,
+  plus static and throttled sampling policies and sampling diagnostics.
+* Add `NibWaterMaterial` for refraction, highlights, optional blur, depth and tint.
+  The clear preset has no deliberate blur or absorption.
+* Add the seeded, bounded `NibBubbleEmitter` and controller methods for updating
+  decorative bodies. Emission uses the water controller's clock and pauses for
+  reduced motion.
+* Allow failed shader loads to retry on a later mount. Failed live sampling
+  displays the original content until sampling can recover.
+* Add `NibMotion.loopPhase` to stagger repeating animations without a start delay.
+* Fix uniform scale in repeat loops and replay by resolving `scale` before filling
+  identity values. Explicit `scaleX` and `scaleY` retain precedence.
+
+Water rendering remains experimental. Automated fidelity and interaction checks
+and a local Android app test do not establish browser parity or sustained GPU
+performance across devices.
+
 ## 0.3.4
 
 * Add experimental `NibWaterController` and `NibWaterSurface` APIs for bounded

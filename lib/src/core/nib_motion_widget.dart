@@ -179,6 +179,7 @@ class NibMotion extends StatefulWidget {
     this.controller,
     this.repeatAnimationInLoop = false,
     this.loopMode = NibLoopMode.pingPong,
+    this.loopPhase = 0,
     this.reverseTransition,
     this.exitTransition,
     this.layout = NibLayout.inherit,
@@ -190,6 +191,7 @@ class NibMotion extends StatefulWidget {
     this.onLayoutAnimationComplete,
     required this.child,
   })  : _transition = transition,
+        assert(loopPhase >= 0 && loopPhase < 1),
         assert(
           transition == null || spring == null,
           'NibMotion: pass either `transition` or the `spring` shorthand, not both.',
@@ -321,6 +323,12 @@ class NibMotion extends StatefulWidget {
   /// [NibLoopMode.seamless], which is identical here) jumps back to `initial`
   /// each cycle — use it when the end state visually matches the start.
   final NibLoopMode loopMode;
+
+  /// Starting progress of a repeating animation, in the range `[0, 1)`.
+  ///
+  /// Offsets ambient loops without delaying their first visible frame.
+  /// Ping-pong loops start on their forward leg. Ignored for one-shot motion.
+  final double loopPhase;
 
   /// The transition used when this widget *returns* from a temporary state:
   /// releasing [whileTap]/[whileHover]/[whileFocus]/[whileDrag] or leaving
@@ -692,9 +700,9 @@ class _NibMotionState extends State<NibMotion>
         setImmediately(
             computeAnimFromKeyframes(keyframes, 1.0, transition.curve));
       } else {
-        final from = NibAnim.identity
-            .merge(_resolveAnim(widget.initial) ?? NibAnim.identity);
-        final to = NibAnim.identity.merge(_resolveAnim(widget.animate) ?? from);
+        final from =
+            _withIdentity(_resolveAnim(widget.initial) ?? NibAnim.identity);
+        final to = _withIdentity(_resolveAnim(widget.animate) ?? from);
         setImmediately(to);
       }
       return;
@@ -710,9 +718,9 @@ class _NibMotionState extends State<NibMotion>
             keyframes, controller.value, transition.curve));
       });
     } else {
-      final from = NibAnim.identity
-          .merge(_resolveAnim(widget.initial) ?? NibAnim.identity);
-      final to = NibAnim.identity.merge(_resolveAnim(widget.animate) ?? from);
+      final from =
+          _withIdentity(_resolveAnim(widget.initial) ?? NibAnim.identity);
+      final to = _withIdentity(_resolveAnim(widget.animate) ?? from);
       controller.addListener(() {
         setImmediately(
             from.lerp(to, transition.curve.transform(controller.value)));
@@ -725,12 +733,17 @@ class _NibMotionState extends State<NibMotion>
           !identical(_loopController, controller)) {
         return;
       }
+      controller.value = widget.loopPhase;
       controller.repeat(reverse: widget.loopMode == NibLoopMode.pingPong);
     });
   }
 
   static double? _resolveScaleX(NibAnim anim) => anim.scaleX ?? anim.scale;
   static double? _resolveScaleY(NibAnim anim) => anim.scaleY ?? anim.scale;
+
+  // Resolve shorthand before identity axes can shadow it during interpolation.
+  static NibAnim _withIdentity(NibAnim anim) => NibAnim.identity.merge(anim
+      .copyWith(scaleX: _resolveScaleX(anim), scaleY: _resolveScaleY(anim)));
 
   /// Resolves [value] (a [NibMotion.initial]/[NibMotion.animate]) to a
   /// [NibAnim]: returns it directly if it already is one, looks it up in
@@ -816,10 +829,10 @@ class _NibMotionState extends State<NibMotion>
       final keyframes = widget.keyframes;
       if (keyframes != null) {
         final start = computeAnimFromKeyframes(keyframes, 0.0, Curves.linear);
-        setImmediately(NibAnim.identity.merge(start));
+        setImmediately(_withIdentity(start));
       } else {
         final start = _resolveAnim(widget.initial) ?? NibAnim.identity;
-        setImmediately(NibAnim.identity.merge(start));
+        setImmediately(_withIdentity(start));
       }
       _startRepeatLoop();
       return;
@@ -828,7 +841,7 @@ class _NibMotionState extends State<NibMotion>
     final keyframes = widget.keyframes;
     if (keyframes != null) {
       final start = computeAnimFromKeyframes(keyframes, 0.0, Curves.linear);
-      setImmediately(NibAnim.identity.merge(start));
+      setImmediately(_withIdentity(start));
       _keyframeController?.dispose();
       _keyframeController = null;
       _startKeyframeAnimation(keyframes);
@@ -836,7 +849,7 @@ class _NibMotionState extends State<NibMotion>
     }
 
     final start = _resolveAnim(widget.initial) ?? NibAnim.identity;
-    setImmediately(NibAnim.identity.merge(start));
+    setImmediately(_withIdentity(start));
     final target = _resolveAnim(widget.animate);
     if (target != null) animateTo(target);
   }
@@ -903,7 +916,10 @@ class _NibMotionState extends State<NibMotion>
       _scheduleInViewCheck();
     }
 
-    if (widget.repeatAnimationInLoop != oldWidget.repeatAnimationInLoop) {
+    if (widget.repeatAnimationInLoop != oldWidget.repeatAnimationInLoop ||
+        (widget.repeatAnimationInLoop &&
+            (widget.loopPhase != oldWidget.loopPhase ||
+                widget.loopMode != oldWidget.loopMode))) {
       if (widget.repeatAnimationInLoop) {
         _startRepeatLoop();
       } else {
@@ -1324,7 +1340,7 @@ class _NibMotionState extends State<NibMotion>
     final start = keyframes != null
         ? computeAnimFromKeyframes(keyframes, 0.0, Curves.linear)
         : (_resolveAnim(widget.initial) ?? NibAnim.identity);
-    return NibAnim.identity.merge(start);
+    return _withIdentity(start);
   }
 
   @override
@@ -1333,7 +1349,7 @@ class _NibMotionState extends State<NibMotion>
     final variant = variantName == null ? null : widget.variants?[variantName];
     final resting =
         _resolveAnim(widget.animate) ?? variant ?? _resolveAnim(widget.initial);
-    return animateTo(NibAnim.identity.merge(resting ?? NibAnim.identity));
+    return animateTo(_withIdentity(resting ?? NibAnim.identity));
   }
 
   @override

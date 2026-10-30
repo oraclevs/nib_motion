@@ -94,3 +94,7 @@ export 'src/debug/nib_spring_tuner.dart';
 
 export 'src/water/nib_water_controller.dart';
 export 'src/water/nib_water_surface.dart';
+
+export 'src/water/nib_water_quality.dart';
+export 'src/water/nib_water_material.dart';
+export 'src/water/nib_bubble_emitter.dart';

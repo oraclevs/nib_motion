@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'nib_bubble_emitter.dart';
 
 /// The current decorative body's coalescence or separation phase.
 ///
@@ -172,6 +173,7 @@ class NibWaterController extends ChangeNotifier {
   /// IDs, radii, positions and velocities are validated in release builds.
   NibWaterController({
     required List<NibWaterDrop> drops,
+    this.emitter,
     NibWaterConfig config = const NibWaterConfig(),
   }) : _config = config {
     config._validate();
@@ -209,6 +211,10 @@ class NibWaterController extends ChangeNotifier {
     );
     _restore();
   }
+
+  /// Optional decorative emitter, advanced by this controller's existing clock.
+  /// Emitted bubbles stay independent; merge/split remains for manual droplets.
+  final NibBubbleEmitter? emitter;
 
   static const double _ln2 = .6931471805599453;
   static const double _maxStep = .066;
@@ -254,14 +260,16 @@ class NibWaterController extends ChangeNotifier {
   bool get isActive =>
       !_disposed &&
       !_reducedMotion &&
-      (_impulses.isNotEmpty || _drops.any((drop) => !drop.settled));
+      ((emitter?.isActive ?? false) ||
+          _impulses.isNotEmpty ||
+          _drops.any((drop) => !drop.settled));
 
   /// Number of pointers that currently own a decorative body.
   int get activeInputs => _inputs.length;
 
   /// Sum of constituent `pi * radius²`, in squared logical pixels.
   ///
-  /// Conserved until disposal. This is not the visible union area or 3D volume.
+  /// Conserved between explicit scene replacement or emission operations. This is not the visible union area or 3D volume.
   double get massProxy => _drops.fold(
         0,
         (total, drop) => total + math.pi * drop.radius * drop.radius,
@@ -296,7 +304,7 @@ class NibWaterController extends ChangeNotifier {
   /// [seconds] must be finite and nonnegative. Zero or idle advances do nothing.
   /// Critical spring recovery preserves current velocity when retargeted and
   /// caps velocity/displacement at 4000 logical pixels per second.
-  void advance(double seconds) {
+  void advance(double seconds, {Size? bounds}) {
     _checkAlive();
     if (!seconds.isFinite || seconds < 0) {
       throw ArgumentError.value(seconds, 'seconds', 'Must be finite and >= 0');
@@ -307,6 +315,9 @@ class NibWaterController extends ChangeNotifier {
     }
     final watch = Stopwatch()..start();
     final elapsed = math.min(seconds, _maxStep);
+    if (emitter != null && bounds != null && !bounds.isEmpty) {
+      _replaceDrops(emitter!.advance(elapsed, bounds));
+    }
     var remaining = elapsed;
     while (remaining > 1e-10) {
       final dt = math.min(_substep, remaining);
@@ -332,6 +343,68 @@ class NibWaterController extends ChangeNotifier {
     watch.stop();
     _lastStepMicros = watch.elapsedMicroseconds;
     notifyListeners();
+  }
+
+  /// Replaces the decorative scene in one notification; IDs remain caller-owned.
+  /// At most ten validated bodies. Existing pointer ownership is cancelled.
+  /// Reset restores the constructor's original scene. Do not combine with an emitter.
+  void setDrops(List<NibWaterDrop> drops) {
+    _checkAlive();
+    if (emitter != null) throw StateError('The emitter owns this scene');
+    _replaceDrops(drops);
+    notifyListeners();
+  }
+
+  /// Adds or moves one decorative body, preserving other body snapshots.
+  void putDrop(NibWaterDrop drop) => setDrops([
+        for (final old in drops)
+          if (old.id != drop.id) old,
+        drop
+      ]);
+
+  /// Removes a decorative body by stable ID; no change if it is absent.
+  void removeDrop(int id) {
+    _checkAlive();
+    if (_drops.any((drop) => drop.id == id)) {
+      setDrops(drops.where((drop) => drop.id != id).toList());
+    }
+  }
+
+  /// Starts or stops emission without changing the simulation clock.
+  void setEmitting(bool value) {
+    _checkAlive();
+    if (emitter == null) throw StateError('This controller has no emitter');
+    if (value) {
+      emitter!.start();
+    } else {
+      emitter!.stop();
+    }
+    notifyListeners();
+  }
+
+  void _replaceDrops(List<NibWaterDrop> drops) {
+    if (drops.length > 10) {
+      throw ArgumentError.value(drops.length, 'drops.length');
+    }
+    final ids = <int>{};
+    for (final drop in drops) {
+      if (!ids.add(drop.id)) throw ArgumentError.value(drop.id, 'id');
+      _checkPoint(drop.center, 'center');
+      _checkPoint(drop.velocity, 'velocity');
+      _checkRange(drop.velocity.distance, 'velocity magnitude', 0, 4000);
+      _checkRange(drop.radius, 'radius', 8, 256);
+    }
+    _inputs.clear();
+    _drops
+      ..clear()
+      ..addAll(drops.map(_Drop.new));
+    for (final group in _groups()) {
+      final id = group.map((drop) => drop.id).reduce(math.min);
+      for (final drop in group) {
+        drop.bodyId = id;
+      }
+    }
+    _phase = NibWaterPhase.separated;
   }
 
   /// Adds a bounded disturbance at [center] in receiver-local logical pixels.
@@ -594,6 +667,7 @@ class NibWaterController extends ChangeNotifier {
     _drops.clear();
     _inputs.clear();
     _impulses.clear();
+    emitter?.reset();
     super.dispose();
   }
 
@@ -618,7 +692,8 @@ class NibWaterController extends ChangeNotifier {
     _impulses.clear();
     _simulationTime = 0;
     _lastStepMicros = 0;
-    _autoMerge = true;
+    _autoMerge = emitter == null;
+    emitter?.reset();
     _phase = NibWaterPhase.separated;
     for (final group in _groups()) {
       if (group.length > 1) _combine(group);

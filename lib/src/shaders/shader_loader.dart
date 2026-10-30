@@ -76,10 +76,18 @@ class NibShaderLoader {
   static Future<FragmentProgram> load(String assetKey) => _load(assetKey);
 
   static Future<FragmentProgram> _load(String assetKey) {
-    return _cache.putIfAbsent(
-        assetKey,
-        () => FragmentProgram.fromAsset(
-            assetKeyResolver?.call(assetKey) ?? assetKey));
+    return _cache.putIfAbsent(assetKey, () {
+      late final Future<FragmentProgram> pending;
+      pending = FragmentProgram.fromAsset(
+              assetKeyResolver?.call(assetKey) ?? assetKey)
+          .then((program) => program,
+              onError: (Object error, StackTrace stack) {
+        // A later mount may retry; do not evict a newer generation after reset.
+        if (identical(_cache[assetKey], pending)) _cache.remove(assetKey);
+        Error.throwWithStackTrace(error, stack);
+      });
+      return pending;
+    });
   }
 
   /// Kicks off compilation of every bundled shader and waits for all of

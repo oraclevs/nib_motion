@@ -32,6 +32,12 @@ uniform vec4 uImpulse8;
 uniform vec4 uImpulse9;
 uniform vec4 uImpulse10;
 uniform vec4 uImpulse11;
+uniform float uCompositeSource;
+uniform float uPixelRatio;
+uniform float uDepth;
+uniform float uAbsorption;
+uniform vec4 uTint;
+uniform float uBubble;
 uniform sampler2D uBackground;
 out vec4 fragColor;
 // Bounded Gaussian field: no singular 1/r expression. .5 is the contour.
@@ -104,17 +110,21 @@ void main() {
   float mask = 1.0;
   vec2 domeSlope = vec2(0.0);
   float rim = 0.0;
-  if (uSurface < 0.5) {
+  if (uSurface < 0.5 || uBubble > 0.5) {
     float boundaryField = field + height * 0.012 * exp(-6.0 * (field - 0.5) * (field - 0.5));
     mask = smoothstep(0.49, 0.51, boundaryField);
     float dome = sqrt(max(log(max(field, 0.501) / 0.5), 0.0));
     domeSlope = gradient * 16.0 / (max(field, 0.5) * max(dome, 0.28));
+    // Air-bubble lens approximation: bounded reversed dome, not a fluid model.
+    if (uBubble > 0.5) domeSlope *= -0.55 * mask;
     rim = exp(-180.0 * (boundaryField - 0.53) * (boundaryField - 0.53));
   }
+  if (uBubble > 0.5 && uSurface > 0.5) mask = 1.0;
   vec2 slope = clamp(domeSlope + waveSlope, vec2(-2.0), vec2(2.0));
   vec3 normal = normalize(vec3(-slope, 1.0));
-  vec2 uv = (p - slope * uRefraction) / max(uSize, vec2(1.0));
-  vec2 padding = 0.5 / max(uSize, vec2(1.0));
+  vec2 sampleExtent = uCompositeSource > 0.5 ? uTextureSize / uPixelRatio : uSize;
+  vec2 uv = (p - slope * uRefraction * (1.0 + uDepth * 0.15)) / max(sampleExtent, vec2(1.0));
+  vec2 padding = 0.5 / max(uTextureSize, vec2(1.0));
   vec4 sampleColor = sampleBackground(clamp(uv, padding, 1.0 - padding));
   vec3 light = normalize(vec3(-0.45, -0.7, 1.4));
   float specular = pow(max(dot(normal, light), 0.0), 48.0);
@@ -122,5 +132,13 @@ void main() {
   vec3 color = sampleColor.rgb + vec3(uHighlight * (specular * 0.42 + edgeLight));
   // Sample is premultiplied; preserve alpha and avoid invalid RGB > alpha.
   float alpha = sampleColor.a * mask;
-  fragColor = vec4(clamp(color, vec3(0.0), vec3(sampleColor.a)) * mask, alpha);
+  float transmission = exp(-uAbsorption * uDepth / max(normal.z, 0.25));
+  color = mix(color, color * transmission + uTint.rgb * sampleColor.a * (1.0 - transmission), uTint.a);
+  vec4 optical = vec4(clamp(color, vec3(0.0), vec3(sampleColor.a)), sampleColor.a);
+  if (uCompositeSource > 0.5) {
+    vec4 original = sampleBackground(p / max(sampleExtent, vec2(1.0)));
+    fragColor = mix(original, optical, mask);
+  } else {
+    fragColor = vec4(optical.rgb * mask, alpha);
+  }
 }
