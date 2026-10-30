@@ -112,6 +112,7 @@ The central animated widget — owns a `MotionValue` per property and drives it 
 - `transition: NibTransition?` — default `NibMotionConfig.defaultTransitionOf(context)` if null
 - `controller: NibMotionController?` — imperative external driver
 - `repeatAnimationInLoop: bool = false` — forever ping-pong `initial ⇄ animate`
+- `loopPhase: double = 0` — starting loop progress in `[0, 1)`; ping-pong starts on the forward leg. Offsets repeating animations without delaying their first frame.
 - `child: Widget` required
 ```dart
 NibMotion(
@@ -3300,3 +3301,48 @@ NibOtpInput(
 - **Overlay-style APIs (`showNibDialog`, `showNibAlertDialog`, `showNibBottomSheet`, `showNibContextMenu`, `showNibToast`) are imperative functions, not widgets** — they don't take `controller` params the way declarative siblings (`NibDialog`, `NibBottomSheet`) do; their returned `Future`/handle is the entire control surface. Don't look for a `NibToastController`/`NibAlertController` — none exists by design.
 - **Per-component default animation durations are not globally uniform** — they range roughly 120ms (button tap-pop, resizable-panel handle) to 250ms (tabs); always check the specific component's documented default `transition` rather than assuming one shared constant.
 - **`NibDatePickerController`'s runtime `minSelectable`/`maxSelectable` take precedence over the widget's `minDate`/`maxDate`** when both are set — useful for dynamically narrowing bounds (e.g. disabling past dates after a first selection) without rebuilding the whole widget with new constructor params.
+
+
+## Experimental water (0.3.5)
+
+`NibWaterSurface(controller: ..., background: ..., child: ...)` samples only its bounded
+background. The caller owns the controller; one surface drives its clock. `child` is the
+independent foreground. Underwater widgets retain original semantics/hit-testing; inverse
+optical input mapping is not provided. Keep distortion mild for interactive controls.
+
+`sampling` defaults to `NibWaterSampling.legacy`, preserving absolute `captureScale: 1`
+(.5–2, 2M input pixels). Opt in to `.live` for scene-composition layer sampling, `.static`
+for explicit cache invalidation via `backgroundChanges`, or `.throttled` with `sampleInterval`
+(default 33 ms). Static also invalidates for size/quality/controller/source-blur changes.
+No timer refreshes an idle scene. `paused`, TickerMode, viewport visibility and app lifecycle
+suspend water work; reduced motion freezes emitter motion. Resume drops inactive wall time.
+
+`quality: NibWaterQuality(scale: 1, maxPixels: 4000000, maxBytes: 16000000,
+maxTextureSize: 4096)` is device-relative. Reports include requested/effective scale,
+rounded dimensions and reduction reason. Budgets cover one input RGBA texture, not total
+GPU memory. Sampling clamps to input edges; provide bounded padding yourself.
+
+`material: NibWaterMaterial.clear` has refraction 8, highlight .3, blurSigma 0,
+depth 0, absorption 0. `.neutral` sets refraction/highlight to zero; `.deep` adds depth 1
+and absorption .12. Optional tint controls absorption color. All numeric optics/quality
+are release-validated. Legacy ignores material and uses controller optics.
+
+`NibWaterController(drops: [...], emitter: NibBubbleEmitter(seed: 17))` owns a bounded
+emitter (default 6, maximum 10). For an emitter use empty initial drops and let the surface
+supply bounds; manual advancement accepts `advance(seconds, bounds: Size(...))`.
+`setEmitting(false)` stops spawning and lets bodies expire. Reset restarts the seeded
+sequence without changing emission policy. `setDrops`, `putDrop`, `removeDrop` are manual
+scene mutation APIs when no emitter is present; replacement validates atomically and
+clears material pointer ownership. Drops retain stable IDs; spawning changes the area proxy.
+The 66 ms advance cap and existing drop merge/split behavior remain.
+
+`NibWaterGlass` in nib_components 0.2.3 forwards sampling, material, quality, sampleInterval and backgroundChanges
+to the same surface. Set `animated: true` for wave/emitter motion. It owns only controllers
+it creates; an external controller owns configuration/disposal.
+
+Status reports backend/path, captureCount, lastCaptureMicros, resolution, sampleSequence,
+boundSequence, submittedAt and boundAt. Sequence/timestamps describe CPU sampling/binding,
+not source-frame identity, GPU completion or display age. Capture failure uses direct live
+content and retries on a later composed frame; shader load failure requires remount to retry.
+Native ImageFilter.shader is only a separate capability probe, not the chosen backend.
+Browser parity and sustained GPU performance across physical devices remain unverified.

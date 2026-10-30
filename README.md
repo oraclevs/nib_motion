@@ -327,11 +327,15 @@ The [example app](https://github.com/oraclevs/nib_motion/tree/main/example)
 contains runnable demos. From its directory, run `flutter pub get`, then
 `flutter run -t lib/demos.dart`.
 
-The experimental water surface samples its designated Flutter background,
-with a static outline fallback if shader loading or capture fails. It does not
-sample platform views or content outside that subtree. It models decorative
-2D bodies and waves; physical device GPU, touch, and frame-budget validation
-remains incomplete. See the public API docs for controller ownership and bounds.
+The experimental water surface samples its designated Flutter background.
+Existing callers keep the legacy snapshot path. Opt in with
+`sampling: NibWaterSampling.live`, device-relative `NibWaterQuality`, clear/depth
+`NibWaterMaterial` optics and a bounded `NibBubbleEmitter`. The live path retains
+real underwater widgets and composites their sampled pixels once. Failed sampling
+shows direct content; this fallback is not refraction. Platform views and pixels
+outside the subtree are unsupported. The model is decorative 2D/2.5D, with original
+hit-test geometry. Browser parity and sustained performance across physical
+devices remain unverified.
 
 For bugs and feature requests, [open an issue](https://github.com/oraclevs/nib_motion/issues)
 with a small reproduction, your Flutter version, platform, and renderer.
