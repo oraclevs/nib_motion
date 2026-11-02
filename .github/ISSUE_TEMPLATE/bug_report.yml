@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible problem with NibMotion.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For vulnerabilities, use [private reporting](https://github.com/oraclevs/nib_motion/security/advisories/new).
+        Remove credentials and private data from all code and logs.
+  - type: input
+    id: package-version
+    attributes:
+      label: NibMotion version
+      description: Include a commit if you use a Git dependency.
+    validations:
+      required: true
+  - type: textarea
+    id: flutter-version
+    attributes:
+      label: Flutter version
+      description: Paste the output of flutter --version.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Platform and renderer
+      description: Include operating system, device or browser, build mode, and renderer (Impeller, Skia, CanvasKit, or skwasm). Write unknown if you cannot determine the renderer.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide a minimal runnable example and exact steps. Include reduced-motion settings if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Attach a screenshot or recording if it helps explain a rendering problem.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Diagnostic logs
+      description: Include relevant error messages or stack traces, without credentials or personal data.
+      render: text
