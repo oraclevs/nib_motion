@@ -113,7 +113,8 @@ class _ControlledPathDemoState extends State<ControlledPathDemo> {
       children: [
         NibPathMotion(
           controller: _controller,
-          path: FlightPathDemo._buildPath(),
+          path: (Path()..moveTo(20, 200))
+              ..quadraticBezierTo(160, 20, 300, 200),
           rotate: true,
           child: const Icon(Icons.flight, size: 32),
         ),
@@ -194,7 +195,6 @@ NibDrawPath(
   controller: controller,
   path: myPath,
   autoPlay: false,
-  child: null, // NibDrawPath has no child — it paints the stroke itself.
 );
 
 controller.play();    // starts the reveal
@@ -254,9 +254,9 @@ scrolls into view.
 
 ## Next steps
 
-- **[Animate](/docs/animate)** — for property-based animation (opacity,
+- **[Animate](animate.mdx)** — for property-based animation (opacity,
   position, scale, color) driven by your own state, rather than a fixed
   geometric path.
-- **[Transitions](/docs/transitions)** — `NibPathMotion` and `NibDrawPath`
+- **[Transitions](transitions.mdx)** — `NibPathMotion` and `NibDrawPath`
   use the same `duration`/`curve` vocabulary as `NibTransition`, just applied
   to path progress instead of an `NibAnim` target.

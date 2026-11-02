@@ -70,7 +70,7 @@ attached widget to the same state, and so on. `NibMotionController` extends
 to controller-driven changes elsewhere in your widget tree.
 
 > **Note:** A `NibMotion` doesn't need a `controller` to be useful — most of
-> the examples on [Animate](/docs/animate) and [Transitions](/docs/transitions)
+> the examples on [Animate](animate.mdx) and [Transitions](transitions.mdx)
 > don't use one. Only reach for `NibMotionController` when something *outside*
 > the widget needs to start, stop, or sequence its animations.
 
@@ -204,7 +204,9 @@ Row(
 awaiting each step's animation (and its optional `wait`) before starting the
 next. Each step is:
 
-```dart
+Signature (omitting implementation):
+
+```text
 NibMotionSequenceStep({
   required NibAnim target,
   NibTransition? transition,
@@ -291,31 +293,12 @@ Tapping "Play intro" slides the card in over 400ms, waits 80ms, pops it to
 `scale: 1.05` over 120ms, then settles it back to `scale: 1` over another
 120ms — three independent steps chained with a single call.
 
-## `NibMotionAnimator` — the interface behind the controller
+## Controller attachment
 
-`NibMotionController` doesn't manipulate `NibMotion` widgets directly. Each
-`NibMotion` implements `NibMotionAnimator`, attaches itself to any controller
-passed via its `controller` parameter (during `initState`/`didUpdateWidget`),
-and detaches on dispose. The controller methods above are thin wrappers that
-call through to this interface on every attached animator.
-
-You won't normally implement or call `NibMotionAnimator` yourself — it exists
-so `NibMotionController` (and `NibPresence`, for exit animations) can drive a
-`NibMotion`'s internal animation state without depending on its private
-`State` type. It's documented here as a map of *what's actually happening*
-when you call a controller method:
-
-| Method | Description |
-| --- | --- |
-| `attach(NibMotionAnimator animator)` | Registers `animator` with the controller. Called automatically by `NibMotion` in `initState`/`didUpdateWidget`. |
-| `detach(NibMotionAnimator animator)` | Unregisters `animator`. Called automatically by `NibMotion` in `dispose`/`didUpdateWidget`. |
-| `animateTo(NibAnim target, {NibTransition? transition})` | Animates every property present in `target` toward its value. Backs `controller.start(target: ...)`. |
-| `triggerExit()` | Plays the widget's `exit` animation, if any, and completes once it settles. Called by `NibPresence` before removing the widget. |
-| `setImmediately(NibAnim target)` | Sets every property present in `target` immediately, with no animation, cancelling in-progress animations for those properties. Backs `controller.set(...)`. |
-| `stopAnimations()` | Stops all in-progress animations, freezing every animated property at its current value. Backs `controller.stop()`. |
-| `replayEntrance()` | Replays the widget's entrance animation (`initial` → `animate`/`keyframes`, or restarts its loop) as if just built. Backs `controller.start()` with no arguments. |
-| `playKeyframes(List<NibKeyframe> keyframes, {NibTransition? transition})` | Plays `keyframes` once, from `0.0` to `1.0`. Backs `controller.start(keyframes: ...)`. |
-| `setRepeatLoop(bool enabled)` | Enables or disables `repeatAnimationInLoop`'s ping-pong loop at runtime. Backs `controller.repeat(...)`. |
+Each `NibMotion` attaches and detaches its internal animator automatically.
+`NibMotionAnimator` is an internal interface, not exported by
+`package:nib_motion/nib_motion.dart`. Application code should use the public
+controller methods rather than importing it from `lib/src/`.
 
 ## `NibMotionValues` — driving properties directly from external state
 
@@ -324,9 +307,12 @@ for *bypassing* them entirely. It's a bundle of pre-built `MotionValue`s, one
 per animatable property, that a `NibMotion` reads from directly on every
 paint, without going through its own spring/tween animation system at all.
 
-```dart
+Signature (omitting implementation):
+
+```text
 NibMotionValues({
   MotionValue<double>? opacity,
+  MotionValue<Offset>? offset,
   MotionValue<double>? translateX,
   MotionValue<double>? translateY,
   MotionValue<double>? scaleX,
@@ -334,6 +320,10 @@ NibMotionValues({
   MotionValue<double>? rotate,
   MotionValue<double>? skewX,
   MotionValue<double>? skewY,
+  MotionValue<double>? rotateX,
+  MotionValue<double>? rotateY,
+  MotionValue<double>? blur,
+  MotionValue<Color?>? tint,
   MotionValue<Color?>? color,
   MotionValue<BorderRadius?>? borderRadius,
   BoxShadowMotionValue? boxShadow,
@@ -348,13 +338,17 @@ any `MotionValue` you pass in.
 
 This is the building block behind scroll-linked effects: a `MotionValue` that
 tracks scroll position can be mapped to an opacity or translation and fed
-straight into `NibMotion`:
+straight into `NibMotion`. Create these derived values once in the owning
+state, reuse them in `build`, and dispose them before disposing `scrollY`:
 
 ```dart
+final opacity = scrollY.mapRange([0, 200], [1.0, 0.0]);
+final translateY = scrollY.mapRange([0, 200], [0.0, -40.0]);
+
 NibMotion(
   motionValues: NibMotionValues(
-    opacity: scrollY.mapRange([0, 200], [1.0, 0.0]),
-    translateY: scrollY.mapRange([0, 200], [0.0, -40.0]),
+    opacity: opacity,
+    translateY: translateY,
   ),
   child: const Text('Fades and lifts as you scroll'),
 )
@@ -362,7 +356,7 @@ NibMotion(
 
 `MotionValue` itself — including `mapRange`, combining multiple values, and
 how it relates to `NibSpringDescription` — is covered in full on
-[Physics & Motion Values](/docs/physics).
+[Physics & Motion Values](physics.mdx).
 
 ## `RenderNibMotion` — the render object underneath
 
@@ -370,8 +364,8 @@ At the bottom of the stack, every `NibMotion` is backed by `RenderNibMotion`, a
 `RenderProxyBox` that paints its child with the transform, opacity, color,
 border radius, and shadow values currently held by its `MotionValue`s. It
 listens to each value directly and repaints (or recomposites, for opacity)
-without triggering a widget rebuild — this is what makes `NibMotion`
-animations cheap even at 60fps. Most apps never need to touch `RenderNibMotion`
+without rebuilding the child on each animation tick. Raster cost still
+depends on the child, effects, renderer, and device. Most apps never need to touch `RenderNibMotion`
 directly; it's documented here only so the layering is clear: `NibMotion` (the
 widget) configures `NibMotionValues`/`MotionValue`s, and `RenderNibMotion` (the
 render object) is what actually reads them on every paint.
@@ -382,12 +376,10 @@ render object) is what actually reads them on every paint.
 
 | Method | Signature | Description |
 | --- | --- | --- |
-| `attach` | `void attach(NibMotionAnimator animator)` | Attaches this controller to `animator`. Called automatically by `NibMotion`. |
-| `detach` | `void detach(NibMotionAnimator animator)` | Detaches `animator` from this controller. Called automatically by `NibMotion`. |
 | `start` | `Future<void> start({NibAnim? target, List<NibKeyframe>? keyframes, NibTransition? transition})` | Animates every attached widget toward `target`, plays `keyframes` once, or (if both are `null`) replays each widget's entrance animation. Only one of `target`/`keyframes` may be set. |
-| `set` | `void set(NibAnim target)` | Immediately sets every attached widget to `target`, with no animation. |
+| `set` | `void set(NibAnim target, {bool keepVelocity = false})` | Immediately sets every attached widget to `target`, with no animation. |
 | `stop` | `void stop()` | Stops all in-progress animations on every attached widget, freezing each animated property at its current value. |
-| `repeat` | `void repeat([bool enabled = true])` | Enables or disables `repeatAnimationInLoop`'s ping-pong loop at runtime on every attached widget. |
+| `repeat` | `void repeat([bool enabled = true])` | Enables or disables `repeatAnimationInLoop` using the widget's `loopMode` at runtime on every attached widget. |
 | `sequence` | `Future<void> sequence(List<NibMotionSequenceStep> steps)` | Runs `steps` in order, awaiting each step's animation and optional `wait` before starting the next. |
 
 ### `NibMotionSequenceStep`
@@ -397,18 +389,6 @@ render object) is what actually reads them on every paint.
 | `target` | `NibAnim` | required | The animation values to transition toward for this step. |
 | `transition` | `NibTransition?` | `null` | The transition to use for this step. `null` uses each attached widget's default transition. |
 | `wait` | `Duration?` | `null` | How long to pause after this step's animation completes before starting the next step. `null` chains directly into the next step. |
-
-### `NibMotionAnimator`
-
-| Method | Signature | Description |
-| --- | --- | --- |
-| `animateTo` | `Future<void> animateTo(NibAnim target, {NibTransition? transition})` | Animates every property present in `target` toward its value. |
-| `triggerExit` | `Future<void> triggerExit()` | Plays the widget's `exit` animation, if any, and completes once it settles. |
-| `setImmediately` | `void setImmediately(NibAnim target)` | Sets every property present in `target` immediately, cancelling in-progress animations for those properties. |
-| `stopAnimations` | `void stopAnimations()` | Stops all in-progress animations, freezing every animated property at its current value. |
-| `replayEntrance` | `Future<void> replayEntrance()` | Replays the widget's entrance animation, or restarts its `repeatAnimationInLoop` loop, as if just built. |
-| `playKeyframes` | `Future<void> playKeyframes(List<NibKeyframe> keyframes, {NibTransition? transition})` | Plays `keyframes` once, from `0.0` to `1.0`. |
-| `setRepeatLoop` | `void setRepeatLoop(bool enabled)` | Enables or disables `repeatAnimationInLoop`'s ping-pong loop at runtime. |
 
 ### `NibMotionValues`
 
@@ -428,10 +408,10 @@ render object) is what actually reads them on every paint.
 
 ## Next steps
 
-- **[Physics & Motion Values](/docs/physics)** — for the full picture of
+- **[Physics & Motion Values](physics.mdx)** — for the full picture of
   `MotionValue`, `mapRange`, and `NibSpringDescription`'s `mass`, `stiffness`,
   and `damping` parameters that underpin both `NibTransition`'s spring presets
   and `NibMotionValues`.
-- **[Presence](/docs/presence)** — for how `NibMotionAnimator.triggerExit()`
+- **[Presence](presence.mdx)** — for how `NibMotionAnimator.triggerExit()`
   is used automatically by `NibPresence` to play exit animations when a widget
   is removed from the tree, without any manual controller calls.

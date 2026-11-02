@@ -1,7 +1,7 @@
 # Scroll Effects
 
 This page covers additional scroll-driven effects beyond what's in
-[Viewport & Scroll](/docs/viewport-and-scroll) — `whileInView`/`viewport` for
+[Viewport & Scroll](viewport-and-scroll.mdx) — `whileInView`/`viewport` for
 discrete reveal triggers, and `ScrollMotionBridge`/`NibScrollMotion` for
 wiring scroll offset into your own derived `MotionValue`s. Here, two
 ready-made widgets build on those same primitives so you don't have to wire
@@ -101,7 +101,11 @@ NibParallax(
   scrollController: _galleryController,
   axis: Axis.horizontal,
   factor: 0.4,
-  child: const Image(image: AssetImage('assets/banner.png')),
+  child: const SizedBox(
+    width: 400,
+    height: 200,
+    child: ColoredBox(color: Color(0xFF02569B)),
+  ),
 )
 ```
 
@@ -109,7 +113,7 @@ NibParallax(
 
 `NibScrollReveal` is a thin convenience wrapper over `NibMotion.whileInView`
 — it's the same `initial`/`whileInView`/`viewport` configuration shown for
-the `RevealSection` example on [Viewport & Scroll](/docs/viewport-and-scroll),
+the `RevealSection` example on [Viewport & Scroll](viewport-and-scroll.mdx),
 pre-set to sensible defaults so you don't have to spell it out on every
 section of a long page.
 
@@ -174,7 +178,7 @@ scrolls back out of view, replaying the reveal on every re-entry.
 > **Note:** Because `NibScrollReveal` is built on `whileInView`/`viewport`
 > under the hood, everything about *when* the trigger fires — visibility
 > threshold, one-shot vs. repeating, margin — works exactly as described for
-> `NibInViewConfig` on [Viewport & Scroll](/docs/viewport-and-scroll). Reach
+> `NibInViewConfig` on [Viewport & Scroll](viewport-and-scroll.mdx). Reach
 > for `NibMotion.whileInView` directly instead of `NibScrollReveal` if you
 > need a `margin`, or animation targets beyond the simple `initial`/`animate`
 > pair `NibScrollReveal` exposes.
@@ -203,10 +207,10 @@ scrolls back out of view, replaying the reveal on every re-entry.
 
 ## Next steps
 
-- **[Viewport & Scroll](/docs/viewport-and-scroll)** — the prerequisite for
+- **[Viewport & Scroll](viewport-and-scroll.mdx)** — the prerequisite for
   this page: covers `NibMotion.whileInView`, `NibInViewConfig`, and
   `ScrollMotionBridge`/`NibScrollMotion`, the lower-level primitives that
   `NibParallax` and `NibScrollReveal` are both built on.
-- **[Animate](/docs/animate)** — for the full set of `NibAnim` properties you
+- **[Animate](animate.mdx)** — for the full set of `NibAnim` properties you
   can pass to `NibScrollReveal`'s `initial`/`animate`, if you haven't already
   covered the basics.

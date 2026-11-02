@@ -11,11 +11,11 @@ Under the hood, every animatable property (opacity, position, scale,
 rotation, skew, color, border radius, and box shadow) is driven by its own
 `MotionValue`, interpolated either with a curve-based tween or a real spring
 simulation. Because these values are pushed straight to the render layer,
-animating a widget with NibMotion does not trigger Flutter widget rebuilds.
+the core `NibMotion` paint properties animate without rebuilding the child.
+`NibValueBuilder` deliberately rebuilds its builder subtree for layout values.
 
-NibMotion ships as a single, self-contained package with **zero required pub
-dependencies** beyond the Flutter SDK itself — it adds no transitive
-dependencies to your app.
+NibMotion ships as a single, self-contained package with no direct pub dependencies beyond the Flutter SDK.
+Flutter supplies its own SDK dependencies.
 
 > **Note:** This page covers installation, the core `NibMotion` widget, global
 > configuration via `NibMotionConfig`, the entrance gate (`NibMotionGate`),
@@ -88,7 +88,7 @@ When this widget first builds, NibMotion:
    configured warm-up window (see below), and then animates every property
    present in `animate` from its `initial` value toward its `animate` value
    using the active `NibTransition` (covered in full on the
-   [Transitions](/docs/transitions) page).
+   [Transitions](transitions.mdx) page).
 
 Any property you omit from `NibAnim` is left untouched — a `NibAnim(opacity:
 0)` only animates opacity, regardless of what other properties a sibling
@@ -146,7 +146,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'My App',
-      home: const HomeScreen(),
+      home: const Scaffold(body: Center(child: Text('Hello, NibMotion'))),
     );
   }
 }
@@ -164,7 +164,7 @@ The three configuration knobs are:
   (or when this field is left at its default), `NibMotion` falls back to
   `const NibTransition()`'s own defaults. Full details on `NibTransition`,
   including spring vs. curve-based tweens, are on the
-  [Transitions](/docs/transitions) page.
+  [Transitions](transitions.mdx) page.
 - **`entranceWarmup`** — how long after the app starts `NibMotion` entrance
   animations (`animate`/`keyframes` on first build, and an
   immediately-visible `whileInView`) should wait before starting. Defaults to
@@ -199,7 +199,10 @@ Apps that preserve a native splash screen for longer than the default warm-up
 **hold** the gate before `runApp` and **release** it once the splash screen is
 actually gone:
 
-```dart
+The following integration sketch assumes your app defines `MyApp` and
+`initializeApp` and has added `flutter_native_splash` separately:
+
+```text
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:nib_motion/nib_motion.dart';
@@ -295,18 +298,18 @@ NibMotionConfig.setReducedMotion(null); // clear the override
 | `initial` | `NibAnim \| String?` | `null` (treated as `NibAnim.identity`) | The appearance applied immediately on first build, before any transition runs. Either a `NibAnim` or a `String` naming an entry in `variants`. |
 | `animate` | `NibAnim \| String?` | `null` | The appearance to animate toward. `null` means "no change" unless `variants` is set and an ancestor `NibMotion` propagates a matching variant name. Either a `NibAnim` or a `String` naming an entry in `variants`; when a `String`, the name is also propagated to descendants with a matching `variants` entry and no explicit `animate`. |
 | `exit` | `NibAnim?` | `null` | The appearance to animate toward when an ancestor `NibPresence` removes this widget. Requires `key` to be set. |
-| `whileTap` | `NibAnim?` | `null` | The appearance to animate toward while this widget is pressed. Part of the gestures system — see [Gestures](/docs/gestures). |
-| `whileHover` | `NibAnim?` | `null` | The appearance to animate toward while the pointer hovers over this widget. See [Gestures](/docs/gestures). |
-| `whileFocus` | `NibAnim?` | `null` | The appearance to animate toward while this widget has input focus. See [Gestures](/docs/gestures). |
-| `whileDrag` | `NibAnim?` | `null` | The appearance to animate toward while this widget is being dragged; reverts to `animate` (or `initial`) when the drag ends. See [Drag](/docs/drag). |
-| `drag` | `NibDragConfig?` | `null` | Enables dragging this widget when set. Full configuration (axis constraints, snap points, release behavior) is covered on the [Drag](/docs/drag) page. |
-| `whileInView` | `NibAnim?` | `null` | The appearance to animate toward while this widget is visible on screen, according to `viewport`. Full details on the [Viewport](/docs/viewport) page. |
-| `viewport` | `NibInViewConfig?` | `NibInViewConfig()` defaults (when `whileInView` is set) | Configures the visibility check used by `whileInView` (margins, visible-area threshold, `once`). See [Viewport](/docs/viewport). |
-| `variants` | `NibVariants?` | `null` | Named animation states this widget resolves `initial`/`animate` string names against, and matches against variant names propagated from an ancestor `NibMotion`. Full details on the [Variants](/docs/variants) page. |
-| `keyframes` | `List<NibKeyframe>?` | `null` | A multi-step enter animation that overrides `initial`/`animate`, driven by a single tween from `0.0` to `1.0`. Not compatible with spring transitions. See [Keyframes](/docs/keyframes). |
-| `motionValues` | `NibMotionValues?` | `null` | Pre-built `MotionValue`s that drive this widget's animatable properties directly, bypassing the internal spring/tween system for any property they provide. See [Motion values](/docs/motion-values). |
-| `transition` | `NibTransition?` | `null` (falls back to `NibMotionConfig.defaultTransitionOf(context)`, or `NibTransition()` defaults) | The transition used for `animate` and as the default for gesture states that don't specify their own. Full details on the [Transitions](/docs/transitions) page. |
-| `controller` | `NibMotionController?` | `null` | An optional external handle for imperatively driving this widget's animations (e.g. replaying the entrance, playing keyframes on demand). See [Controllers](/docs/controllers). |
+| `whileTap` | `NibAnim?` | `null` | The appearance to animate toward while this widget is pressed. Part of the gestures system — see [Gestures](gestures.mdx). |
+| `whileHover` | `NibAnim?` | `null` | The appearance to animate toward while the pointer hovers over this widget. See [Gestures](gestures.mdx). |
+| `whileFocus` | `NibAnim?` | `null` | The appearance to animate toward while this widget has input focus. See [Gestures](gestures.mdx). |
+| `whileDrag` | `NibAnim?` | `null` | The appearance to animate toward while this widget is being dragged; reverts to `animate` (or `initial`) when the drag ends. See [Drag](drag.mdx). |
+| `drag` | `NibDragConfig?` | `null` | Enables dragging this widget when set. Full configuration (axis constraints, snap points, release behavior) is covered on the [Drag](drag.mdx) page. |
+| `whileInView` | `NibAnim?` | `null` | The appearance to animate toward while this widget is visible on screen, according to `viewport`. Full details on the [Viewport](viewport-and-scroll.mdx) page. |
+| `viewport` | `NibInViewConfig?` | `NibInViewConfig()` defaults (when `whileInView` is set) | Configures the visibility check used by `whileInView` (margins, visible-area threshold, `once`). See [Viewport](viewport-and-scroll.mdx). |
+| `variants` | `NibVariants?` | `null` | Named animation states this widget resolves `initial`/`animate` string names against, and matches against variant names propagated from an ancestor `NibMotion`. Full details on the [Variants](variants.mdx) page. |
+| `keyframes` | `List<NibKeyframe>?` | `null` | A multi-step enter animation that overrides `initial`/`animate`, driven by a single tween from `0.0` to `1.0`. Uses a duration-based clock; individual segments can use `NibKeyframe.spring`. See [Keyframes](animate.mdx#custom-keyframe-sequence-a-bounce). |
+| `motionValues` | `NibMotionValues?` | `null` | Pre-built `MotionValue`s that drive this widget's animatable properties directly, bypassing the internal spring/tween system for any property they provide. See [Motion values](motion-values.md). |
+| `transition` | `NibTransition?` | `null` (falls back to `NibMotionConfig.defaultTransitionOf(context)`, or `NibTransition()` defaults) | The transition used for `animate` and as the default for gesture states that don't specify their own. Full details on the [Transitions](transitions.mdx) page. |
+| `controller` | `NibMotionController?` | `null` | An optional external handle for imperatively driving this widget's animations (e.g. replaying the entrance, playing keyframes on demand). See [Controllers](motion-controller.mdx). |
 | `repeatAnimationInLoop` | `bool` | `false` | When `true`, instead of a one-shot entrance animation, this widget ping-pongs forever between `initial` and `animate` (or between keyframe `0.0` and `1.0`), using the active transition's duration/curve. Has no effect if `motionValues` is set. Under reduced motion, jumps to the end of one cycle and does not loop. |
 | `child` | `Widget` | *(required)* | The widget below this one in the tree. |
 
@@ -315,7 +318,7 @@ NibMotionConfig.setReducedMotion(null); // clear the override
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `reducedMotion` | `bool?` | `null` | Overrides `MediaQuery.of(context).disableAnimations` when non-null. `null` defers to the platform accessibility setting. |
-| `defaultTransition` | `NibTransition` | `const NibTransition()` | The transition used by descendant `NibMotion` widgets that don't specify their own `transition`. See [Transitions](/docs/transitions). |
+| `defaultTransition` | `NibTransition` | `const NibTransition()` | The transition used by descendant `NibMotion` widgets that don't specify their own `transition`. See [Transitions](transitions.mdx). |
 | `entranceWarmup` | `Duration` | `Duration(milliseconds: 400)` | How long after the app starts entrance animations should wait before starting, absorbing the gap between Flutter's first frame and the native splash screen disappearing. |
 | `child` | `Widget` | *(required)* | The subtree this configuration applies to — typically your whole app. |
 
@@ -330,9 +333,9 @@ NibMotionConfig.setReducedMotion(null); // clear the override
 
 ## Next steps
 
-- **[Animate](/docs/animate)** — a deeper look at `initial`/`animate`,
+- **[Animate](animate.mdx)** — a deeper look at `initial`/`animate`,
   `NibAnim`'s full set of animatable properties, and how values interpolate
   between states.
-- **[Transitions](/docs/transitions)** — configure `NibTransition` to control
+- **[Transitions](transitions.mdx)** — configure `NibTransition` to control
   how animations move: curve-based tweens vs. spring physics, duration,
   delay, and stagger.

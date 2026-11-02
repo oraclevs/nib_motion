@@ -36,16 +36,16 @@ Four presets cover the most common motion characters:
 
 ```dart
 // A soft, slow-settling spring — good for overlays and drawers.
-const spring = NibSpringDescription.gentle;
+const gentleSpring = NibSpringDescription.gentle;
 
 // Fast and tight with minimal overshoot — good for UI feedback.
-const spring = NibSpringDescription.snappy;
+const snappySpring = NibSpringDescription.snappy;
 
 // Loose and bouncy — noticeable oscillation before settling.
-const spring = NibSpringDescription.wobbly;
+const wobblySpring = NibSpringDescription.wobbly;
 
 // Very tight, near-instant settling — good for loading states.
-const spring = NibSpringDescription.stiff;
+const stiffSpring = NibSpringDescription.stiff;
 ```
 
 ### Custom spring
@@ -84,11 +84,11 @@ final simulation = flutter_physics.SpringSimulation(
 ## Motion Values
 
 `MotionValue<T>` is the reactive backbone of the physics layer. It holds a
-single value of type `T` and notifies its listeners synchronously whenever that
-value changes — but only when it *actually* changes (equality is checked first).
-Because listeners are notified directly on the value, rather than via
-`setState`, no widget subtree is rebuilt; only the `RenderObject` that is
-listening repaints.
+single value of type `T` and notifies its listeners synchronously when its
+value changes. Updating only velocity does not notify listeners. The plain
+setter resets velocity to zero.
+`RenderNibMotion` listeners repaint; `AnimatedBuilder` and
+`ValueListenableBuilder` listeners rebuild their builder subtree.
 
 ### Creating a motion value
 
@@ -96,6 +96,7 @@ Use the `motionValue<T>` factory function to create a value with an initial
 state:
 
 ```dart
+import 'package:flutter/painting.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 final offset = motionValue<double>(0.0);
@@ -231,7 +232,7 @@ import 'package:nib_motion/nib_motion.dart';
 
 final angle = motionValue<double>(0.0); // radians
 
-// Derive a sine wave from a raw angle value.
+// Derive the sign of a raw angle value.
 final sinValue = DerivedMotionValue<double, double>(
   angle,
   (radians) => radians < 0 ? -1.0 : 1.0, // simplified sign function
@@ -260,7 +261,7 @@ final opacity = progress.transform((v) => 1.0 - v);
 Two typedefs cover the most frequently animated compound types:
 
 ```dart
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
 // A MotionValue holding an animatable Color, or null for "no color".
@@ -279,8 +280,9 @@ physics. It wraps Flutter's `SpringSimulation`, runs on a `Ticker` obtained
 from a `TickerProvider` (typically your `State` mixin), and writes the
 simulated position to the motion value on every tick.
 
-Because the write goes directly to the `MotionValue` rather than through
-`setState`, the simulation runs with zero widget rebuilds.
+The solver writes directly to the `MotionValue`. A `RenderNibMotion` listener
+repaints; an `AnimatedBuilder`, as in the example below, rebuilds its builder
+subtree on each value change.
 
 ### Basic usage
 
@@ -343,9 +345,10 @@ class _SpringCardState extends State<SpringCard>
 ### Continuous interruption
 
 `animateTo` can be called at any time, even while a simulation is already
-running. When called mid-animation without an explicit `initialVelocity`, the
-new simulation inherits the outgoing simulation's current position and
-velocity, so the motion remains fluid with no discontinuity:
+running. The default `initialVelocity: 0` inherits the motion value's velocity;
+a nonzero `initialVelocity` overrides it. Passing `from` starts at that position
+with zero velocity unless a nonzero `initialVelocity` is also supplied. During
+a retarget, the default continues from the current position and velocity:
 
 ```dart
 // The user changes their mind mid-gesture — animation reverses smoothly.
@@ -456,15 +459,15 @@ class _InertiaPanelState extends State<InertiaPanel>
 ### Adjusting friction
 
 ```dart
-// Longer coast — closer to frictionless.
-final inertia = InertiaSolver(
+// Shorter coast — velocity decays more quickly.
+final shortCoast = InertiaSolver(
   vsync: this,
   value: _offsetY,
   drag: 0.05,
 );
 
-// Short, snappy deceleration.
-final inertia = InertiaSolver(
+// Longer coast — velocity decays more slowly.
+final longCoast = InertiaSolver(
   vsync: this,
   value: _offsetY,
   drag: 0.5,
@@ -522,8 +525,8 @@ _inertia.stop();
 | `value` | `MotionValue<double>` | *(required)* | The motion value the solver writes to on each tick. |
 | `spring` | `NibSpringDescription` | *(required)* | The spring parameters used for subsequent `animateTo` calls. Mutable — update it before calling `animateTo` to change spring character mid-flight. |
 | `onComplete` | `VoidCallback?` | `null` | Called when the running simulation settles within tolerance. |
-| `animateTo({target, from?, initialVelocity?})` | `void` | `initialVelocity: 0` | Starts or restarts the simulation toward `target`. Inherits current position and velocity from a running simulation unless `from` or `initialVelocity` override them. |
-| `velocity` | `double` | — | The instantaneous velocity of the current simulation, in units per second. Returns `0.0` if no simulation is running. |
+| `animateTo({target, from?, initialVelocity?})` | `Future<void>` | `initialVelocity: 0` | Starts or restarts the simulation toward `target`. Reads current position and velocity from the motion value. `from` replaces the position and resets velocity; a nonzero `initialVelocity` overrides velocity. |
+| `velocity` | `double` | — | The instantaneous velocity of the current simulation, in units per second. Returns `0.0` before any simulation starts; use the motion value for the published velocity after settling. |
 | `stop()` | `void` | — | Stops the simulation, freezing `value` at its current position. |
 | `dispose()` | `void` | — | Stops and disposes the underlying `Ticker`. |
 
@@ -535,14 +538,14 @@ _inertia.stop();
 | `value` | `MotionValue<double>` | *(required)* | The motion value the solver writes to on each tick. |
 | `drag` | `double` | `0.135` | Friction coefficient. Values closer to `1.0` coast farther before stopping. `0.135` matches iOS scroll deceleration. Mutable. |
 | `onComplete` | `VoidCallback?` | `null` | Called when the simulation comes to rest. |
-| `animateTo({velocity})` | `void` | — | Starts a deceleration simulation from the current `value` position with the given initial velocity (units per second). |
+| `animateTo({velocity, min?, max?})` | `Future<void>` | — | Starts a deceleration simulation from the current `value` position with the given initial velocity (units per second). |
 | `stop()` | `void` | — | Stops the simulation, freezing `value` at its current position. |
 | `dispose()` | `void` | — | Stops and disposes the underlying `Ticker`. |
 
 ## Next Steps
 
 For orchestrating spring-driven motion with higher-level controls — including
-imperative `play`, `pause`, and `reverse` APIs — see
-[Motion Controller](/docs/motion-controller). To use motion values in
+imperative `start`, `set`, `stop`, `repeat`, and `sequence` APIs — see
+[Motion Controller](motion-controller.mdx). To use motion values in
 response to scroll position or viewport visibility, see
-[Viewport & Scroll](/docs/viewport-and-scroll).
+[Viewport & Scroll](viewport-and-scroll.mdx).

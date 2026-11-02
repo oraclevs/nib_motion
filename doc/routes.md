@@ -34,9 +34,8 @@ Navigator.of(context).push(NibPageRoute<void>(builder: (_) => Detail()));
 | `barrierDismissible` / `barrierColor` | `true` / 50% black (dialog only) |
 | `alignment` (dialog) | `Alignment.center` |
 
-`reverseDuration` is how long the route stays mounted after a pop; the exit
-motion is cut off when it elapses, so give slow exit transitions a longer
-`reverseDuration`.
+`reverseDuration` is a minimum retention time. The route also accounts for
+its exit transition duration and spring settling; see [route lifetime](#route-lifetime).
 
 ## Limits
 

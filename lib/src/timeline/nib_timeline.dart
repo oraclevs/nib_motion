@@ -113,10 +113,10 @@ class NibTimeline {
   /// [duration], without animating, and updates [progress].
   ///
   /// Entries with a [NibTimelineEntry.from] are interpolated `from → target`
-  /// (using their curve, or the spring's settle curve). Entries without
-  /// `from` cannot be interpolated because their start state is unknown; they
-  /// step to their target once their end is reached. Entries that have not
-  /// started yet are set to `from` when they have one, otherwise left alone.
+  /// (using their curve, or the spring's settle curve). When `from` is omitted,
+  /// the start is derived per property from earlier targets on the same
+  /// controller, then its attached widget's initial state. Entries that have
+  /// not started hold that state without overwriting earlier entries.
   ///
   /// Scrubbing cancels any pending [play] timers.
   void seek(double fraction) {

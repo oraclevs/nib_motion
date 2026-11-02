@@ -1,6 +1,6 @@
 # Timeline
 
-[Motion Controller](/docs/motion-controller) gives you an imperative handle on
+[Motion Controller](motion-controller.mdx) gives you an imperative handle on
 a single `NibMotionController` — call `start`, `set`, `stop`, or `sequence` on
 it and every attached `NibMotion` responds. But a multi-element intro (a
 title fades in, then a subtitle slides up 150ms later, then a CTA pops in
@@ -143,20 +143,25 @@ class NoticeDemo extends StatefulWidget {
 class _NoticeDemoState extends State<NoticeDemo> {
   final _controller = NibMotionController();
   bool _seen = false;
+  NibAnimationSequence? _sequence;
 
   @override
   void dispose() {
+    _sequence?.stop();
     _controller.dispose();
     super.dispose();
   }
 
   void _playNotice() {
-    NibAnimationSequence(_controller)
+    _sequence?.stop();
+    _sequence = NibAnimationSequence(_controller)
         .animate(const NibAnim(y: -20, opacity: 0))
         .wait(const Duration(milliseconds: 100))
         .animate(const NibAnim(y: 0, opacity: 1), transition: NibTransition.springGentle)
-        .call(() => setState(() => _seen = true))
-        .play();
+        .call(() {
+          if (mounted) setState(() => _seen = true);
+        });
+    _sequence!.play();
   }
 
   @override
@@ -216,7 +221,7 @@ that lifecycle.
 
 | Method | Signature | Description |
 | --- | --- | --- |
-| (constructor) | `NibTimeline(List<NibTimelineEntry> entries)` | Creates a timeline from `entries`, sorted by `NibTimelineEntry.at` (stable sort — entries sharing the same offset keep their relative order). |
+| (constructor) | `NibTimeline(List<NibTimelineEntry> entries)` | Creates a timeline from `entries`, sorted by their resolved start offsets. Do not rely on tie ordering for entries sharing an offset. |
 | `entries` | `List<NibTimelineEntry>` | The entries this timeline plays, sorted by `at`. |
 | `play` | `Future<void> play()` | Schedules every entry's `controller.start(target:, transition:)` at its `at` offset. Returns a future that completes once the last entry has fired and finished animating. Calling again while playing cancels still-pending entries from the previous run first. |
 | `pause` | `void pause()` | Cancels every pending (not-yet-fired) entry; already-started animations keep running. The future returned by `play` will never complete after this. |
@@ -247,11 +252,11 @@ that lifecycle.
 
 ## Next steps
 
-- **[Motion Controller](/docs/motion-controller)** — the prerequisite:
+- **[Motion Controller](motion-controller.mdx)** — the prerequisite:
   `NibTimeline` and `NibAnimationSequence` both orchestrate one or more
   `NibMotionController`s, they don't replace them. Start there if you haven't
   attached a controller to a `NibMotion` yet.
-- **[Lists & Stagger](/docs/lists-and-stagger)** — for declarative
+- **[Lists & Stagger](lists-and-stagger.mdx)** — for declarative
   `staggerChildren`/`delayChildren` timing across a list of `NibMotion`
   children, when the elements you're animating share a common parent rather
   than needing independent imperative controllers.

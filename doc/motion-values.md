@@ -1,9 +1,11 @@
 # MotionValue mental model
 
 A `MotionValue<T>` is a `ValueListenable<T>` that also knows its **velocity**
-(units/second, `0` for non-numeric `T`). Render objects listen to it and repaint
-directly; nothing rebuilds.
-A `MotionValue<double>` requires a finite initial value.
+(units/second for scalar animation drivers). `RenderNibMotion` listens and repaints
+directly. A `ValueListenableBuilder` listener rebuilds its builder instead.
+A `MotionValue<double>` requires a finite initial value. Fragments below assume
+Flutter widgets and `nib_motion` imports and live inside the owning state.
+Dispose values and solvers when that owner is disposed.
 
 ```dart
 final x = MotionValue<double>(0);
@@ -42,7 +44,7 @@ is safe.
 
 ```dart
 final opacity = MotionValue<double>(1);
-NibMotion(motionValues: NibMotionValues(opacity: opacity), child: …);
+NibMotion(motionValues: NibMotionValues(opacity: opacity), child: const Text('Motion'));
 ```
 
 Externally supplied values are never disposed by the widget.
@@ -51,12 +53,15 @@ Externally supplied values are never disposed by the widget.
 
 ```dart
 final controller = NibMotionController();
-NibMotion(controller: controller, …);
+NibMotion(controller: controller, child: const Text('Motion'));
 
 controller.velocityOf(NibProperty.x);              // units/second, 0 at rest
 controller.velocities;                             // snapshot of every NibProperty
-controller.motionValueOf(NibProperty.x)!           // the live MotionValue:
-    .addListener(() => print(...));                //   value + velocity, listenable
+final value = controller.motionValueOf(NibProperty.x);
+void report() => debugPrint('${value?.value}, ${value?.velocity}');
+value?.addListener(report);
+// When the listener is no longer needed:
+value?.removeListener(report);
 ```
 
 `motionValueOf` returns `null` until a `NibMotion` is attached (after its first
@@ -66,7 +71,7 @@ To drive both translate channels from one `Offset` without rebuilds:
 
 ```dart
 final offset = NibOffsetMotionValue();             // MotionValue<Offset> + x/y channels
-NibMotion(motionValues: NibMotionValues(offset: offset), child: …);
+NibMotion(motionValues: NibMotionValues(offset: offset), child: const Text('Motion'));
 MultiSpringSolver<Offset>(vsync: this, value: offset,
     converter: MotionConverter.offset, spring: NibSpring.smooth);
 ```
