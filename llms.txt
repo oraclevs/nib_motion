@@ -4,7 +4,8 @@
 > information-dense Markdown document intended to be read by an LLM/coding
 > agent before it generates Flutter code against these packages. It is not a
 > human tutorial — it assumes Flutter fluency and favors exact signatures and
-> runnable snippets over prose.
+> API fragments over prose. Examples omit app-specific widgets and state unless
+> shown explicitly; the README contains complete runnable apps.
 
 ## What This Is
 
@@ -13,10 +14,10 @@ developed together in the same monorepo:
 
 | Package | pub.dev | Path (this monorepo) | Version | What it is |
 |---|---|---|---|---|
-| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.4 | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
-| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.2 | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
+| `nib_motion` | [pub.dev/packages/nib_motion](https://pub.dev/packages/nib_motion) | `MotionNib/motion/` | 0.3.5 | A declarative, physics-based animation framework for Flutter. Zero pub dependencies beyond the Flutter SDK. |
+| `nib_components` | [pub.dev/packages/nib_components](https://pub.dev/packages/nib_components) | `ComponetsNib/nib_components/` | 0.2.3 | A Flutter UI component library with 30+ theme-aware widgets built on `nib_motion`. |
 
-`nib_components` depends on `nib_motion` (`^0.3.4`) — installing
+`nib_components` depends on `nib_motion` (`^0.3.5`) — installing
 `nib_components` pulls `nib_motion` in transitively. You can also use
 `nib_motion` completely standalone, on any Flutter widget, with no
 `nib_components` dependency at all.
@@ -43,35 +44,31 @@ import 'package:nib_motion/nib_motion.dart';
 import 'package:nib_components/nib_components.dart'; // if using components
 ```
 
-Motion 0.3.4 requires Flutter 3.29 or newer for its shader APIs. Components
-0.2.2 requires Dart 3.12.1 or newer as well. These are the versions described
-by this source reference; consult pub.dev for currently hosted releases.
+Motion 0.3.5 requires Flutter 3.29 or newer for its shader APIs. Components
+0.2.3 requires Dart 3.12.1 or newer as well. These are the versions described
+by this source reference. The 0.3.6 candidate updates documentation and metadata
+without changing the motion runtime. Consult pub.dev for currently hosted releases.
 Official guides and examples: https://www.nibmotion.xyz.
 
 ## Design Philosophy
 
-- **Physics over curves, by default.** Most transitions in both packages
-  default to real spring simulations (`NibSpringDescription` presets:
-  `gentle`/`snappy`/`wobbly`/`stiff`) rather than fixed-duration curves. You
-  can always override with a curve-based `NibTransition(duration:, curve:)`
-  instead.
-- **No forced rebuilds for animation.** `nib_motion`'s core primitive,
-  `MotionValue`, drives a `RenderObject` directly via `markNeedsPaint` —
-  animating a `NibMotion` widget never calls `setState`. When building your
-  own animated widgets on top of these packages, preserve this property;
-  don't wrap `NibMotion` in something that rebuilds every frame.
-- **Stateful-by-default, controller-optional** (`nib_components`). Every
-  component works with zero wiring — pass plain parameters and it manages its
-  own internal state. Reach for a `Nib<Component>Controller` only when you
-  need to drive it imperatively from outside.
+- **Choose a physical or timed transition.** `NibMotion` defaults to the
+  curve-based `NibTransition()`. Select `NibTransition.springSnappy`, another
+  preset, or a spring description when the interaction needs spring physics.
+- **Paint-driven property animation.** Core `MotionValue` notifications drive
+  `RenderNibMotion` paint updates without rebuilding its child each frame.
+  Content changes and builder APIs such as `NibValueBuilder` can rebuild.
+- **Stateful-by-default, controller-optional** (`nib_components`). Components
+  with internal state can manage it for you. Use a `Nib<Component>Controller`
+  when the component supports it and you need external control.
 - **Theme-aware, light/dark by default.** `nib_components` reads all colors
   and radii from `NibTheme` (a `ThemeExtension`); components work
   out-of-the-box without registering it (falls back to `NibTheme.light`/
   `.dark` by ambient `Brightness`).
-- **Animation is opt-in per component** (`nib_components`). Every component
-  takes `animated: bool = false`. When `false`, it builds **zero**
-  `NibMotion` widgets — not just "animation disabled," literally absent from
-  the tree.
+- **Most component animations are opt-in** (`nib_components`) through
+  `animated: bool = false`. That flag removes the optional `NibMotion` subtree.
+  `NibFlipCard` always animates, and gesture-driven movement has separate rules;
+  consult the component reference and its known pitfalls.
 
 
 ---
@@ -90,7 +87,12 @@ Declarative, physics-based Flutter animation framework (Framer-Motion style), ze
 
 **Propagation via InheritedWidget scopes, not props.** Several cross-cutting features use ancestor scopes a `NibMotion` reads instead of prop-drilling: `VariantsScope` (internal, not exported — created by `NibMotion.build`) propagates a `String` variant name plus stagger timing to descendants whose `variants` map has a matching key and no explicit `animate`; `NibPresenceScope` (internal) lets a `NibMotion` with `exit` register/unregister with the nearest ancestor `NibPresence` so its exit animation plays before removal; `NibMotionReplayScope` (exported) lets `NibScreenStack` (and any custom code) force entrance animations to replay, e.g. on tab revisit.
 
-**Zero-rebuild animation is the load-bearing performance property of the entire package.** `NibMotion` owns one `MotionValue<double|Color?|BorderRadius?|List<BoxShadow>?>` per property, handed straight to `RenderNibMotion` (a `RenderProxyBox`). Animating never calls `setState` — a `MotionValue` notification calls `markNeedsPaint()` (and `markNeedsCompositingBitsUpdate()` for opacity) directly on the render object. Every other primitive in the package (`NibDraggable`, `NibPinch`, `NibShimmer`, `NibDrawPath`, `NibNavBar`'s `CustomPainter`, etc.) follows the identical pattern: a `MotionValue` written by a `Ticker`/`SpringSolver`/gesture callback, read directly in `paint()`. The only sanctioned exceptions are `NibTypewriter` (a discrete content value, not a per-frame paint value) and `NibPerfOverlay` (updates ~1Hz from `SchedulerBinding.addTimingsCallback`, not a member of the 60-120fps pipeline).
+**Paint-driven animation.** `NibMotion` owns one `MotionValue` per property and
+passes it to `RenderNibMotion`. Continuous property notifications invalidate
+paint or compositing rather than rebuilding the child. This is not a package-wide
+ban on rebuilds: `NibValueBuilder` rebuilds its builder, `NibTypewriter` changes
+text content, and `NibFlip` updates focus/semantics wrappers when its face changes.
+See `doc/performance.md` for measured behavior and its limits.
 
 **Reduced motion & startup warm-up.** `NibMotionConfig` (in `core/reduced_motion.dart`) resolves reduced-motion via `setReducedMotion` override > `NibMotionConfig.reducedMotion` > `MediaQuery.disableAnimations`; when true, `NibMotion` jumps straight to the target with `setImmediately`. `NibMotionConfig.entranceWarmup` (400ms default) delays entrance animations (`animate`/`keyframes` on first build) so they don't run unseen under a native splash screen; `NibMotionGate.hold()`/`release()` extends that hold indefinitely for apps using `flutter_native_splash` in "preserve" mode.
 
@@ -123,7 +125,7 @@ NibMotion(
   child: const Card(child: Text('Hello')),
 )
 ```
-Gotcha: `exit` without a `key` throws an assertion. Spring transitions ignore `keyframes` entirely (curve-only).
+Gotcha: `exit` without a `key` throws an assertion. Keyframes use the transition duration and curve; spring physics does not drive their interpolation.
 
 #### `NibAnim` (`nib_anim.dart`)
 Immutable snapshot: `x, y, scale, scaleX, scaleY, rotate, skewX, skewY` (`double?`), `opacity: double?`, `color: Color?`, `borderRadius: BorderRadius?`, `boxShadow: List<BoxShadow>?`. All default `null` (untouched). `static const identity` sets every transform/opacity field to its neutral value. Methods: `lerp(other, t)`, `copyWith({...})`, `merge(other)` (other's non-null wins).
@@ -171,8 +173,7 @@ void main() {
   NibMotionGate.hold();
   runApp(const MyApp());
 }
-// after FlutterNativeSplash.remove():
-NibMotionGate.release();
+// After FlutterNativeSplash.remove(), call NibMotionGate.release().
 ```
 
 #### `NibMotionProvider` (`nib_motion_provider.dart`)
@@ -199,10 +200,12 @@ void main() async {
 Immutable bag of optional external `MotionValue`s (`opacity, translateX, translateY, scaleX, scaleY, rotate, skewX, skewY, color, borderRadius, boxShadow`) to feed `NibMotion.motionValues`. Any non-null field is read-but-never-owned by `NibMotion` — caller must dispose it.
 ```dart
 NibMotion(
-  motionValues: NibMotionValues(opacity: bridge.scrollY.mapRange([0, 200], [1.0, 0.0])),
+  motionValues: NibMotionValues(opacity: headerOpacity),
   child: const HeaderBar(),
 )
 ```
+Here `headerOpacity` is an owned `MotionValue<double>` created outside `build`.
+See the scroll recipe below for creation and disposal.
 
 #### `RenderNibMotion` (`render_nib_motion.dart`)
 `RenderProxyBox` most consumers never instantiate directly — it's `NibMotion`'s internal paint layer, exposed publicly for advanced/testing use. Exposes settable `opacity/translateX/translateY/scaleX/scaleY/rotate/skewX/skewY/color/borderRadius/boxShadow` (`MotionValue`s), and a `transform` getter (the composed `Matrix4`). Paint order: opacity → transform → shadow → color fill → clip → child.
@@ -214,6 +217,7 @@ NibMotion(
 ```dart
 final scrollY = motionValue<double>(0);
 final opacity = scrollY.mapRange([0, 200], [1.0, 0.0]);
+// After consumers are removed, dispose opacity before scrollY.
 ```
 
 #### `DerivedMotionValue<S,T>` (`derived_motion_value.dart`)
@@ -228,8 +232,8 @@ Typedefs: `MotionValue<Color?>` and `MotionValue<List<BoxShadow>?>`.
 `{mass = 1.0, stiffness = 100.0, damping = 10.0}`. Presets: `gentle` (120/14), `snappy` (300/20), `wobbly` (180/12), `stiff` (400/28). `.toFlutter() → flutter_physics.SpringDescription`.
 
 #### `SpringSolver` (`spring_solver.dart`)
-`{required vsync: TickerProvider, required value: MotionValue<double>, required spring: NibSpringDescription, onComplete: VoidCallback?}`. `animateTo({required target, from, initialVelocity = 0})` — if a simulation is already running and no `initialVelocity` is given, continuity is preserved (continues from the outgoing sim's current velocity/position). `velocity` getter, `stop()`, `dispose()`.
-Gotcha (general awareness): the `SpringSimulation` this drives resolves `onComplete`/any `animateTo`-derived `Future` only once `SpringSimulation.isDone()` passes Flutter's tight default `Tolerance` (distance & velocity < 0.001) — this can take ~0.5-1s *longer* than the animation looks visually settled. Don't gate perceptual "done" UI on `NibMotion.animateTo()`'s Future for a spring transition; only use it for chaining subsequent animations.
+`{required vsync: TickerProvider, required value: MotionValue<double>, required spring: NibSpringDescription, onComplete: VoidCallback?}`. `animateTo({required target, from, initialVelocity = 0})` starts at the current value and inherits its velocity when `from` is omitted and `initialVelocity` is zero (including an explicit zero). A nonzero `initialVelocity` overrides it; supplying `from` starts there with zero inherited velocity. `velocity` getter, `stop()`, `dispose()`.
+`animateTo()` completes when the spring settles, or when it is superseded, stopped, or disposed. `onComplete` fires on settling. Settling uses Flutter's simulation tolerance and can occur after the motion looks stationary; a completed future does not prove that the target was reached.
 
 #### `InertiaSolver` (`inertia_solver.dart`)
 `{required vsync, required value: MotionValue<double>, drag = 0.135, onComplete}` — `FrictionSimulation`-driven coast-to-stop (0.135 matches iOS scroll deceleration). `animateTo({required velocity})`, `stop()`, `dispose()`.
@@ -238,10 +242,10 @@ Gotcha (general awareness): the `SpringSimulation` this drives resolves `onCompl
 Only `NibDragConfig` and `NibDragReleaseMode` are exported from `drag_handler.dart` (its `DragHandler` class and `applyElastic` function are package-internal).
 
 #### `NibDragConfig` (`drag_handler.dart`)
-`{axis: Axis?, constraints: Rect?, elastic = false, elasticFactor = 0.2, onDragStart, onDragEnd: void Function(Velocity)?, releaseMode = NibDragReleaseMode.springBack, snapPoints: List<Offset>?}`. `NibDragReleaseMode`: `springBack | inertia | stay`. Feeds `NibMotion.drag`. In candidate 0.3.4, release velocity uses receiver-local pixels/second, matching the drag offset under transformed ancestors.
+`{axis: Axis?, constraints: Rect?, elastic = false, elasticFactor = 0.2, onDragStart, onDragEnd: void Function(Velocity)?, releaseMode = NibDragReleaseMode.springBack, snapPoints: List<Offset>?}`. `NibDragReleaseMode`: `springBack | inertia | stay`. Feeds `NibMotion.drag`. Since 0.3.4, release velocity uses receiver-local pixels/second, matching the drag offset under transformed ancestors.
 
 #### `NibDraggable` (`nib_draggable.dart`)
-Standalone drag widget (no `NibMotion` integration) — `{required child, axis, bounds, snapBack = false, snapTarget, onDragStart, onDragUpdate, onDragEnd, spring = NibSpringDescription.gentle}`. Candidate 0.3.4 reports release velocity in receiver-local pixels/second.
+Standalone drag widget (no `NibMotion` integration) — `{required child, axis, bounds, snapBack = false, snapTarget, onDragStart, onDragUpdate, onDragEnd, spring = NibSpringDescription.gentle}`. Since 0.3.4, release velocity is reported in receiver-local pixels/second.
 ```dart
 NibDraggable(
   bounds: const Rect.fromLTWH(-100, -100, 200, 200),
@@ -334,12 +338,12 @@ See table below for the ready-made widgets; `NibAnimPresets` (`nib_anim_presets.
 `{required controller: ScrollController}` — mirrors `controller.offset` into `scrollY`/`scrollX` (`MotionValue<double>`), from which any animatable value can be derived via `.mapRange()`. Manual `dispose()` required.
 
 #### `NibScrollMotion` (`nib_scroll_motion.dart`)
-`{required controller, required builder: Widget Function(context, ScrollMotionBridge)}` — creates/disposes the bridge for you.
+`{required controller, required builder: Widget Function(context, ScrollMotionBridge)}` — creates/disposes the bridge for you. This fragment connects its offset directly. If you derive a value with `mapRange`, cache it outside `build` and dispose it yourself; see the scroll recipe below.
 ```dart
 NibScrollMotion(
   controller: scrollController,
   builder: (context, bridge) => NibMotion(
-    motionValues: NibMotionValues(opacity: bridge.scrollY.mapRange([0, 200], [1, 0])),
+    motionValues: NibMotionValues(translateY: bridge.scrollY),
     child: const HeaderBar(),
   ),
 )
@@ -352,7 +356,7 @@ NibScrollMotion(
 Thin `NibMotion.whileInView` convenience — `{required child, initial = NibAnim(opacity: 0, y: 32), animate = NibAnim.identity, transition, once = true, amount = 0.2}`.
 
 ### shaders (`lib/src/shaders/`)
-Require Flutter's shader asset pipeline (`flutter.shaders` in the host `pubspec.yaml` matching `NibShaderAssets`'s paths); all degrade gracefully (child painted as-is, or with a plain opacity fallback) if the shader fails to compile.
+The package declares its bundled fragment shaders under `flutter.shaders`. Consumers do not need to duplicate those declarations. Custom shaders must be declared in the host app. Loading or renderer support failures use each effect's documented fallback; test the selected renderer.
 
 #### `NibShaderLoader` / `NibShaderAssets` (`shader_loader.dart`)
 Singleton cache — `shimmer()/dissolve()/gradientSweep()/liquidGlass() → Future<FragmentProgram>`, `preloadAll()` (swallows failures), `resetForTesting()`.
@@ -394,7 +398,7 @@ Gotcha: `NibText.rich`'s per-span styling within the `InlineSpan` is *not* prese
 `{required child, direction = NibTextRevealDirection.left, duration = 500ms, delay = Duration.zero, curve = easeInOut, controller}` — whole-block clip wipe (not per-character). `NibTextRevealDirection`: `left | right | up | down`.
 
 #### `NibTypewriter` (`nib_typewriter.dart`)
-`{required text: String, speed = 50ms, cursor = '|', cursorBlinkInterval = 530ms, style, onComplete, repeat = false, deleteSpeed, delay = Duration.zero}`. The one legitimate `setState`-per-tick widget in the package (discrete character count, driven by `Timer.periodic`, not a continuous paint value).
+`{required text: String, speed = 50ms, cursor = '|', cursorBlinkInterval = 530ms, style, onComplete, repeat = false, deleteSpeed, delay = Duration.zero}`. A widget that rebuilds as the visible character count changes (discrete character count, driven by `Timer.periodic`, not a continuous paint value).
 
 ### timeline (`lib/src/timeline/`)
 
@@ -409,7 +413,7 @@ await NibAnimationSequence(controller)
 ```
 
 #### `NibTimeline` / `NibTimelineEntry` (`nib_timeline.dart`, `nib_timeline_entry.dart`)
-`NibTimeline(List<NibTimelineEntry> entries)` — sorts by `at`, schedules each entry's `controller.start(target:, transition:)` via internal `Timer`s. `.play() → Future<void>` (completes once the last entry fires+finishes), `.pause()`/`.stop()` (cancel pending timers only), `.dispose()`. `NibTimelineEntry({required controller: NibMotionController, required target: NibAnim, required at: Duration, transition})`.
+`NibTimeline(List<NibTimelineEntry> entries)` — sorts by `at`, schedules each entry's `controller.start(target:, transition:)` via internal `Timer`s. `.play() → Future<void>` completes after every scheduled entry finishes; `.pause()`/`.stop()` cancel pending timers and leave started animations running. If an entry is cancelled before firing, that play future remains pending. `.seek(fraction)` cancels pending timers and sets the scrub position; `progress` reflects the last seek, not playback time. Call `.dispose()` when finished. `NibTimelineEntry({required controller: NibMotionController, required target: NibAnim, required at: Duration, transition, label, from})`; `.after` and `.withStart` provide relative timing. Omitted `from` values are derived from earlier targets on the controller, then its attached widget's initial state.
 ```dart
 final timeline = NibTimeline([
   NibTimelineEntry(controller: titleController, target: const NibAnim(opacity: 1), at: Duration.zero),
@@ -509,15 +513,49 @@ NibScaffold(
 
 **Scroll-linked parallax + fade header:**
 ```dart
-final scrollController = ScrollController();
-NibScrollMotion(
-  controller: scrollController,
-  builder: (context, bridge) => NibMotion(
-    motionValues: NibMotionValues(opacity: bridge.scrollY.mapRange([0, 150], [1.0, 0.0])),
-    child: const HeaderImage(),
-  ),
-)
-// elsewhere: NibParallax(scrollController: scrollController, factor: 0.4, child: const BackgroundArt())
+class ScrollHeader extends StatefulWidget {
+  const ScrollHeader({super.key});
+
+  @override
+  State<ScrollHeader> createState() => _ScrollHeaderState();
+}
+
+class _ScrollHeaderState extends State<ScrollHeader> {
+  final scrollController = ScrollController();
+  late final ScrollMotionBridge bridge;
+  late final DerivedMotionValue<double, double> headerOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    bridge = ScrollMotionBridge(controller: scrollController);
+    headerOpacity = bridge.scrollY.mapRange([0, 150], [1.0, 0.0]);
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    controller: scrollController,
+    children: [
+      NibMotion(
+        motionValues: NibMotionValues(opacity: headerOpacity),
+        child: NibParallax(
+          scrollController: scrollController,
+          factor: 0.4,
+          child: const SizedBox(height: 200, child: FlutterLogo()),
+        ),
+      ),
+      const SizedBox(height: 1200, child: Text('Scroll to fade the header')),
+    ],
+  );
+
+  @override
+  void dispose() {
+    headerOpacity.dispose();
+    bridge.dispose();
+    scrollController.dispose();
+    super.dispose();
+  }
+}
 ```
 
 **Per-word text reveal on entrance:**
@@ -573,8 +611,8 @@ NibMotion(
 ## Known Pitfalls
 
 - **`exit` requires a non-null `key`.** `NibMotion`'s constructor asserts this — `NibPresence` tracks widget identity across removal by `Key`.
-- **Spring-driven Futures resolve later than the animation looks done.** `SpringSolver.animateTo()`/`NibMotion.animateTo()` (and anything chained through `NibMotionController.start`/`.sequence`) complete only once `SpringSimulation.isDone()` passes Flutter's tight default `Tolerance` (distance & velocity < 0.001) — this can trail the perceptual settle by ~0.5-1s. Only rely on these Futures for chaining subsequent animation steps, never to gate "animation finished" UI/interaction re-enabling.
-- **`NibDrawPath`/`NibPathMotion` don't use `NibMotionController`.** They ship their own `NibDrawPathController`/`NibPathMotionController` (`play/pause/restart`) — passing a `NibMotionController` to them does nothing.
+- **A completed animation future does not prove arrival.** Spring futures complete when settled, superseded, stopped, or disposed. Natural settling can occur after the motion looks stationary. Timeline cancellation has different semantics: cancelling an entry before its timer fires can leave that `play()` future pending.
+- **`NibDrawPath`/`NibPathMotion` don't use `NibMotionController`.** They ship their own `NibDrawPathController`/`NibPathMotionController` (`play/pause/restart`) — passing a `NibMotionController` to their `controller:` parameter is a type error.
 - **`NibText.rich` doesn't preserve per-span styling per-unit** — only the flat `style:` parameter applies to every split unit; mixed-style `TextSpan` children are flattened to plain text for splitting.
 - **`text/nib_text.dart`'s only exported symbol is `NibText`** — `splitGraphemes`, `NibTextUnitData`, `splitTextIntoUnits`, `computeStaggerDelay` are public in the source file but not part of the package API (the barrel uses `show NibText`).
 - **`gestures/drag_handler.dart` only exports `NibDragConfig`/`NibDragReleaseMode`** — `DragHandler` and `applyElastic` are internal; use `NibMotion.drag` or `NibDraggable`, not the handler directly.
@@ -582,7 +620,7 @@ NibMotion(
 - **Manual dispose responsibilities:** `NibMotionController`, `ScrollMotionBridge`, `NibShakeController`, `NibAnimationSequence`, `NibTimeline`, and any externally-owned `MotionValue` passed via `NibMotionValues`/`NibPathMotion.progress` are **not** disposed by the widgets that consume them — the creator must call `.dispose()`.
 - **`TickerProvider` requirement:** almost every driver (`SpringSolver`, `InertiaSolver`, raw `Ticker`-based widgets like `NibDrawPath`/`NibFlip`/`NibShimmer`/`NibDissolve`/`NibGradientText`) needs a `vsync`; all the package's own `StatefulWidget`s already mix in `TickerProviderStateMixin`/`SingleTickerProviderStateMixin` — only relevant if you drive `SpringSolver`/`InertiaSolver` yourself outside a `NibMotion`.
 - **Reduced-motion jump semantics:** when `NibMotionConfig.shouldReduceMotion(context)` is true, `NibMotion.animateTo`/keyframe playback/loop all jump straight to the target with `setImmediately` — no animation frames run at all (not just "faster"), so don't assume any transition frames exist for reduced-motion users.
-- **Shader-backed widgets (`NibShimmer`, `NibDissolve`, `NibGlass`) degrade silently** if the host app hasn't declared `nib_motion`'s shader assets in its own `pubspec.yaml` `flutter.shaders`, or on a non-Impeller rendering backend for `NibGlass`'s true refraction path — they never throw, just fall back to a plain child paint (or blur, for `NibGlass`) with no dev-facing warning besides `NibGlass.debugShaderPathAvailable()`.
+- **Shader-backed widgets have renderer-specific fallbacks.** Bundled shaders are declared by `nib_motion`; consumers do not repeat them in the host pubspec. Declare your own custom shaders in the host app. Loading failures can show an unchanged child or blur fallback. `NibGlass.debugShaderPathAvailable()` reports shader-path availability; verify the effect on the renderer you ship.
 - **`NibLayoutGroup`/`NibPresence`/`NibMotionList` (with `presenceEnabled`) all require unique, non-null `Key`s** on every child — omitting one throws (`child.key!`).
 - **`entranceWarmup` (400ms default) delays entrance animations from `NibMotion.initState`**, not just `NibMotionGate` — a widget built well after app start (e.g. on a pushed-later screen) is unaffected since the warmup window has already elapsed, but a widget built in the first frame will visibly wait before its `animate`/`keyframes` entrance begins.
 
@@ -593,8 +631,8 @@ NibMotion(
 Package: `nib_components` (Flutter). A native, installable widget library — NOT a
 copy-paste CLI/registry (that model is abandoned/historical; ignore any docs at
 `/home/occ/Projects/Nib/CLAUDE.md` describing it). Source: `/home/occ/Projects/Nib/ComponetsNib/nib_components/`.
-Built on the sibling animation package `nib_motion` (`../../MotionNib/motion`, wired
-in as a `path:` dependency pre-publish).
+Built on `nib_motion: ^0.3.5`. Local development can override it with the
+sibling checkout; published consumers resolve it from pub.dev.
 
 ## Core Conventions
 
@@ -639,12 +677,12 @@ exception to "StatefulWidget with a controller" — they are imperative, `Future
 functions similar to Flutter's own `showDialog`/`showModalBottomSheet`, not widgets
 placed in the tree.
 
-**Motion — `animated` + `transition`, built on `nib_motion`.** Every component that has
-any enter/exit/state-change animation exposes `animated: bool = false` and, where more
+**Motion — `animated` + `transition`, built on `nib_motion`.** Components that support optional
+enter/exit/state-change animation expose `animated: bool = false` and, where more
 than one visual transition style makes sense, a `transition: NibTransition?` parameter.
-All animation routes exclusively through `nib_motion`'s primitives (`NibMotion`,
-`NibShimmer`, etc.) — never Flutter's implicit-animation widgets
-(`AnimatedContainer`/`AnimatedOpacity`/etc.). **When `animated: false`, the component
+Discrete effects use `nib_motion` primitives (`NibMotion`, `NibShimmer`, etc.).
+The component-specific entries below document exceptions such as `NibFlipCard`
+and continuous gesture-driven movement. **When `animated: false`, the component
 builds zero `NibMotion`-family widgets at all** — this is a hard architectural
 invariant (verified in the source test suite with `find.byType(NibMotion), findsNothing`),
 not merely "animation configured off." Treat `animated: true` as changing which widget
@@ -3290,7 +3328,7 @@ NibOtpInput(
 - **`NibTheme.of` fallback is by ambient `Brightness`, not a fixed default.** A host app that never registers the `NibTheme` extension still renders fully correct light/dark Nib styling automatically (`NibTheme.light`/`.dark` picked from `Theme.of(context).brightness`) — registering the extension is only needed to *customize* tokens, never required for correctness.
 - **`lib/src/overlay/` (`NibAnchoredOverlay`, `overlay_positioning.dart`, `measure_size.dart`) is internal, shared plumbing — not exported from the public barrel `lib/nib_components.dart`.** It's used internally by popover, hover_card, context_menu, navigation_menu, date_picker, and bottom_sheet for viewport-aware anchored positioning. Don't reference `NibAnchoredOverlay` from generated user code; it's not part of the supported API surface even though it's technically reachable via a deep import.
 - **Two pre-existing, expected `flutter analyze` findings that are NOT bugs — don't "fix" them if seen in the source:**
-  - `invalid_dependency` on the package's `pubspec.yaml` `nib_motion: path: ...` entry — expected while `nib_components` and `nib_motion` are developed side by side pre-publish (path dependency, not yet a published version constraint).
+  - A local `path:` override can trigger `invalid_dependency` during package validation. The published dependency is `nib_motion: ^0.3.5`; do not replace it with a path in a release.
   - `prefer_initializing_formals` (info) on `NibDataTableController`'s constructor (`sort` param manually assigned to `_sort` rather than via `this.sort`) — a locked, intentional design choice per the original implementation plan, not an oversight.
   - See `/home/occ/Projects/Nib/ComponetsNib/nib_components/CLAUDE.md` for the canonical statement of both.
 - **Several components assert mutually-exclusive constructor params rather than silently picking one**: `NibSelect` requires exactly one of `options`/`groups`; `NibCombobox`/`NibInput`/`NibTextarea` reject passing both `controller` and `initialValue`/seed value together. These are debug-mode `assert`s — passing both (or neither, where required) throws at construction, not a silent fallback.
