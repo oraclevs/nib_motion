@@ -1,3 +1,19 @@
+## 0.3.6
+
+* Rewrite the package introduction around declarative state, interruptible
+  springs, and the shared motion system. Add two runnable, tested quick starts.
+* Add a pub.dev demo screenshot and discovery topics. Keep the combined LLM
+  reference in the repository while excluding it from the package archive.
+* Correct outdated guide examples and migration claims; add a documentation
+  index and compatibility notes with explicit experimental limits.
+* Add contributor guidance, issue templates, support and security policies.
+* Harden the release workflow with version checks, publication preflight, and
+  trusted-publishing authentication.
+
+This release changes documentation, examples, metadata, and repository tooling.
+The animation runtime and public API are unchanged. Flutter 3.29.0 or newer
+is still required. Water rendering remains experimental.
+
 ## 0.3.5
 
 * Add opt-in live water sampling that includes independently repainted child

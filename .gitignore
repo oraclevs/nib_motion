@@ -41,3 +41,14 @@ example/pubspec.lock
 # Claude Code
 .claude/
 CLAUDE.md
+
+# Python release-tool bytecode
+__pycache__/
+
+# Generate example targets locally with flutter create.
+/example/android/
+/example/ios/
+/example/linux/
+/example/macos/
+/example/web/
+/example/windows/

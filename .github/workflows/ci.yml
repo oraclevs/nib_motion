@@ -5,8 +5,19 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
+  release-guard-tests:
+    name: Release guard tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tool -p 'test_*.py'
+
   analyze-and-test:
     name: Analyze & Test (Flutter ${{ matrix.flutter }})
     runs-on: ubuntu-latest
@@ -36,6 +47,13 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
 
+      - name: Validate example and README snippets
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+          flutter test
+
       - name: Validate pub.dev publish (dry run)
         run: dart pub publish --dry-run
 
@@ -56,8 +74,9 @@ jobs:
       - name: Build example for web (Wasm)
         working-directory: example
         run: |
-          flutter create --platforms=web --project-name nib_motion_example .
+          flutter create --empty --platforms=web --project-name nib_motion_example .
           flutter build web --wasm
+          flutter build web --wasm -t lib/demos.dart
 
   shader-renderer:
     name: Shader renderer tests

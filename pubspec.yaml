@@ -1,10 +1,21 @@
 name: nib_motion
-description: "A declarative, physics-based Flutter animation framework inspired by Framer Motion — springs, gestures, variants, presence, FLIP layout, and GPU shaders."
-version: 0.3.5
+description: "A physics-driven motion framework for Flutter: declarative animation, interruptible springs, gestures, shared layouts, scroll-linked values, and GPU effects."
+version: 0.3.6
 homepage: https://www.nibmotion.xyz
 documentation: https://www.nibmotion.xyz/docs/motion/introduction
 repository: https://github.com/oraclevs/nib_motion
 issue_tracker: https://github.com/oraclevs/nib_motion/issues
+
+topics:
+  - animation
+  - physics
+  - gestures
+  - transitions
+  - flutter
+
+screenshots:
+  - description: 'NibMotion Flutter demo with staggered text animation and shader effects.'
+    path: assets/nib_preview.gif
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

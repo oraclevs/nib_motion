@@ -3,10 +3,11 @@ build/
 coverage/
 *.log
 
-# Large README media is hosted on GitHub. Include the shared brand assets.
+# README media is hosted on GitHub. Include the logo and one pub.dev demo.
 assets/*
 !assets/nib-logo.svg
 !assets/nib-logo.png
+!assets/nib_preview.gif
 
 # Website MDX docs — these are for the nib website, not the pub package
 doc/
@@ -16,8 +17,11 @@ showcase/
 
 # Generated example platform projects are local and not tracked for release.
 example/android/
+example/ios/
 example/linux/
+example/macos/
 example/web/
+example/windows/
 
 # IDE
 *.iml
@@ -26,3 +30,10 @@ example/web/
 # Claude Code
 .claude/
 CLAUDE.md
+
+# Maintainer tooling and combined reference stay available in the repository.
+.github/
+.agents/
+tool/
+llms.txt
+TASKS.md
