@@ -1,8 +1,9 @@
 # nib_motion example
 
-Two entry points:
+Entry points:
 
-* `lib/main.dart` — the original showcase app.
+* `lib/main.dart` — the Daily Focus app.
+* `lib/readme/entrance.dart` and `lib/readme/retarget.dart` — complete README quick starts.
 * `lib/demos.dart` — a menu of 21 small screens, one per `nib_motion` feature
   (interruption, drag/inertia/snap, presence, layout FLIP, routes, sliver
   header, timeline scrubbing, spring tuner, velocity read, size modes,
@@ -30,12 +31,15 @@ flutter run -d web-server --web-port 8080 -t lib/demos.dart
 ```
 
 Platform folders (`android/`, `linux/`, `web/`) are generated; if one is
-missing run `flutter create --platforms=<name> --project-name nib_motion_example .`.
+missing run `flutter create --empty --platforms=<name> --project-name nib_motion_example .`.
 
 ## Tests
 
 ```bash
-flutter test          # smoke test for every screen at phone and desktop size
+flutter analyze --fatal-infos
+flutter test          # gallery smoke tests and README examples
 ```
 
-`API_FEEDBACK.md` lists the awkward spots found while building these screens.
+README tests verify that both published Dart snippets match their runnable source.
+`API_FEEDBACK.md` records feedback from building the gallery; consult the current
+[compatibility notes](../doc/compatibility.md) for supported behavior.
