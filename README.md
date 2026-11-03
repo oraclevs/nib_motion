@@ -192,17 +192,19 @@ frame-rate guarantees or superiority over another animation package.
 
 ## Explore real interfaces
 
-The [example app](https://github.com/oraclevs/nib_motion/tree/main/example) has
-21 selectable demos, including interruptible springs, drag physics, layout
-changes, presence, routes, and scroll-linked values. From a repository checkout:
+The [example gallery](example/README.md) has 29 pages, including every original
+demo, Daily Focus, both quick starts, and the new feature examples. Search or
+filter by capability, share a demo's hash route, and export review notes.
+From this branch's repository checkout:
 
 ```bash
 cd example
-flutter create --empty --platforms=web --project-name nib_motion_example .
-flutter run -d chrome -t lib/demos.dart
+flutter pub get
+flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080 -t lib/demos.dart
 ```
 
-The platform generation step is needed because platform folders are not committed.
+Open `http://127.0.0.1:8080`. The web scaffold is committed; see the
+[example instructions](example/README.md) for other platforms or package downloads.
 The two quick starts also run with `-t lib/readme/entrance.dart` or
 `-t lib/readme/retarget.dart`.
 
