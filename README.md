@@ -28,9 +28,32 @@ Describe the state your interface should reach. When that state changes again,
 NibMotion can retarget a spring from its current position and velocity.
 Gestures, reactive values, layout, and exit animations share the same motion primitives.
 
+## Interactive Motion Gallery
+
+Explore spring retargeting, drag and inertia, layout transitions, and presence
+in a running Flutter app. All 29 examples remain available in the gallery.
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nib_preview.gif" alt="Flutter demo showing staggered text animation and shader effects" width="720" />
+  <a href="https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-showcase.mp4"><img src="https://raw.githubusercontent.com/oraclevs/nib_motion/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-showcase.gif" alt="Real Flutter gallery showing spring retargeting and layout transitions" width="720" /></a>
 </p>
+
+[Watch the full gallery recording](https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-showcase.mp4) · [Run the interactive examples](example/README.md)
+
+## Water Surface in Action
+
+Lagoon is a two-screen Flutter app using NibMotion's **water API**.
+Taps and a swipe disturb the surface, followed by a transition to an underwater
+pearl hunt. Recorded in portrait on Linux with Impeller; NibMotion reported its
+refractive `layerSampler` path. Water rendering varies by platform and renderer.
+
+<p align="center">
+  <a href="https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.mp4"><img src="https://raw.githubusercontent.com/oraclevs/nib_motion/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.gif" alt="Portrait Lagoon Flutter app: taps and a swipe create waves that refract the home screen" width="300" /></a>
+</p>
+
+[Watch the full water recording](https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.mp4) · [Review both recordings locally](assets/showcase/index.html) · [Capture details](doc/maintainers/water-showcase.md)
+
+These recordings are approved for the release candidate. Version 0.3.6 has not
+been published; media URLs use an immutable commit so branch cleanup keeps them available.
 
 ## Start with a destination
 
@@ -161,7 +184,7 @@ controllers with a timeline and a scrubber.
 
 Animate text by character, word, or line; draw paths; add shimmer, dissolve, and
 glass; build animated navigation. Custom fragment shaders can read motion-value
-uniforms. Water rendering is available as an **experimental**, bounded visual effect.
+uniforms. Water rendering is available as a bounded visual effect in the stable API.
 [Text](https://github.com/oraclevs/nib_motion/blob/main/doc/text.mdx) ·
 [Paths](https://github.com/oraclevs/nib_motion/blob/main/doc/path.mdx) ·
 [Shaders and glass](https://github.com/oraclevs/nib_motion/blob/main/doc/shaders.mdx) ·
@@ -186,25 +209,23 @@ frame-rate guarantees or superiority over another animation package.
 
 ## Explore real interfaces
 
-The [example app](https://github.com/oraclevs/nib_motion/tree/main/example) has
-21 selectable demos, including interruptible springs, drag physics, layout
-changes, presence, routes, and scroll-linked values. From a repository checkout:
+The [example gallery](example/README.md) has 29 pages, including every original
+demo, Daily Focus, both quick starts, and the new feature examples. Search or
+filter by capability, share a demo's hash route, and export review notes.
+From this branch's repository checkout:
 
 ```bash
 cd example
-flutter create --empty --platforms=web --project-name nib_motion_example .
-flutter run -d chrome -t lib/demos.dart
+flutter pub get
+flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080 -t lib/demos.dart
 ```
 
-The platform generation step is needed because platform folders are not committed.
+Open `http://127.0.0.1:8080`. The web scaffold is committed; see the
+[example instructions](example/README.md) for other platforms or package downloads.
 The two quick starts also run with `-t lib/readme/entrance.dart` or
 `-t lib/readme/retarget.dart`.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/daily_focus.gif" alt="Daily Focus Flutter app recording showing an animated task interface" width="340" />
-</p>
-
-Daily Focus is an existing app recording. Run its
+Daily Focus remains in the gallery and can also run from its
 [source](https://github.com/oraclevs/nib_motion/blob/main/example/lib/main.dart)
 with `flutter run -d chrome -t lib/main.dart` from `example/`.
 Use the gallery primitives for interactive cards, navigation,
@@ -224,7 +245,7 @@ custom drivers and raw simulations need your own policy handling.
 - Layout and gesture coordinates use local logical pixels. Perspective,
   near-singular transforms, rotated reorder, and pop exits that must preserve
   ancestor clips across coordinate spaces are outside the verified layout contract.
-- Experimental water samples a designated Flutter subtree. Platform views and
+- Water samples a designated Flutter subtree. Platform views and
   pixels outside that subtree are unsupported. It preserves original hit-test
   geometry; browser parity and sustained device performance remain unverified.
 

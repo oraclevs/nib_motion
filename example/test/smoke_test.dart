@@ -56,16 +56,17 @@ void main() {
     }
   }
 
-  testWidgets('menu lists every demo and opens one', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(420, 2400));
+  testWidgets('gallery search opens an original demo', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(const DemosApp());
-    for (final e in demoEntries) {
-      expect(find.text(e.title), findsOneWidget);
-    }
-    await tester.tap(find.text('Interruption'));
+    await tester.pumpWidget(const DemosApp(initialPath: '/'));
     await tester.pumpAndSettle();
-    expect(find.text('Interruption'), findsWidgets);
+    await tester.enterText(
+        find.byKey(const ValueKey('gallery-search')), 'Interruption');
+    await tester.tap(find.byKey(const ValueKey('nav-interruption')));
+    await tester.pumpAndSettle();
+    expect(find.byType(InterruptionScreen), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('interruption demo: retargeting mid-flight reports live velocity',

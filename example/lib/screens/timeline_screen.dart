@@ -70,7 +70,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
     return DemoScaffold(
       title: 'Timeline',
       blurb: 'Entries are placed with labels and "after" offsets. Press play, '
-          'or drag the scrubber to seek to any moment.',
+          'or drag the scrubber to seek. The slider shows your last seek, '
+          'not playback progress.',
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -85,7 +86,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
           const Spacer(),
           NibTimelineScrubber(timeline: _timeline),
           FilledButton(
-            onPressed: _timeline.play,
+            onPressed: () {
+              _timeline.seek(0);
+              _timeline.play();
+            },
             child: const Text('Play'),
           ),
         ]),

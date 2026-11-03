@@ -16,7 +16,7 @@ guide for the behavior you need. For complete constructor signatures, use the
 | Connect motion to scrolling | [Viewport and scroll](viewport-and-scroll.mdx), [parallax and reveal](scroll-effects.mdx) |
 | Coordinate several animations | [Controllers](motion-controller.mdx), [timeline basics](timeline.mdx), [relative timing and scrubbing](timeline.md) |
 | Build reactive motion | [Motion values and ownership](motion-values.md), [architecture](architecture.md) |
-| Add visual effects | [Text](text.mdx), [paths](path.mdx), [presets](presets.mdx), [shaders](shaders.mdx), [experimental water](water.md) |
+| Add visual effects | [Text](text.mdx), [paths](path.mdx), [presets](presets.mdx), [shaders](shaders.mdx), [water](water.md) |
 | Build animated navigation | [Navigation bars and screen stacks](navigation.mdx), [route transitions](routes.md) |
 
 ## Ship and maintain

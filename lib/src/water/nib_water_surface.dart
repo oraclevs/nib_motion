@@ -81,7 +81,7 @@ class NibWaterRenderStatus {
   final Duration boundAt;
 }
 
-/// Experimental optical water over a designated Flutter background subtree.
+/// Optical water over a designated Flutter background subtree.
 ///
 /// Requires finite bounds. [sampling] defaults to the recoverable legacy
 /// asynchronous path. Opt into [NibWaterSampling.live] for composition-time

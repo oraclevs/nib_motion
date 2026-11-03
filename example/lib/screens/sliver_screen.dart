@@ -16,6 +16,42 @@ class _SliverScreenState extends State<SliverScreen> {
   final List<int> _items = List<int>.generate(8, (i) => i);
   int _next = 8;
 
+  late final NibSliverHeaderDelegate _header = NibSliverHeaderDelegate(
+    minExtent: 72,
+    maxExtent: 220,
+    builder: (context, progress) => ColoredBox(
+      color: Colors.indigo,
+      child: Stack(fit: StackFit.expand, children: [
+        Align(
+          alignment: Alignment.center,
+          child: NibMotion(
+            motionValues: NibMotionValues(
+              opacity: _headerOpacity,
+              scaleX: _headerScale,
+              scaleY: _headerScale,
+              blur: _headerBlur,
+            ),
+            child: const Text('Collapsing title',
+                style: TextStyle(color: Colors.white, fontSize: 22)),
+          ),
+        ),
+      ]),
+    ),
+  );
+  late final _headerOpacity =
+      _header.progress.mapRange([0, 0.8, 1], [1, 1, 0.7]);
+  late final _headerScale = _header.progress.mapRange([0, 1], [1.6, 0.9]);
+  late final _headerBlur = _header.progress.mapRange([0, 0.6, 1], [0, 0, 3]);
+
+  @override
+  void dispose() {
+    _headerOpacity.dispose();
+    _headerScale.dispose();
+    _headerBlur.dispose();
+    _header.progress.dispose();
+    super.dispose();
+  }
+
   Widget _row(int id) => NibMotion(
         key: ValueKey('row$id'),
         layout: NibLayout.position,
@@ -28,6 +64,7 @@ class _SliverScreenState extends State<SliverScreen> {
             title: Text('Item $id'),
             trailing: IconButton(
               icon: const Icon(Icons.close),
+              tooltip: 'Remove item $id',
               onPressed: () => setState(() => _items.remove(id)),
             ),
           ),
@@ -45,28 +82,7 @@ class _SliverScreenState extends State<SliverScreen> {
         slivers: [
           SliverPersistentHeader(
             pinned: true,
-            delegate: NibSliverHeaderDelegate(
-              minExtent: 72,
-              maxExtent: 220,
-              builder: (context, progress) => ColoredBox(
-                color: Colors.indigo,
-                child: Stack(fit: StackFit.expand, children: [
-                  Align(
-                    alignment: Alignment.center,
-                    child: NibMotion(
-                      motionValues: NibMotionValues(
-                        opacity: progress.mapRange([0, 0.8, 1], [1, 1, 0.7]),
-                        scaleX: progress.mapRange([0, 1], [1.6, 0.9]),
-                        scaleY: progress.mapRange([0, 1], [1.6, 0.9]),
-                        blur: progress.mapRange([0, 0.6, 1], [0, 0, 3]),
-                      ),
-                      child: const Text('Collapsing title',
-                          style: TextStyle(color: Colors.white, fontSize: 22)),
-                    ),
-                  ),
-                ]),
-              ),
-            ),
+            delegate: _header,
           ),
           SliverToBoxAdapter(
             child: Padding(

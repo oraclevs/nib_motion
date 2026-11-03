@@ -25,11 +25,25 @@ class _PagesScreenState extends State<PagesScreen>
           .transform<double>((p) => 1 + (1 - (p - i).abs()).clamp(0.0, 1.0)),
   ];
 
+  DerivedMotionValue<double, double>? _tabOffset;
+  double? _tabWidth;
+
+  MotionValue<double> _offsetFor(double width) {
+    if (_tabWidth != width) {
+      _tabOffset?.dispose();
+      _tabWidth = width;
+      _tabOffset = _tabProgress.page
+          .mapRange([0, (_count - 1).toDouble()], [0, width * (_count - 1)]);
+    }
+    return _tabOffset!;
+  }
+
   @override
   void dispose() {
     for (final d in _dotScales) {
       d.dispose();
     }
+    _tabOffset?.dispose();
     _pageProgress.dispose();
     _tabProgress.dispose();
     _tabs.dispose();
@@ -86,8 +100,7 @@ class _PagesScreenState extends State<PagesScreen>
             child: Stack(children: [
               NibMotion(
                 motionValues: NibMotionValues(
-                  translateX: _tabProgress.page.mapRange(
-                      [0, (_count - 1).toDouble()], [0, w * (_count - 1)]),
+                  translateX: _offsetFor(w),
                 ),
                 child: Container(width: w, height: 4, color: Colors.orange),
               ),

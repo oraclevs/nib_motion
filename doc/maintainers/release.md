@@ -151,7 +151,7 @@ and [the official reusable workflow](https://github.com/dart-lang/setup-dart/blo
 
 NibMotion's introduction now connects its declarative API with runnable examples
 and guides for springs, gestures, layout, presence, scroll, and visual effects.
-The README keeps compatibility and experimental features easy to find.
+The README keeps compatibility and renderer limitations easy to find.
 
 - Updated package description, topics, and presentation assets.
 - Added contributor guidance, issue forms, a code of conduct, and private
@@ -160,7 +160,7 @@ The README keeps compatibility and experimental features easy to find.
 - Added release identity checks and a full CI gate before publication.
 
 This release does not change the animation engine or public Dart APIs. Flutter
-3.29 or newer is required. Water rendering remains experimental; automated
+3.29 or newer is required. Water is part of the stable public API; automated
 checks do not establish browser parity or sustained GPU performance. Existing
 applications need no API migration for this update.
 

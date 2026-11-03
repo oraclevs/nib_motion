@@ -1,12 +1,13 @@
-# Experimental water rendering
+# Water rendering
 
 `NibWaterController` simulates bounded droplets and surface disturbances.
 `NibWaterSurface` renders them over a designated Flutter `background`, with an
 optional sharp foreground `child`. `NibBubbleEmitter` supplies bubble events;
 `NibWaterMaterial` adjusts the optics.
 
-These APIs are exported, but the rendering path remains experimental. Treat
-device and browser checks as part of adopting it.
+Water is part of the stable public API. Its supported behavior is the bounded
+rendering contract below. Verify the selected shader or fallback path on the
+devices and browsers your application supports.
 
 ## Ownership and sampling
 
@@ -40,6 +41,12 @@ their hit targets.
 
 See the [public surface contract](../lib/src/water/nib_water_surface.dart),
 [quality settings](../lib/src/water/nib_water_quality.dart), and
-[water tests](../test/water/) for exact fields and tested cases. Prefer the
-example app's stable spring, layout, presence, and shader demos for a live
-introduction; add water after checking the chosen renderer.
+[water tests](../test/water/) for exact fields and tested cases. Check the chosen renderer before presenting water alongside the example
+app's spring, layout, presence, and shader demonstrations.
+
+## API status
+
+The maintainer confirmed stable API status on November 3, 2026. Water was
+already exported in 0.3.5; older published documentation may still use the
+previous designation. This clarification changes no signatures, rendering
+algorithms, sampling defaults, or platform guarantees.

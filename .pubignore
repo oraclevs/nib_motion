@@ -3,19 +3,22 @@ build/
 coverage/
 *.log
 
-# README media is hosted on GitHub. Include the logo and one pub.dev demo.
+# README media is hosted on GitHub. Include the logo and two pub.dev demos.
 assets/*
 !assets/nib-logo.svg
 !assets/nib-logo.png
-!assets/nib_preview.gif
+!assets/showcase/
+assets/showcase/*
+!assets/showcase/nibmotion-showcase.gif
+!assets/showcase/nibmotion-water.gif
 
 # Website MDX docs — these are for the nib website, not the pub package
 doc/
 
 # Showcase apps — large standalone demos, browsable on GitHub but not needed on pub.dev
-showcase/
+/showcase/
 
-# Generated example platform projects are local and not tracked for release.
+# Platform scaffolds stay in the repository or local checkout, outside pub.dev.
 example/android/
 example/ios/
 example/linux/

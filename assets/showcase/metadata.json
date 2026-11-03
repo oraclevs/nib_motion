@@ -1,0 +1,81 @@
+{
+  "source_sha256": "74d8a9d77536720b15b978915a3b75a286ac69feb8e8a6ca090a218710a627f7",
+  "master_cuts_seconds": [
+    [
+      2,
+      5
+    ],
+    [
+      10.5,
+      17.5
+    ],
+    [
+      23.2,
+      31.7
+    ],
+    [
+      33.4,
+      38
+    ],
+    [
+      38.5,
+      44.5
+    ],
+    [
+      53,
+      59.5
+    ],
+    [
+      83,
+      87.5
+    ]
+  ],
+  "gif_cuts_seconds": [
+    [
+      2,
+      3.2
+    ],
+    [
+      10.8,
+      15.6
+    ],
+    [
+      33.4,
+      38
+    ],
+    [
+      83,
+      84.2
+    ]
+  ],
+  "capture": "Actual Flutter app, wf-recorder, 1920\u00d71080, 30 FPS",
+  "assets": {
+    "nibmotion-showcase.mp4": {
+      "bytes": 1025571,
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "duration": "40.100000",
+      "frame_rate": "30/1",
+      "sha256": "6718bf5df022ff4c37849dcf45d2c754bc098819eb17676b81de0f087de11575"
+    },
+    "nibmotion-showcase.gif": {
+      "bytes": 845428,
+      "codec": "gif",
+      "width": 960,
+      "height": 540,
+      "duration": "11.780000",
+      "frame_rate": "20/1",
+      "sha256": "db473f3b4783f7e4990957dcb17497c7b3db2eb6871a1a27c0affe08877d97c5"
+    },
+    "nibmotion-poster.png": {
+      "bytes": 288258,
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "duration": null,
+      "frame_rate": "25/1",
+      "sha256": "dc2f4cb103ee2909a25ea1e2cc247579dac4c5403165f41cdeb32bd3aae3bde7"
+    }
+  }
+}

@@ -12,9 +12,8 @@ From the repository root:
 flutter --version
 flutter pub get
 cd example
-flutter create --empty --platforms=web --project-name nib_motion_example .
 flutter pub get
-flutter run -d web-server --web-port 8080 -t lib/demos.dart
+flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080 -t lib/demos.dart
 ```
 
 Open `http://localhost:8080`. Leave the app running and open the
@@ -24,6 +23,11 @@ editor. Use a desktop-sized browser window so the effects screen has room for
 its three boxes. Confirm keyboard focus, pointer input and the projector's text
 size. Check the operating system's reduced-motion setting; explain it if motion
 is intentionally reduced.
+
+Review the [new gallery media](showcase-media.md) and [per-example audit](showcase-audit.md)
+before selecting footage. Use the fullscreen toolbar action for a clean presentation.
+The Reduced motion screen has a known debug assertion after repeated policy toggles;
+leave that sequence out until its separate runtime fix is reviewed.
 
 Keep local copies of the existing
 [text/shader recording](../../assets/nib_preview.gif) and
@@ -88,7 +92,7 @@ at the end, and then exits. It is unsuitable as the only live demo.
 
 Check that the intended shader path is active before making a shader claim.
 Glass can show a blur fallback; shimmer can show an unchanged child if loading
-fails. Do not use experimental water as the talk's required visual effect.
+fails. Verify the water rendering path on the presentation machine and keep a recorded fallback available.
 
 If live rendering fails, use the local recording and continue with source.
 Keep device-specific performance claims out of the talk unless that exact
