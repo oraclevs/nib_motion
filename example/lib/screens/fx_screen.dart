@@ -45,27 +45,31 @@ class _FxScreenState extends State<FxScreen> {
               child: const Text('Move')),
         ]),
         const SizedBox(height: 24),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-          NibMotion(
-            animate: NibAnim(rotateY: _flipped ? 0.5 : 0),
-            transition: NibSpring.bouncy.transition,
-            child: const DemoBox(size: 96, label: 'rotateY'),
-          ),
-          NibMotion(
-            animate: NibAnim(rotateX: _flipped ? 0.25 : 0),
-            transition: NibSpring.bouncy.transition,
-            child:
-                const DemoBox(size: 96, color: Colors.pink, label: 'rotateX'),
-          ),
-          NibMotion(
-            animate: NibAnim(
-              blur: _fx ? 6 : 0,
-              tint: _fx ? const Color(0x88FF9800) : const Color(0x00FF9800),
-            ),
-            transition: NibSpring.effectsDefault.transition,
-            child: const DemoBox(size: 96, color: Colors.teal, label: 'fx'),
-          ),
-        ]),
+        Wrap(
+            alignment: WrapAlignment.spaceEvenly,
+            spacing: 12,
+            runSpacing: 16,
+            children: [
+              NibMotion(
+                animate: NibAnim(rotateY: _flipped ? 0.5 : 0),
+                transition: NibSpring.bouncy.transition,
+                child: const DemoBox(size: 96, label: 'rotateY'),
+              ),
+              NibMotion(
+                animate: NibAnim(rotateX: _flipped ? 0.25 : 0),
+                transition: NibSpring.bouncy.transition,
+                child: const DemoBox(
+                    size: 96, color: Colors.pink, label: 'rotateX'),
+              ),
+              NibMotion(
+                animate: NibAnim(
+                  blur: _fx ? 6 : 0,
+                  tint: _fx ? const Color(0x88FF9800) : const Color(0x00FF9800),
+                ),
+                transition: NibSpring.effectsDefault.transition,
+                child: const DemoBox(size: 96, color: Colors.teal, label: 'fx'),
+              ),
+            ]),
         const SizedBox(height: 32),
         for (final entry in _tokens.entries) ...[
           Text(entry.key),

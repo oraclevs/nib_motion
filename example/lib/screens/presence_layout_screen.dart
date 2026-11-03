@@ -66,6 +66,9 @@ class _PresenceLayoutScreenState extends State<PresenceLayoutScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
+              scrollDirection: _axis == NibPresenceAxis.row
+                  ? Axis.horizontal
+                  : Axis.vertical,
               child: Align(
                 alignment: Alignment.topLeft,
                 child: NibPresence.layout(

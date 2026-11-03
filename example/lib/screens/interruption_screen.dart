@@ -23,6 +23,15 @@ class _InterruptionScreenState extends State<InterruptionScreen>
   );
   double _declarativeTarget = 0;
 
+  void _move(double target) {
+    if (NibMotionConfig.shouldReduceMotion(context)) {
+      _solver.stop();
+      _x.value = target;
+    } else {
+      _solver.animateTo(target: target);
+    }
+  }
+
   @override
   void dispose() {
     _solver.dispose();
@@ -42,11 +51,11 @@ class _InterruptionScreenState extends State<InterruptionScreen>
           const Text('SpringSolver + MotionValue (live velocity)'),
           const SizedBox(height: 8),
           LayoutBuilder(builder: (context, c) {
-            final max = c.maxWidth - 56;
+            final max = (c.maxWidth - 56).clamp(0.0, double.infinity);
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapDown: (d) => _solver.animateTo(
-                  target: (d.localPosition.dx - 28).clamp(0.0, max)),
+              onTapDown: (d) =>
+                  _move((d.localPosition.dx - 28).clamp(0.0, max)),
               child: SizedBox(
                 height: 80,
                 child: Stack(children: [
@@ -78,7 +87,7 @@ class _InterruptionScreenState extends State<InterruptionScreen>
           const Text('Declarative: NibMotion(animate: NibAnim(x: …))'),
           const SizedBox(height: 8),
           LayoutBuilder(builder: (context, c) {
-            final max = c.maxWidth - 56;
+            final max = (c.maxWidth - 56).clamp(0.0, double.infinity);
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (d) => setState(() => _declarativeTarget =

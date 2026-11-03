@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../gallery/scope.dart';
+
 /// Shared page chrome for the demo screens.
 class DemoScaffold extends StatelessWidget {
   /// Creates a demo page with a [title], a one-line [blurb] and the demo body.
@@ -22,7 +24,9 @@ class DemoScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: GalleryDemoScope.contains(context)
+          ? null
+          : AppBar(title: Text(title)),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

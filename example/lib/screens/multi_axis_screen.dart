@@ -38,57 +38,68 @@ class _MultiAxisScreenState extends State<MultiAxisScreen>
           'own velocity when you retarget. The swatch is a NibValueBuilder<Color>.',
       child: Column(children: [
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (d) =>
-                _solver.animateTo(d.localPosition - const Offset(28, 28)),
-            child: Container(
-              color: Colors.indigo.withAlpha(20),
-              child: ValueListenableBuilder<Offset>(
-                valueListenable: _pos,
-                builder: (context, p, _) => Stack(children: [
-                  Positioned(left: p.dx, top: p.dy, child: const DemoBox()),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child:
-                        Text('vx ${_solver.velocities[0].toStringAsFixed(0)}  '
-                            'vy ${_solver.velocities[1].toStringAsFixed(0)}'),
-                  ),
-                ]),
+          child: LayoutBuilder(builder: (context, bounds) {
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => _solver.animateTo(
+                Offset(
+                  (d.localPosition.dx - 28).clamp(
+                      0.0, (bounds.maxWidth - 56).clamp(0.0, double.infinity)),
+                  (d.localPosition.dy - 28).clamp(
+                      0.0, (bounds.maxHeight - 56).clamp(0.0, double.infinity)),
+                ),
+                immediate: NibMotionConfig.shouldReduceMotion(context),
               ),
-            ),
-          ),
+              child: Container(
+                color: Colors.indigo.withAlpha(20),
+                child: ValueListenableBuilder<Offset>(
+                  valueListenable: _pos,
+                  builder: (context, p, _) => Stack(children: [
+                    Positioned(left: p.dx, top: p.dy, child: const DemoBox()),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Text(
+                          'vx ${_solver.velocities[0].toStringAsFixed(0)}  '
+                          'vy ${_solver.velocities[1].toStringAsFixed(0)}'),
+                    ),
+                  ]),
+                ),
+              ),
+            );
+          }),
         ),
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(children: [
-            NibValueBuilder<Color>(
-              target: _color,
-              spring: NibSpring.effectsDefault,
-              builder: (context, c) => Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                    color: c, borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            const SizedBox(width: 16),
-            for (final c in [
-              Colors.indigo,
-              Colors.orange,
-              Colors.teal,
-              Colors.pink
-            ])
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: c),
-                  onPressed: () => setState(() => _color = c),
-                  child: const SizedBox.shrink(),
+          child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                NibValueBuilder<Color>(
+                  target: _color,
+                  spring: NibSpring.effectsDefault,
+                  builder: (context, c) => Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                        color: c, borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
-          ]),
+                for (final entry in const {
+                  'Indigo': Colors.indigo,
+                  'Orange': Colors.orange,
+                  'Teal': Colors.teal,
+                  'Pink': Colors.pink,
+                }.entries)
+                  ChoiceChip(
+                    label: Text(entry.key),
+                    avatar:
+                        CircleAvatar(backgroundColor: entry.value, radius: 8),
+                    selected: _color == entry.value,
+                    onSelected: (_) => setState(() => _color = entry.value),
+                  ),
+              ]),
         ),
       ]),
     );

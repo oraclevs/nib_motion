@@ -29,8 +29,14 @@ NibMotion can retarget a spring from its current position and velocity.
 Gestures, reactive values, layout, and exit animations share the same motion primitives.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/main/assets/nib_preview.gif" alt="Flutter demo showing staggered text animation and shader effects" width="720" />
+  <img src="https://raw.githubusercontent.com/oraclevs/nib_motion/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-showcase.gif" alt="Real Flutter gallery showing spring retargeting and layout transitions" width="720" />
 </p>
+
+[Watch the full recording](https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-showcase.mp4) · [Run the interactive gallery](example/README.md) · [Open media locally](assets/showcase/index.html)
+
+The gallery includes all 21 original demos, Daily Focus, both quick starts below,
+and five additional examples. This branch contains presentation candidates for
+maintainer review; it does not represent a new published package version.
 
 ## Start with a destination
 

@@ -14,8 +14,8 @@ topics:
   - flutter
 
 screenshots:
-  - description: 'NibMotion Flutter demo with staggered text animation and shader effects.'
-    path: assets/nib_preview.gif
+  - description: 'Interactive Flutter gallery: spring retargeting and layout transitions.'
+    path: assets/showcase/nibmotion-showcase.gif
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

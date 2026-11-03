@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, 'docs/launch-ready-*']
   workflow_call:
 
 permissions:
@@ -70,11 +70,11 @@ jobs:
           channel: stable
           cache: true
 
-      # The example app ships without platform folders; generate web in CI.
-      - name: Build example for web (Wasm)
+      - name: Build gallery for web and Wasm
         working-directory: example
         run: |
-          flutter create --empty --platforms=web --project-name nib_motion_example .
+          flutter pub get
+          flutter build web -t lib/demos.dart
           flutter build web --wasm
           flutter build web --wasm -t lib/demos.dart
 

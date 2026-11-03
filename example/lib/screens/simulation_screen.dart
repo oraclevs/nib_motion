@@ -24,6 +24,7 @@ class _SimulationScreenState extends State<SimulationScreen>
       NibSimulationDriver(vsync: this, value: _y);
   double _floor = 300;
   int _bounces = 0;
+  int _run = 0;
 
   @override
   void dispose() {
@@ -32,32 +33,38 @@ class _SimulationScreenState extends State<SimulationScreen>
     super.dispose();
   }
 
-  void _fall(double from, double velocity) {
+  void _fall(double from, double velocity, int run) {
     final impact =
         math.sqrt(velocity * velocity + 2 * _gravity * (_floor - from));
     _driver.run(GravitySimulation(_gravity, from, _floor, velocity)).then((_) {
-      if (!mounted) return;
+      if (!mounted || run != _run) return;
       final bounce = impact * 0.6;
       if (bounce < 80) {
         _y.value = _floor;
         return;
       }
       setState(() => _bounces++);
-      _rise(bounce);
+      _rise(bounce, run);
     });
   }
 
-  void _rise(double speed) {
+  void _rise(double speed, int run) {
     // Upward leg is the same gravity with an initial negative velocity,
     // starting just above the floor so the simulation is not already done.
-    _fall(_floor - 1, -speed);
+    _fall(_floor - 1, -speed, run);
   }
 
   void _drop() {
+    // Stopping completes the old future; its bounce chain must stay stopped.
+    final run = ++_run;
     _driver.stop();
     setState(() => _bounces = 0);
+    if (NibMotionConfig.shouldReduceMotion(context)) {
+      _y.value = _floor;
+      return;
+    }
     _y.value = 0;
-    _fall(0, 0);
+    _fall(0, 0, run);
   }
 
   @override
@@ -68,7 +75,7 @@ class _SimulationScreenState extends State<SimulationScreen>
           'MotionValue. Here a GravitySimulation drops the ball; each impact '
           'restarts gravity upward at 60% speed.',
       child: LayoutBuilder(builder: (context, c) {
-        _floor = c.maxHeight - _ball - 72;
+        _floor = math.max(0, c.maxHeight - _ball - 72);
         return Column(children: [
           Expanded(
             child: Container(

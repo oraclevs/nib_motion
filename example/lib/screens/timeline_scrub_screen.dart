@@ -69,7 +69,7 @@ class _TimelineScrubScreenState extends State<TimelineScrubScreen> {
       title: 'Timeline drag-scrub',
       blurb: 'Drag anywhere on the stage to scrub the timeline (RTL and '
           'reverse aware). A starts at 0, B follows A, C starts with A plus '
-          '200 ms. No entry declares from:.',
+          '200 ms. The slider shows the last seek, not playback progress.',
       child: Column(children: [
         Expanded(
           child: NibTimelineDragScrubber(
@@ -93,7 +93,13 @@ class _TimelineScrubScreenState extends State<TimelineScrubScreen> {
           child: Column(children: [
             NibTimelineScrubber(timeline: _timeline),
             const SizedBox(height: 8),
-            FilledButton(onPressed: _timeline.play, child: const Text('Play')),
+            FilledButton(
+              onPressed: () {
+                _timeline.seek(0);
+                _timeline.play();
+              },
+              child: const Text('Play'),
+            ),
           ]),
         ),
       ]),
