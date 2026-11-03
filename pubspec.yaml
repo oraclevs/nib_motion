@@ -16,7 +16,7 @@ topics:
 screenshots:
   - description: 'Interactive Flutter gallery: spring retargeting and layout transitions.'
     path: assets/showcase/nibmotion-showcase.gif
-  - description: 'Lagoon: a Flutter app with experimental interactive water refraction.'
+  - description: 'Lagoon: a Flutter app with interactive water refraction.'
     path: assets/showcase/nibmotion-water.gif
 
 environment:

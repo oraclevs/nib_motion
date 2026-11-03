@@ -34,10 +34,10 @@ Explore spring retargeting, drag and inertia, layout transitions, and presence
 in a running Flutter app. All 29 examples remain available in the gallery.
 
 <p align="center">
-  <a href="https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-showcase.mp4"><img src="https://raw.githubusercontent.com/oraclevs/nib_motion/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-showcase.gif" alt="Real Flutter gallery showing spring retargeting and layout transitions" width="720" /></a>
+  <a href="https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-showcase.mp4"><img src="https://raw.githubusercontent.com/oraclevs/nib_motion/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-showcase.gif" alt="Real Flutter gallery showing spring retargeting and layout transitions" width="720" /></a>
 </p>
 
-[Watch the full gallery recording](https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-showcase.mp4) · [Run the interactive examples](example/README.md)
+[Watch the full gallery recording](https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-showcase.mp4) · [Run the interactive examples](example/README.md)
 
 ## Water Surface in Action
 
@@ -47,13 +47,13 @@ pearl hunt. Recorded in portrait on Linux with Impeller; NibMotion reported its
 refractive `layerSampler` path. Water rendering varies by platform and renderer.
 
 <p align="center">
-  <a href="https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-water.mp4"><img src="https://raw.githubusercontent.com/oraclevs/nib_motion/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-water.gif" alt="Portrait Lagoon Flutter app: taps and a swipe create waves that refract the home screen" width="300" /></a>
+  <a href="https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.mp4"><img src="https://raw.githubusercontent.com/oraclevs/nib_motion/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.gif" alt="Portrait Lagoon Flutter app: taps and a swipe create waves that refract the home screen" width="300" /></a>
 </p>
 
-[Watch the full water recording](https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/assets/showcase/nibmotion-water.mp4) · [Review both recordings locally](assets/showcase/index.html) · [Capture details](doc/maintainers/water-showcase.md)
+[Watch the full water recording](https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.mp4) · [Review both recordings locally](assets/showcase/index.html) · [Capture details](doc/maintainers/water-showcase.md)
 
-These recordings are candidates for owner review. Version 0.3.6 has not been
-published; media URLs point to this showcase branch until integration is approved.
+These recordings are approved for the release candidate. Version 0.3.6 has not
+been published; media URLs use an immutable commit so branch cleanup keeps them available.
 
 ## Start with a destination
 

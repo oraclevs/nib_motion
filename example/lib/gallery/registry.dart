@@ -69,9 +69,9 @@ class DemoEntry {
   /// Renderer or experimental limitation, when applicable.
   final String? notice;
 
-  /// Reviewable source URL for the current feature branch.
+  /// Source URL pinned to the reviewed gallery implementation.
   String get sourceUrl => 'https://github.com/oraclevs/nib_motion/blob/'
-      'feat/interactive-showcase-0.3.6/$source';
+      '115644ca416a9efdd686b2770322ce329dd86dbf/$source';
 }
 
 /// All 21 original demos, in their original order.
