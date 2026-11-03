@@ -1,0 +1,4 @@
+# Review routing; a second approval is not mandatory for the solo maintainer.
+/.github/ @oraclevs
+/doc/ @oraclevs
+/pubspec.yaml @oraclevs

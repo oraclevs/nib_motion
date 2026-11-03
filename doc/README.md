@@ -1,5 +1,50 @@
 # NibMotion guides
 
+The canonical website guides are authored here in GitHub. Edit the Markdown
+under `doc/guides/`; the website imports an immutable commit at build time.
+`doc/website.json` declares the supported package version and complete inventory.
+Existing guide paths below remain available as supplemental API and runtime notes.
+
+## Canonical website guides
+
+- [Introduction](guides/introduction.md)
+- [Installation](guides/installation.md)
+- [Getting started](guides/getting-started.md)
+- [First animation](guides/first-animation.md)
+- [Springs](guides/springs.md)
+- [Keyframes](guides/keyframes.md)
+- [Motion values](guides/motion-values.md)
+- [Presence](guides/presence.md)
+- [Gestures](guides/gestures.md)
+- [Scroll motion](guides/scroll-motion.md)
+- [Accessibility](guides/accessibility.md)
+- [Transitions](guides/transitions.md)
+- [Variants stagger](guides/variants-stagger.md)
+- [Layout animations](guides/layout-animations.md)
+- [Layout presence](guides/layout-presence.md)
+- [Performance](guides/performance.md)
+- [Api](guides/api.md)
+- [Platform limits](guides/platform-limits.md)
+- [Troubleshooting](guides/troubleshooting.md)
+- [Controllers](guides/controllers.md)
+- [Timeline](guides/timeline.md)
+- [Text motion](guides/text-motion.md)
+- [Path motion](guides/path-motion.md)
+- [Navigation](guides/navigation.md)
+- [Shaders](guides/shaders.md)
+- [Physics](guides/physics.md)
+- [Presets](guides/presets.md)
+- [Motion lists](guides/motion-lists.md)
+- [Viewport motion](guides/viewport-motion.md)
+- [Drag and drop](guides/drag-and-drop.md)
+- [Animation sequences](guides/animation-sequences.md)
+- [Routes](guides/routes.md)
+- [Water](guides/water.md)
+- [Debugging](guides/debugging.md)
+- [Migration](guides/migration.md)
+
+## Package guides
+
 Start with [installation and your first animation](index.mdx), then choose a
 guide for the behavior you need. For complete constructor signatures, use the
 [published API reference](https://pub.dev/documentation/nib_motion/latest/).
