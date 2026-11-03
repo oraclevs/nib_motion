@@ -138,7 +138,9 @@ void main() {
           1);
       await tap(tester, 'Replay path');
       expect(
-          tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+          tester
+              .widget<OutlinedButton>(find.bySubtype<OutlinedButton>())
+              .onPressed,
           isNull);
       await pumpScreen(tester, const ShowcaseVariantsScreen(), reduced: true);
       await tap(tester, 'Play presets');
