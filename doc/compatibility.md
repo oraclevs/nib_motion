@@ -63,9 +63,9 @@ Dispose controllers, solvers, derived values, and externally owned
 pending entries can leave that run's future unresolved. See
 [timeline cancellation](timeline.md#cancellation-limit).
 
-## Experimental water
+## Water rendering
 
-`NibWaterSurface` and its layer-sampling policies are experimental. They operate
+`NibWaterSurface` and its layer-sampling policies are stable public APIs. They operate
 on a designated, finitely bounded Flutter background subtree. Platform views,
 content outside that subtree, inverse-warp hit testing, and total GPU-memory
 guarantees are outside their contract. The input texture budget is not a budget

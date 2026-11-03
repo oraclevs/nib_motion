@@ -41,7 +41,7 @@ in a running Flutter app. All 29 examples remain available in the gallery.
 
 ## Water Surface in Action
 
-Lagoon is a two-screen Flutter app using NibMotion's **experimental water API**.
+Lagoon is a two-screen Flutter app using NibMotion's **water API**.
 Taps and a swipe disturb the surface, followed by a transition to an underwater
 pearl hunt. Recorded in portrait on Linux with Impeller; NibMotion reported its
 refractive `layerSampler` path. Water rendering varies by platform and renderer.
@@ -184,7 +184,7 @@ controllers with a timeline and a scrubber.
 
 Animate text by character, word, or line; draw paths; add shimmer, dissolve, and
 glass; build animated navigation. Custom fragment shaders can read motion-value
-uniforms. Water rendering is available as an **experimental**, bounded visual effect.
+uniforms. Water rendering is available as a bounded visual effect in the stable API.
 [Text](https://github.com/oraclevs/nib_motion/blob/main/doc/text.mdx) ·
 [Paths](https://github.com/oraclevs/nib_motion/blob/main/doc/path.mdx) ·
 [Shaders and glass](https://github.com/oraclevs/nib_motion/blob/main/doc/shaders.mdx) ·
@@ -245,7 +245,7 @@ custom drivers and raw simulations need your own policy handling.
 - Layout and gesture coordinates use local logical pixels. Perspective,
   near-singular transforms, rotated reorder, and pop exits that must preserve
   ancestor clips across coordinate spaces are outside the verified layout contract.
-- Experimental water samples a designated Flutter subtree. Platform views and
+- Water samples a designated Flutter subtree. Platform views and
   pixels outside that subtree are unsupported. It preserves original hit-test
   geometry; browser parity and sustained device performance remain unverified.
 

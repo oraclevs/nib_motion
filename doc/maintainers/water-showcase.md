@@ -36,7 +36,7 @@ replace the simulation or synthesize video frames.
 fallback status appeared in the selected Linux run. Its diagnostic explicitly
 says CPU submission is measured, while GPU completion and display age are not.
 The recording's 30 FPS encoding is not a rendering-performance guarantee.
-Water remains experimental; this capture does not establish support on every
+Water is a stable public API; this capture does not establish support on every
 device. Web refraction was also observed during setup, but the final water
 media comes entirely from Linux, as requested by the owner.
 

@@ -92,7 +92,7 @@ at the end, and then exits. It is unsuitable as the only live demo.
 
 Check that the intended shader path is active before making a shader claim.
 Glass can show a blur fallback; shimmer can show an unchanged child if loading
-fails. Do not use experimental water as the talk's required visual effect.
+fails. Verify the water rendering path on the presentation machine and keep a recorded fallback available.
 
 If live rendering fails, use the local recording and continue with source.
 Keep device-specific performance claims out of the talk unless that exact

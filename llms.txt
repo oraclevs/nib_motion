@@ -3341,7 +3341,7 @@ NibOtpInput(
 - **`NibDatePickerController`'s runtime `minSelectable`/`maxSelectable` take precedence over the widget's `minDate`/`maxDate`** when both are set — useful for dynamically narrowing bounds (e.g. disabling past dates after a first selection) without rebuilding the whole widget with new constructor params.
 
 
-## Experimental water (0.3.5)
+## Water rendering (available since 0.3.5)
 
 `NibWaterSurface(controller: ..., background: ..., child: ...)` samples only its bounded
 background. The caller owns the controller; one surface drives its clock. `child` is the

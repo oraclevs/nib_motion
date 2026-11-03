@@ -69,9 +69,10 @@ blanket claim that animation never rebuilds widgets.
 and measurement qualifications. No new device benchmark was run, and this
 candidate makes no competitor-speed or universal frame-rate claim.
 
-## 3. Experimental
+## 3. Renderer-specific capabilities
 
-[Water rendering](../water.md) is exported and tested but remains experimental.
+[Water rendering](../water.md) is part of the stable public API. Its renderer
+and sampling limits remain explicit.
 Its sampling modes operate on a designated finite Flutter background subtree.
 Platform views, inverse-warp hit testing, and a bound on total GPU memory are
 outside the contract. Input-texture budgets do not cover engine intermediates.
@@ -98,7 +99,7 @@ newer runtime-contract guides. The README now exposes springs and interruption,
 gesture/drag behavior, shared layouts and presence, scroll/orchestration,
 visual effects, accessibility, and development tools as coherent groups.
 
-New compatibility, troubleshooting, and experimental-water guides make the
+New compatibility, troubleshooting, and water guides make the
 important limits discoverable. Migration guidance acknowledges the actual
 strengths of Flutter Animate, Motor, and Fluid Motions; the supporting
 [positioning research](positioning.md) records versions and sources.

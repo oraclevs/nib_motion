@@ -93,7 +93,7 @@ the gallery panel. Browser rendering and owner approval remain separate checks.
 `nib-showcase-features-test.log`. Targeted analysis and formatting passed. These
 checks do not measure frame time or prove visual parity across renderers.
 
-Experimental water was not added as a new core demonstration. Its receiver
+Water was not added to the core gallery in this audit; the separate Lagoon showcase covers it. Its receiver
 sampling and GPU behavior need a confirmed target renderer; existing stable
 APIs cover the missing presentation groups without making that experiment the
 audience's first experience.
