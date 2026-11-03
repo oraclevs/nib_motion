@@ -52,8 +52,10 @@ recognized entries with the current review.
 
 The [maintainer audit](../doc/maintainers/showcase-audit.md) records functional
 checks, presentation recommendations, and known limitations. Shader loading
-and glass fallbacks are labeled in the example. Experimental water and
-user-supplied fragment shaders are not added to this gallery.
+and glass fallbacks are labeled in the example. Water is part of the stable
+public API and is demonstrated in the separate
+[portrait Lagoon recording](../doc/maintainers/water-showcase.md).
+Water and user-supplied fragment shaders are not included in this gallery.
 
 ## Extend an example
 
@@ -64,8 +66,8 @@ real source path. Keep controllers local, dispose listeners and timers, and
 respect `NibMotionConfig` / reduced motion. Avoid starting animations on cards
 in the overview. Add interaction, narrow-layout, and disposal coverage.
 
-Source links currently point to the showcase review branch. Update that ref
-only after integration, when the corresponding files exist on the new ref.
+Source links use an immutable commit so they remain available after review
+branches are deleted. Update that ref when the linked example source changes.
 
 ## Validate
 
