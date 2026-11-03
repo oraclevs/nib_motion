@@ -4,9 +4,20 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, 'docs/launch-ready-*']
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
+  release-guard-tests:
+    name: Release guard tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: python3 -m unittest discover -s tool -p 'test_*.py'
+
   analyze-and-test:
     name: Analyze & Test (Flutter ${{ matrix.flutter }})
     runs-on: ubuntu-latest
@@ -16,9 +27,9 @@ jobs:
         flutter: ['3.29.0', '3.47.8']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ matrix.flutter }}
           channel: stable
@@ -36,6 +47,13 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
 
+      - name: Validate example and README snippets
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+          flutter test
+
       - name: Validate pub.dev publish (dry run)
         run: dart pub publish --dry-run
 
@@ -44,29 +62,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: '3.47.8'
           channel: stable
           cache: true
 
-      # The example app ships without platform folders; generate web in CI.
-      - name: Build example for web (Wasm)
+      - name: Build gallery for web and Wasm
         working-directory: example
         run: |
-          flutter create --platforms=web --project-name nib_motion_example .
+          flutter pub get
+          flutter build web -t lib/demos.dart
           flutter build web --wasm
+          flutter build web --wasm -t lib/demos.dart
 
   shader-renderer:
     name: Shader renderer tests
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: '3.47.8'
           channel: stable

@@ -1,0 +1,35 @@
+{
+    "name": "NibMotion Interactive Gallery",
+    "short_name": "NibMotion",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#18191C",
+    "theme_color": "#18191C",
+    "description": "Interactive Flutter examples of NibMotion springs, gestures, layouts, text, paths, and visual effects.",
+    "orientation": "any",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

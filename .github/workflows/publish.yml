@@ -5,32 +5,55 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
-# Required for pub.dev OIDC trusted publisher (no stored secrets needed)
 permissions:
-  id-token: write
+  contents: read
+
+concurrency:
+  group: pub-dev-release
+  cancel-in-progress: false
 
 jobs:
+  release-identity:
+    name: Verify release identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Require a commit merged into main
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Check tag, changelog, and unpublished version
+        run: python3 tool/verify_release.py "$GITHUB_REF_NAME"
+
+  preflight:
+    name: Release preflight
+    needs: release-identity
+    uses: ./.github/workflows/ci.yml
+
   publish:
     name: Publish
+    needs: preflight
     runs-on: ubuntu-latest
-
+    environment: pub.dev
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # setup-dart provisions pub.dev's OIDC token; Flutter supplies the SDK used below.
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: '3.32.x'
+          flutter-version: '3.47.8'
           channel: stable
           cache: true
-
+      - name: Recheck publication state after preflight and approval
+        run: python3 tool/verify_release.py "$GITHUB_REF_NAME"
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze --fatal-infos
-
-      - name: Run tests
-        run: flutter test
-
+      - name: Validate publication
+        run: dart pub publish --dry-run
       - name: Publish
         run: dart pub publish --force

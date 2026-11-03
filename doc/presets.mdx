@@ -11,7 +11,7 @@ Every preset here is a thin convenience layer: under the hood, each one is
 just a `NibMotion` configured with a particular `NibAnim`/`keyframes` value
 from `NibAnimPresets` and a `NibTransition`. Reach for a preset when its
 default look is close enough to what you need; reach for `NibMotion` directly
-(see [Animate](/docs/animate) and [Transitions](/docs/transitions)) when you
+(see [Animate](animate.mdx) and [Transitions](transitions.mdx)) when you
 want full control over the same motion.
 
 ## Trigger-once presets: `NibBounce` and `NibRubberBand`
@@ -329,12 +329,12 @@ motion with a different transition or trigger than the preset widget offers.
 
 ## Next steps
 
-- **[Animate](/docs/animate)** — the `initial`/`animate`/`exit` props every
+- **[Animate](animate.mdx)** — the `initial`/`animate`/`exit` props every
   preset is built on, for when you need a one-off look these presets don't
   cover.
-- **[Transitions](/docs/transitions)** — presets accept a `duration`, but the
+- **[Transitions](transitions.mdx)** — presets accept a `duration`, but the
   underlying `NibTransition` system also supports curves and spring physics
   if you reach for `NibMotion` directly.
-- **[Gestures](/docs/gestures)** — pair a preset with `whileTap`/`whileHover`
+- **[Gestures](gestures.mdx)** — pair a preset with `whileTap`/`whileHover`
   on the same `NibMotion` (or wrap a preset's child in one) for motion that
   responds to both an event and the pointer.

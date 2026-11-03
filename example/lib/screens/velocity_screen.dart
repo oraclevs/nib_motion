@@ -87,22 +87,31 @@ class _VelocityScreenState extends State<VelocityScreen>
           ),
         ),
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (d) =>
-                _solver.animateTo(d.localPosition - const Offset(28, 28)),
-            child: Container(
-              color: Colors.teal.withAlpha(16),
-              child: Stack(children: [
-                const Positioned(
-                    left: 12, top: 12, child: Text('tap to move (Offset)')),
-                NibMotion(
-                  motionValues: NibMotionValues(offset: _offset),
-                  child: const DemoBox(color: Colors.teal),
+          child: LayoutBuilder(builder: (context, bounds) {
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => _solver.animateTo(
+                Offset(
+                  (d.localPosition.dx - 28).clamp(
+                      0.0, (bounds.maxWidth - 56).clamp(0.0, double.infinity)),
+                  (d.localPosition.dy - 28).clamp(
+                      0.0, (bounds.maxHeight - 56).clamp(0.0, double.infinity)),
                 ),
-              ]),
-            ),
-          ),
+                immediate: NibMotionConfig.shouldReduceMotion(context),
+              ),
+              child: Container(
+                color: Colors.teal.withAlpha(16),
+                child: Stack(children: [
+                  const Positioned(
+                      left: 12, top: 12, child: Text('tap to move (Offset)')),
+                  NibMotion(
+                    motionValues: NibMotionValues(offset: _offset),
+                    child: const DemoBox(color: Colors.teal),
+                  ),
+                ]),
+              ),
+            );
+          }),
         ),
       ]),
     );

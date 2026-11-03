@@ -4,7 +4,7 @@
 
 `NibSpringDescription.fromDuration(duration:, bounce:)` builds a spring from
 how it should feel: `duration` is the perceptual settling time and `bounce` is
-`-1..1` (`0` = critically damped, positive overshoots, negative is overdamped).
+strictly between `-1` and `1` (`0` = critically damped, positive overshoots, negative is overdamped).
 Mass is fixed at 1. `NibTransition.springWith(duration:, bounce:, delay:)` is the
 transition shortcut. Raw mass/stiffness/damping and the `gentle/snappy/wobbly/stiff`
 presets still work.
@@ -56,22 +56,27 @@ properties. It honours `NibMotionConfig` reduced motion.
 `NibSimulationDriver` runs any `Simulation` (`GravitySimulation`,
 `ClampingScrollSimulation`, your own) on a `MotionValue<double>`, publishing
 velocity so a spring or inertia can take over, and resolving its future when the
-simulation finishes or is superseded/stopped. A simulation is written until its
-`isDone`, so the final frame can pass its end by up to one frame of travel.
+simulation finishes or is superseded/stopped. When `isDone` first becomes true, the driver bisects the last time interval
+and writes the position at the earliest completion time. Custom simulations
+should have a completion condition that becomes true once and stays true.
 
 ## Continuous progress values
 
 * `NibViewportProgress` + `NibViewportProgressController`: `progress` (0 = about to
   enter, 0.5 = centred, 1 = fully left) and `visibleFraction` as `MotionValue`s.
   Listens to every ancestor `Scrollable`, measures against the nearest one, and
-  never rebuilds. Values lag scrolling by at most one frame.
+  updates `MotionValue`s without rebuilding. It extrapolates from the last
+  layout measurement during scroll and corrects after layout. See
+  [progress timing](timeline.md#progress-values-in-every-scroll-direction).
 * `NibPageProgress(pageController)`: the fractional `page`, plus `closeness(i)`
   and `offsetFrom(i)` derived values.
 
 ## Not covered
 
-Duration-based springs that also honour `mass` other than 1, a spring visualiser,
-and per-channel velocity on `MotionValue<T>` for non-scalar `T`.
+Duration-based springs use mass 1. Non-scalar `MotionValue<T>` does not expose
+per-channel velocity; read `MultiSpringSolver.velocities` instead.
+[`NibSpringTuner`](debug-tools.md#nibspringtuner) provides an interactive preview
+and a response curve.
 
 ## Spring tokens as transitions
 
@@ -98,8 +103,6 @@ NibValueBuilder<EdgeInsets>.withChild(
 
 A tween interpolates every channel linearly through the curve and cannot carry
 velocity, so a spring that takes over from a tween starts at rest.
-`NibSimulationDriver` now settles on the simulation's exact end (bisected) rather
-than one frame past it.
 
 ## Input validation (hardening)
 

@@ -46,7 +46,9 @@ the widget leaves the screen again.
 `viewport` takes a `NibInViewConfig`, which controls exactly when
 `whileInView` fires:
 
-```dart
+Signature (omitting implementation):
+
+```text
 const NibInViewConfig({
   double amount = 0.5,
   bool once = false,
@@ -172,10 +174,12 @@ scroll offset, a parallax effect where a background image moves slower than
 the foreground.
 
 For this, `ScrollMotionBridge` mirrors a `ScrollController`'s offset into a
-pair of [`MotionValue`s](/docs/physics) — `scrollY` and `scrollX` — that
+pair of [`MotionValue`s](physics.mdx) — `scrollY` and `scrollX` — that
 update on every scroll frame with no `setState` and no rebuild:
 
-```dart
+Signature (omitting implementation):
+
+```text
 class ScrollMotionBridge {
   ScrollMotionBridge({required ScrollController controller});
 
@@ -192,9 +196,9 @@ class ScrollMotionBridge {
 Both `scrollY` and `scrollX` track the *same* `controller.offset` — pick
 whichever name matches the axis of the scroll view you're attached to. From
 either, derive any animatable value with `MotionValue`'s `mapRange` or
-`transform` (covered in full on [Physics & Motion Values](/docs/physics)), and
+`transform` (covered in full on [Physics & Motion Values](physics.mdx)), and
 feed the result into `NibMotion.motionValues` (covered on [Motion
-Controller](/docs/motion-controller)) to drive a property directly from scroll
+Controller](motion-controller.mdx)) to drive a property directly from scroll
 position, bypassing `NibMotion`'s own animation system entirely.
 
 ## `NibScrollMotion` — wiring up the bridge
@@ -203,7 +207,9 @@ position, bypassing `NibMotion`'s own animation system entirely.
 `ScrollMotionBridge` for a `ScrollController`, hands it to a `builder`, and
 disposes it automatically:
 
-```dart
+Signature (omitting implementation):
+
+```text
 const NibScrollMotion({
   required ScrollController controller,
   required Widget Function(BuildContext context, ScrollMotionBridge bridge) builder,
@@ -234,47 +240,54 @@ class ParallaxHeaderPage extends StatefulWidget {
 
 class _ParallaxHeaderPageState extends State<ParallaxHeaderPage> {
   final _scrollController = ScrollController();
+  late final ScrollMotionBridge _bridge;
+  late final MotionValue<double> _opacity;
+  late final MotionValue<double> _translateY;
+
+  @override
+  void initState() {
+    super.initState();
+    _bridge = ScrollMotionBridge(controller: _scrollController);
+    _opacity = _bridge.scrollY.mapRange([0, 200], [1.0, 0.0]);
+    _translateY = _bridge.scrollY.mapRange([0, 200], [0.0, -40.0]);
+  }
 
   @override
   void dispose() {
+    _opacity.dispose();
+    _translateY.dispose();
+    _bridge.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return NibScrollMotion(
+    return CustomScrollView(
       controller: _scrollController,
-      builder: (context, bridge) {
-        return CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SliverToBoxAdapter(
-              child: NibMotion(
-                motionValues: NibMotionValues(
-                  opacity: bridge.scrollY.mapRange([0, 200], [1.0, 0.0]),
-                  translateY: bridge.scrollY.mapRange([0, 200], [0.0, -40.0]),
-                ),
-                child: Container(
-                  height: 240,
-                  alignment: Alignment.center,
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  child: Text(
-                    'Scroll down',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
+      slivers: [
+        SliverToBoxAdapter(
+          child: NibMotion(
+            motionValues: NibMotionValues(
+              opacity: _opacity,
+              translateY: _translateY,
+            ),
+            child: Container(
+              height: 240,
+              alignment: Alignment.center,
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Text(
+                'Scroll down',
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
             ),
-            SliverList.builder(
-              itemCount: 30,
-              itemBuilder: (context, index) => ListTile(
-                title: Text('Item $index'),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+        SliverList.builder(
+          itemCount: 30,
+          itemBuilder: (context, index) => ListTile(title: Text('Item $index')),
+        ),
+      ],
     );
   }
 }
@@ -317,10 +330,10 @@ no `AnimationController`, no `setState`, and no rebuild on every scroll frame.
 
 ## Next steps
 
-- **[Physics & Motion Values](/docs/physics)** — for the full picture of
+- **[Physics & Motion Values](physics.mdx)** — for the full picture of
   `MotionValue`, `mapRange`, `transform`, and how derived values combine —
   the mechanism that makes `ScrollMotionBridge`'s `scrollY`/`scrollX` usable
   for any animatable property.
-- **[Animate](/docs/animate)** — for the full set of `NibAnim` properties you
+- **[Animate](animate.mdx)** — for the full set of `NibAnim` properties you
   can target with `whileInView` (and every other declarative trigger), if you
   haven't already covered the basics.

@@ -15,7 +15,7 @@ NibLayoutScope(                       // optional: defines the coordinate space
         key: ValueKey(item.id),
         layout: NibLayout.both,        // position, size, both, none
         layoutTransition: NibTransition.springGentle,
-        child: Card(item),
+        child: Card(child: Text(item.title)),
       ),
   ]),
 )
@@ -23,7 +23,7 @@ NibLayoutScope(                       // optional: defines the coordinate space
 
 | API | Meaning |
 |---|---|
-| `NibMotion.layout` | `none` (default), `position`, `size`, `both` |
+| `NibMotion.layout` | `inherit` (default; resolves to `none` without defaults), `none`, `position`, `size`, `both` |
 | `NibMotion.layoutTransition` | how the change plays back (default `springGentle`; `spring`/`duration`/`curve`/`delay` used — during the delay the widget keeps looking like it did before the change) |
 | `NibMotion.layoutSizeMode` | `scale` (default, stretches the child) or `clip` (child laid out at final size, revealed through a growing clip anchored top-left) |
 | `NibMotion.onLayoutAnimationStart/Complete` | fired per layout animation; *complete* is not fired when a newer one superseded it |
@@ -205,7 +205,14 @@ Flutter creates a new element instead of reusing the old one.
 NibPresence.layout(
   axis: NibPresenceAxis.wrap,      // column (default) | row | wrap
   spacing: 8, runSpacing: 8,       // wrap only
-  children: [for (final t in tags) NibMotion(key: ValueKey(t.id), exit: …, child: Chip(t))],
+  children: [
+    for (final tag in tags)
+      NibMotion(
+        key: ValueKey(tag),
+        exit: const NibAnim(opacity: 0),
+        child: Chip(label: Text(tag)),
+      ),
+  ],
 )
 ```
 

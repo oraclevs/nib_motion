@@ -92,7 +92,7 @@ one, so you can visually follow each tag as it moves.
 `transition` is the `NibTransition` used during the Play step — it controls
 the duration, curve, and (if you use a spring-based transition) the spring
 parameters of the animation that carries a moved child from its old position
-back to zero offset at its new position. See [Transitions](/docs/transitions)
+back to zero offset at its new position. See [Transitions](transitions.mdx)
 for the full set of options `NibTransition` supports.
 
 If you don't set `transition`, `NibLayoutGroup` falls back to
@@ -116,26 +116,25 @@ A snappier spring (or a short, linear duration) suits dense UI like tag lists
 or toolbars, while a gentler spring tends to feel better for larger elements
 like cards or panels that are reflowing a lot of surrounding content.
 
-## Example: a filterable grid of cards
+## Example: a filterable list of cards
 
-A common case for `NibLayoutGroup` is a grid of cards that can be filtered —
-when the filter changes, some cards disappear, the remaining cards reflow into
-a tighter grid, and (depending on your layout) some may also resize. Wrapping
-the grid in `NibLayoutGroup` turns that reflow from an instant jump into a
-smooth rearrangement.
+`NibLayoutGroup` lays its keyed children out in a `Column`. When a filter
+removes cards, the remaining cards animate into the gaps. For a `Wrap` or grid,
+use `NibMotion(layout:)` inside a `NibLayoutScope`, as described in
+[per-widget layout](layout.md).
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-class FilterableCardGrid extends StatefulWidget {
-  const FilterableCardGrid({super.key});
+class FilterableCardList extends StatefulWidget {
+  const FilterableCardList({super.key});
 
   @override
-  State<FilterableCardGrid> createState() => _FilterableCardGridState();
+  State<FilterableCardList> createState() => _FilterableCardListState();
 }
 
-class _FilterableCardGridState extends State<FilterableCardGrid> {
+class _FilterableCardListState extends State<FilterableCardList> {
   String _filter = 'all';
 
   static const _items = [
@@ -194,16 +193,15 @@ snapping there the instant the filter changes.
 > **Note:** `NibLayoutGroup` only animates children that are present both
 > before and after a rebuild. A card that's removed by the filter (its key
 > disappears from `children`) is unmounted immediately with no exit
-> animation — pairing `NibLayoutGroup` with [Presence](/docs/presence) is the
+> animation — pairing `NibLayoutGroup` with [Presence](presence.mdx) is the
 > way to animate removals themselves.
 
 ## Example: an expanding card
 
-`NibLayoutGroup` isn't limited to lists — it also smooths out *size* changes,
-not just position changes. An accordion-style card that expands to reveal more
-content pushes everything below it down the screen; wrapping the surrounding
-column in `NibLayoutGroup` animates that push instead of letting it happen
-instantly.
+When an accordion card changes height, `NibLayoutGroup` animates the resulting
+position changes of the cards below it. It does not animate the expanding
+card's own size. Use `NibMotion(layout: NibLayout.size)` or `NibLayout.both`
+for that behavior.
 
 ```dart
 import 'package:flutter/material.dart';
@@ -277,7 +275,7 @@ there the moment `setState` rebuilds the tree.
 
 ## Requirement: every child needs a stable `Key`
 
-`NibLayoutGroup` identifies children the same way [Presence](/docs/presence)
+`NibLayoutGroup` identifies children the same way [Presence](presence.mdx)
 does: by `Key`, not by position in the `children` list. Every widget passed to
 `NibLayoutGroup.children` **must carry a non-null, unique `Key`** — typically a
 `ValueKey` wrapping a stable identifier from your data, as in the examples
@@ -303,11 +301,11 @@ key reappears later, it's treated as a brand-new child rather than one
 
 ## Next steps
 
-- **[Lists & Stagger](/docs/lists-and-stagger)** — `NibMotionList` covers
+- **[Lists & Stagger](lists-and-stagger.mdx)** — `NibMotionList` covers
   entrance, exit, and staggered timing for a list's children. Combine it with
   `NibLayoutGroup` when a list's items both animate in/out *and* need to
   reflow smoothly as they do.
-- **[Viewport & Scroll](/docs/viewport-and-scroll)** — layout changes aren't
+- **[Viewport & Scroll](viewport-and-scroll.mdx)** — layout changes aren't
   the only thing that can trigger an animation outside of direct user
   interaction. The next page covers animating widgets in response to
   scrolling and visibility.

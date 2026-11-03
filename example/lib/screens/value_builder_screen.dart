@@ -64,7 +64,10 @@ class _ValueBuilderScreenState extends State<ValueBuilderScreen> {
           spring: NibSpring.smooth,
           child: Builder(builder: (context) {
             _childBuilds++;
-            return DemoBox(color: Colors.orange, label: 'b$_childBuilds');
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: DemoBox(color: Colors.orange, label: 'b$_childBuilds'),
+            );
           }),
           childBuilder: (context, o, child) =>
               Transform.translate(offset: o, child: child),

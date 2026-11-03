@@ -147,8 +147,8 @@ NibScaffold(
       fontWeight: FontWeight.w500,
     ),
   ),
-  screens: [ /* ... */ ],
-  navItems: [ /* ... */ ],
+  screens: const [NibNavScreen(child: Center(child: Text('Home')))],
+  navItems: const [NibNavItem(icon: Icon(Icons.home), label: 'Home')],
 )
 ```
 
@@ -179,9 +179,10 @@ NibScaffold(
   navIndicator: const NibNavIndicatorStyle(
     type: NibNavIndicatorType.pill,
     color: Color(0x2002569B),   // explicit tint; defaults to activeColor at 12% opacity
-    spring: NibSpringDescription.bouncy,
+    spring: NibSpringDescription.wobbly,
   ),
-  // ...
+  screens: const [NibNavScreen(child: Center(child: Text('Home')))],
+  navItems: const [NibNavItem(icon: Icon(Icons.home), label: 'Home')],
 )
 ```
 
@@ -202,7 +203,7 @@ navIndicator: NibNavIndicatorStyle.none,
 ```
 
 The `spring` field controls the physics of the indicator's lateral movement.
-Any `NibSpringDescription` works here — see the [Physics & Motion Values](/docs/physics)
+Any `NibSpringDescription` works here — see the [Physics & Motion Values](physics.mdx)
 page for the built-in presets (`snappy`, `gentle`, `bouncy`, `stiff`).
 
 ## Item Animations
@@ -217,7 +218,8 @@ NibScaffold(
     whileActive: NibAnim(scale: 1.15),    // enlarge the active icon
     tapTransition: NibTransition.springSnappy,
   ),
-  // ...
+  screens: const [NibNavScreen(child: Center(child: Text('Home')))],
+  navItems: const [NibNavItem(icon: Icon(Icons.home), label: 'Home')],
 )
 ```
 
@@ -247,7 +249,8 @@ NibScaffold(
     retriggerPageAnimations: true,
     retriggerDelay: Duration(milliseconds: 80),
   ),
-  // ...
+  screens: const [NibNavScreen(child: Center(child: Text('Home')))],
+  navItems: const [NibNavItem(icon: Icon(Icons.home), label: 'Home')],
 )
 ```
 
@@ -323,8 +326,8 @@ class _MyShellState extends State<MyShell> {
             currentIndex: _index,
             screenTransition: NibNavScreenTransition.slide,
             screens: const [
-              NibNavScreen(child: HomeScreen()),
-              NibNavScreen(child: SettingsScreen()),
+              NibNavScreen(child: Center(child: Text('Home'))),
+              NibNavScreen(child: Center(child: Text('Settings'))),
             ],
           ),
         ),
@@ -433,10 +436,10 @@ that `NibNavBar` creates.
 
 ## Next Steps
 
-- **[Animate](/docs/animate)** — `NibAnim` is the same value type used for
+- **[Animate](animate.mdx)** — `NibAnim` is the same value type used for
   `whileTap` and `whileActive` in `NibNavItemAnimation`. Understanding its
   nullable-field composability explains why layering tap and active animations
   on the same icon never produces unexpected side effects.
-- **[Transitions](/docs/transitions)** — `NibTransition` controls whether
+- **[Transitions](transitions.mdx)** — `NibTransition` controls whether
   screen and indicator animations run on spring physics or curve-based tweens,
   and how duration, delay, and easing interact with each other.

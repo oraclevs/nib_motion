@@ -16,7 +16,7 @@ enum NibWaterSampling {
   throttled,
 }
 
-/// Device-relative sampling quality for the experimental layer sampler.
+/// Device-relative sampling quality for the layer sampler.
 ///
 /// Budgets cover one RGBA input texture, not total GPU or Flutter memory.
 /// The renderer retains at most one input image and one output picture.

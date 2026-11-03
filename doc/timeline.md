@@ -28,14 +28,18 @@ final t = NibTimeline([
 
 * An entry with `from:` interpolates `from → target` (its curve, or the spring
   curve) and returns to `from` before it starts.
-* An entry **without** `from` cannot be interpolated (its start state is unknown
-  to the timeline): it steps to its target when its end is reached.
+* Without `from`, the start is derived per property from earlier targets on the
+  same controller, then the attached widget's `initial` state. See below.
 * `seek` cancels pending `play` timers; `play` does not drive `progress`.
 * `NibTimelineScrubber(timeline:)` is a debug slider over `seek`.
 
-## Contract kept
+## Cancellation limit
 
-`play()` futures still never complete after `stop()`/`pause()`.
+`pause()`, `stop()`, `seek()`, a replacement `play()`, and `dispose()` cancel
+pending entry timers. Already-started controller animations keep running.
+If a cancelled entry had not fired, the earlier `play()` future stays pending;
+do not await it as a cancellation signal. Stop the controllers separately when
+you also need to freeze motion already in progress.
 
 ## Loop modes for `NibAnimationSequence`
 
@@ -47,8 +51,9 @@ final t = NibTimeline([
 | `NibLoopMode.pingPong` | odd passes replay in reverse, animating back through earlier targets to the first one; `wait`/`call` run both ways |
 | `NibLoopMode.seamless` | like restart, but skips a first animate step that already equals where the last one ended |
 
-`NibMotion.repeatAnimationInLoop` (widget-level keyframe loop) is unchanged and
-remains ping-pong only.
+`NibMotion.repeatAnimationInLoop` also accepts `loopMode`: `pingPong` is
+the default; `restart` and `seamless` replay forwards. Design matching endpoint
+states for a visually seamless loop.
 
 ## Scrubbing without duplicating `from:`
 

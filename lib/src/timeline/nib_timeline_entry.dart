@@ -35,7 +35,8 @@ class NibTimelineEntry {
   ///
   /// [label] names the entry so others can anchor to it; [from] is the state
   /// the entry animates *from*, which lets [NibTimeline.seek] scrub it
-  /// smoothly (without it, scrubbing steps the entry at its end).
+  /// smoothly. When omitted, the start is derived from earlier targets on the
+  /// same controller, then its attached widget's initial state.
   const NibTimelineEntry({
     required this.controller,
     required this.target,

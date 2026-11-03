@@ -1,3 +1,10 @@
+# Historical runtime development log
+
+Archived on 2026-11-02. The text below records earlier work and observations;
+it is not the current release status, API inventory, or publication instruction.
+Later entries can supersede earlier ones. Use the current guides and release
+checklist before acting on a historical note.
+
 # NibMotion Master Implementation Tracker
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done + verified · `[!]` blocked · `[-]` deliberately rejected

@@ -18,8 +18,10 @@ current velocity**, regardless of which driver was running before:
 | FLIP in flight | new layout change | continues from the **painted** position, velocity kept |
 
 The mechanism is `MotionValue.velocity`: drivers publish it with
-`MotionValue.update(v, velocity: …)`; `SpringSolver.animateTo` reads it when no
-explicit `initialVelocity` is passed. Springs settle *exactly* on the target
+`MotionValue.update(v, velocity: …)`; `SpringSolver.animateTo` reads it when
+`initialVelocity` is zero and `from` is omitted. A nonzero `initialVelocity`
+overrides it; providing `from` with zero `initialVelocity` starts at rest.
+Springs settle *exactly* on the target
 with velocity 0.
 
 ```dart

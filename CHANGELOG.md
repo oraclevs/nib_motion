@@ -1,3 +1,28 @@
+## 0.3.6
+
+* Rewrite the package introduction around declarative state, interruptible
+  springs, and the shared motion system. Add two runnable, tested quick starts.
+* Add a responsive, searchable Flutter gallery with all 21 original demos,
+  Daily Focus, both quick starts, and five additional examples. Include direct
+  routes, replay controls, review notes, and review import/export.
+* Add two promotional GIFs with full recordings and posters: the interactive
+  gallery and the portrait Lagoon water app. Use immutable README media links
+  and include both GIFs as pub.dev screenshots; keep larger media out of the
+  package archive.
+* Establish 35 canonical Markdown guides and a website import manifest. Correct
+  outdated examples and migration claims, document renderer limitations, and
+  clarify that water is part of the stable public API.
+* Add discovery topics, contributor guidance, issue templates, governance,
+  CODEOWNERS, support and security policies, and documentation checks. Keep the
+  combined LLM reference in the repository, outside the package archive.
+* Harden the release workflow with version checks, publication preflight, and
+  trusted-publishing authentication.
+
+This release changes documentation, examples, metadata, and repository tooling.
+The animation runtime and public API are unchanged. Flutter 3.29.0 or newer
+is still required. Water rendering has platform and GPU limitations; stable API
+status does not imply identical rendering or performance across devices.
+
 ## 0.3.5
 
 * Add opt-in live water sampling that includes independently repainted child

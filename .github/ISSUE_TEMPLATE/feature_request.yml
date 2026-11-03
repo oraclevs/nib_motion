@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a capability or improvement with a concrete use case.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What are you trying to build?
+      description: Describe the interface and the limitation you encountered.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: An API sketch or interaction recording is welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Explain what you tried with the existing API or Flutter.
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and accessibility
+      description: Which platforms need this? How should it behave with reduced motion, keyboard input, and existing callers?

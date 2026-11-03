@@ -74,9 +74,8 @@ class _LayoutModesScreenState extends State<LayoutModesScreen> {
           ),
         ]),
         const SizedBox(height: 16),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(spacing: 24, runSpacing: 16, children: [
           _panel(NibLayoutSizeMode.scale, 'scale'),
-          const SizedBox(width: 24),
           _panel(NibLayoutSizeMode.clip, 'clip'),
         ]),
         const SizedBox(height: 32),

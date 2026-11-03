@@ -29,10 +29,10 @@ passed to its `variants` prop.
 ```dart
 import 'package:nib_motion/nib_motion.dart';
 
-const fadeInVariants = NibVariants({
+const NibVariants fadeInVariants = {
   'hidden': NibAnim(opacity: 0, y: 20),
   'visible': NibAnim(opacity: 1, y: 0),
-});
+};
 ```
 
 ## Referencing variants by name
@@ -45,10 +45,10 @@ its keys — as plain `String`s — wherever the widget would normally take a
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-const fadeInVariants = NibVariants({
+const NibVariants fadeInVariants = {
   'hidden': NibAnim(opacity: 0, y: 20),
   'visible': NibAnim(opacity: 1, y: 0),
-});
+};
 
 class WelcomeBanner extends StatelessWidget {
   const WelcomeBanner({super.key});
@@ -78,7 +78,7 @@ written them inline. The visible behavior is identical to:
 NibMotion(
   initial: const NibAnim(opacity: 0, y: 20),
   animate: const NibAnim(opacity: 1, y: 0),
-  child: /* ... */,
+  child: const Text('Welcome back!'),
 )
 ```
 
@@ -99,10 +99,10 @@ independently:
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-const fadeInVariants = NibVariants({
+const NibVariants fadeInVariants = {
   'hidden': NibAnim(opacity: 0, y: 20),
   'visible': NibAnim(opacity: 1, y: 0),
-});
+};
 
 class OnboardingStep extends StatelessWidget {
   const OnboardingStep({
@@ -157,11 +157,11 @@ apply that same theme to every card, button, or tile on the screen.
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-const cardVariants = NibVariants({
+const NibVariants cardVariants = {
   'rest': NibAnim(scale: 1, y: 0),
   'hover': NibAnim(scale: 1.02, y: -4),
   'pressed': NibAnim(scale: 0.98, y: 0),
-});
+};
 
 class DashboardGrid extends StatelessWidget {
   const DashboardGrid({super.key, required this.items});
@@ -221,7 +221,7 @@ two properties overridden for its specific context — say, every card uses
 `cardVariants['hover']` for its lift, but one particular card should also
 shift color on hover. Rather than duplicating the whole `NibAnim`, look up the
 variant and layer an override on top with
-[`NibAnim.merge`](/docs/animate#nibanimmerge):
+[`NibAnim.merge`](animate.mdx#how-values-combine-identity-copywith-lerp-merge):
 
 ```dart
 whileHover: cardVariants['hover']!.merge(
@@ -233,7 +233,7 @@ whileHover: cardVariants['hover']!.merge(
 (`color` here) overrides the corresponding field of the receiver
 (`cardVariants['hover']`), while every other field — `scale`, `y`, and so on
 — passes through from the shared variant untouched. See
-[Animate](/docs/animate) for the full rules `merge` follows when combining
+[Animate](animate.mdx) for the full rules `merge` follows when combining
 two `NibAnim`s.
 
 ## API reference
@@ -253,10 +253,10 @@ two `NibAnim`s.
 
 ## Next steps
 
-- **[Animate](/docs/animate)** — `NibVariants` entries are just `NibAnim`
+- **[Animate](animate.mdx)** — `NibVariants` entries are just `NibAnim`
   values, so everything covered there about combining and interpolating
   properties applies equally to the states inside a `NibVariants` map.
-- **[Lists & Stagger](/docs/lists-and-stagger)** — variant propagation from a
+- **[Lists & Stagger](lists-and-stagger.mdx)** — variant propagation from a
   parent to its children, combined with `transition.staggerChildren`, is the
   foundation for animating a list of items into view one after another from a
   single state change on their shared ancestor.

@@ -163,7 +163,7 @@ the bottom and should draw attention first.
 
 So far, every example has only covered items *entering* the list.
 `NibMotionList` can also animate items *leaving* the list, via the same
-mechanism described on [Presence](/docs/presence): when `presenceEnabled` is
+mechanism described on [Presence](presence.mdx): when `presenceEnabled` is
 `true`, `NibMotionList` wraps its children in a `NibPresence` instead of a
 plain `Column`. A child removed from `children` plays its `exit` animation
 before it's actually removed from the tree — instead of disappearing
@@ -260,7 +260,7 @@ list), the same way `initial`/`animate` are.
 
 Every other `NibMotionList` prop is forwarded to each child's `NibMotion`
 unchanged, with the same meaning described on
-[Animate](/docs/animate) and [Variants](/docs/variants):
+[Animate](animate.mdx) and [Variants](variants.mdx):
 
 - **`initial`** and **`animate`** — each either a `NibAnim` or a `String`
   naming an entry in `variants`, applied to every child exactly as they would
@@ -277,16 +277,16 @@ unchanged, with the same meaning described on
   passed through unchanged to each child.
 - **`controller`** — forwarded to every child's `NibMotion.controller`, so a
   single `NibMotionController` drives the entire list's children together
-  (see [Motion Controller](/docs/motion-controller)).
+  (see [Motion Controller](motion-controller.mdx)).
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-const listVariants = NibVariants({
+const NibVariants listVariants = {
   'hidden': NibAnim(opacity: 0, y: 16),
   'visible': NibAnim(opacity: 1, y: 0),
-});
+};
 
 NibMotionList(
   variants: listVariants,
@@ -334,11 +334,11 @@ shared transition's `delay` (which is `Duration.zero` by default).
 
 ## Next steps
 
-- **[Presence](/docs/presence)** — `NibMotionList`'s `presenceEnabled` option
+- **[Presence](presence.mdx)** — `NibMotionList`'s `presenceEnabled` option
   is built directly on `NibPresence`. If you want finer control over exit
   animations — or want to use the same removal-aware pattern outside of
   `NibMotionList` — see how `NibPresence` works on its own.
-- **[Layout Animations](/docs/layout-animations)** — once a list's items can
+- **[Layout Animations](layout-animations.mdx)** — once a list's items can
   animate in, out, and stagger, the next question is how the *remaining*
   items animate as they reflow into their new positions — covered on the
   layout animations page.

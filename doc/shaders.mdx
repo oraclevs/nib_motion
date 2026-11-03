@@ -63,7 +63,7 @@ class _DissolveCardState extends State<DissolveCard> {
               ),
               alignment: Alignment.center,
               child: Text(
-                'Tap to dissolve',
+                'Dissolving…',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onPrimary,
                   fontWeight: FontWeight.w600,
@@ -252,13 +252,13 @@ NibShimmer(
 
 ## Next steps
 
-- **[Animate](/docs/animate)** — `NibDissolve` and `NibShimmer` are
+- **[Animate](animate.mdx)** — `NibDissolve` and `NibShimmer` are
   standalone widgets, not `NibAnim` properties, but they compose naturally
   around any `NibMotion` subtree that itself animates with `initial`/`animate`.
-- **[Transitions](/docs/transitions)** — for the curve- and spring-based
+- **[Transitions](transitions.mdx)** — for the curve- and spring-based
   timing that drives every other `NibMotion` animation, complementing the
   fixed-duration sweeps and dissolves covered here.
-- **[Presence](/docs/presence)** — `NibDissolve` pairs naturally with
+- **[Presence](presence.mdx)** — `NibDissolve` pairs naturally with
   `NibPresence`'s exit animations: trigger a dissolve `outward` as a
   widget's `exit` effect so it textures away before `NibPresence` removes it
   from the tree.

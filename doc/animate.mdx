@@ -10,8 +10,8 @@ this one type, you understand the vocabulary the whole package is built on.
 
 ## What `NibAnim` describes
 
-`NibAnim` is a plain, immutable data class with twelve nullable fields, one
-per animatable property:
+`NibAnim` is a plain, immutable data class with nullable fields for
+paint properties:
 
 - **`x`**, **`y`** — pixel offsets from the widget's natural position.
 - **`scale`**, **`scaleX`**, **`scaleY`** — uniform or per-axis scale, where
@@ -19,6 +19,9 @@ per animatable property:
 - **`rotate`** — rotation around the Z axis, expressed in *turns* rather than
   degrees or radians (`1.0` is a full 360° turn, so a quarter turn is `0.25`).
 - **`skewX`**, **`skewY`** — horizontal and vertical shear, in radians.
+- **`rotateX`**, **`rotateY`** — perspective rotations in turns.
+- **`blur`** — Gaussian blur sigma in logical pixels.
+- **`tint`** — a color blended over the painted child with `BlendMode.srcATop`.
 - **`opacity`** — from `0.0` (fully transparent) to `1.0` (fully opaque).
 - **`color`** — a background color painted behind the child.
 - **`borderRadius`** — a clip radius applied to the widget and its `color`/
@@ -207,11 +210,11 @@ elsewhere — it's where the widget starts. Every keyframe after that describes
 a stop along the way, with its own optional `curve` controlling the easing of
 the segment leading *into* it.
 
-> **Note:** `keyframes` overrides `initial`/`animate` entirely and is not
-> compatible with spring-based transitions, since a spring simulation can't be
-> reliably scrubbed to arbitrary progress values the way a tween can. See
-> [Transitions](/docs/transitions) for the difference between tween-based and
-> spring-based transitions.
+> Keyframes use the transition's duration as a clock, overriding
+> `initial`/`animate`. Set `NibKeyframe.spring` for a spring-shaped segment;
+> it samples `NibSpringCurve` over that segment and does not preserve incoming
+> velocity like a live `SpringSolver`. Do not set both `curve` and `spring` on
+> one keyframe.
 
 ## How values combine: `identity`, `copyWith`, `lerp`, `merge`
 
@@ -236,7 +239,7 @@ NibMotion — transitions, variants, and keyframes — build on:
   internally to blend between adjacent keyframes.
 - **`merge(other)`** overlays every *non-null* property of `other` on top of
   this `NibAnim`, leaving this animation's own values in place wherever
-  `other` is `null`. This is how the [Variants](/docs/variants) system lets a
+  `other` is `null`. This is how the [Variants](variants.mdx) system lets a
   child widget's variant state layer on top of (rather than replace) whatever
   its parent propagated.
 
@@ -256,6 +259,9 @@ even when several of them are in play on the same widget.
 | `scaleX` | `double?` | `null` | Horizontal scale. Identity is `1.0`. |
 | `scaleY` | `double?` | `null` | Vertical scale. Identity is `1.0`. |
 | `rotate` | `double?` | `null` | Rotation around the Z axis, in turns (`1.0` == 360°). |
+| `rotateX` / `rotateY` | `double?` | `null` | Perspective rotation around the X or Y axis, in turns. |
+| `blur` | `double?` | `null` | Gaussian blur sigma in logical pixels; adds a compositing layer. |
+| `tint` | `Color?` | `null` | Color wash over the painted child using `BlendMode.srcATop`. |
 | `skewX` | `double?` | `null` | Horizontal shear, in radians. |
 | `skewY` | `double?` | `null` | Vertical shear, in radians. |
 | `opacity` | `double?` | `null` | Opacity from `0.0` (fully transparent) to `1.0` (fully opaque, identity). |
@@ -271,10 +277,13 @@ even when several of them are in play on the same widget.
 | `at` | `double` | *(required)* | The progress (`0.0` to `1.0`) along the keyframe animation at which `value` is reached. |
 | `value` | `NibAnim` | *(required)* | The animation state at `at`. |
 | `curve` | `Curve?` | `null` (falls back to `defaultCurve`) | The easing curve for the segment leading into this keyframe, from the previous keyframe's `value` to this one. |
+| `spring` | `NibSpringDescription?` | `null` | Spring-shaped easing for the arriving segment; mutually exclusive with `curve`. |
 
 ### `computeAnimFromKeyframes`
 
-```dart
+Signature:
+
+```text
 NibAnim computeAnimFromKeyframes(
   List<NibKeyframe> keyframes,
   double t,
@@ -292,11 +301,11 @@ between the two keyframes' values with `NibAnim.lerp`. This is the function
 
 ## Next steps
 
-- **[Transitions](/docs/transitions)** — now that you know *what* a `NibAnim`
+- **[Transitions](transitions.mdx)** — now that you know *what* a `NibAnim`
   describes, see how `NibTransition` controls *how* NibMotion moves between
   two `NibAnim` values: curve-based tweens vs. spring physics, duration,
   delay, and stagger.
-- **[Physics & Motion Values](/docs/physics)** — for animations driven by
+- **[Physics & Motion Values](physics.mdx)** — for animations driven by
   continuous input (drag, scroll, gestures) rather than discrete `initial`/
   `animate` states, see how `MotionValue`s and spring simulations plug into
   the same `NibAnim` properties described here.

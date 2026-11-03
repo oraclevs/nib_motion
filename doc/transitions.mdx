@@ -93,7 +93,7 @@ class SpringyButton extends StatelessWidget {
 ```
 
 Tuning `mass`, `stiffness`, and `damping` by hand is covered in full on
-[Physics & Motion Values](/docs/physics). For everyday use, `NibTransition`
+[Physics & Motion Values](physics.mdx). For everyday use, `NibTransition`
 ships three named presets built on `NibSpringDescription`'s own presets, so
 you rarely need to hand-tune values yourself:
 
@@ -118,7 +118,7 @@ NibMotion(
 `delay` holds the animation at its starting state for the given `Duration`
 before it begins running — useful for sequencing several independent
 `NibMotion` widgets without a parent `NibMotionList` (see
-[Lists & Stagger](/docs/lists-and-stagger)).
+[Lists & Stagger](lists-and-stagger.mdx)).
 
 ```dart
 import 'package:flutter/material.dart';
@@ -159,24 +159,29 @@ delayed relative to it:
   second at `delayChildren + staggerChildren`, the third at `delayChildren +
   staggerChildren * 2`, and so on.
 
-These two fields are most useful when set on the `transition` of a
-[`NibMotionList`](/docs/lists-and-stagger), which propagates a shared variant
-to each of its children — that page covers the full pattern in depth. As a
-preview, a list whose items fade in one after another might look like:
+Use these fields on a parent `NibMotion` that propagates a variant name.
+Descendants with matching variants inherit that name and the parent's timing.
+`NibMotionList` also has a separate `staggerDelay` convenience property.
 
 ```dart
-NibMotionList(
+NibMotion(
+  animate: 'visible',
   transition: const NibTransition(
     staggerChildren: Duration(milliseconds: 60),
   ),
-  children: [
-    for (final item in items)
-      NibMotion(
-        initial: const NibAnim(opacity: 0, y: 12),
-        animate: const NibAnim(opacity: 1, y: 0),
-        child: ListTile(title: Text(item)),
-      ),
-  ],
+  child: Column(
+    children: [
+      for (final label in ['First', 'Second', 'Third'])
+        NibMotion(
+          initial: 'hidden',
+          variants: const {
+            'hidden': NibAnim(opacity: 0, y: 12),
+            'visible': NibAnim(opacity: 1, y: 0),
+          },
+          child: ListTile(title: Text(label)),
+        ),
+    ],
+  ),
 )
 ```
 
@@ -337,10 +342,10 @@ whenever `replay()` is called on the signal it found.
 
 ## Next steps
 
-- **[Motion Controller](/docs/motion-controller)** — for animations you start,
+- **[Motion Controller](motion-controller.mdx)** — for animations you start,
   stop, or reverse imperatively rather than purely in response to
   `initial`/`animate` state changes, see how `NibMotionController` gives you
   direct control over playback.
-- **[Physics & Motion Values](/docs/physics)** — for a deeper look at
+- **[Physics & Motion Values](physics.mdx)** — for a deeper look at
   `NibSpringDescription`'s `mass`, `stiffness`, and `damping` parameters and
   how `MotionValue`s use them beyond the `transition` field covered here.

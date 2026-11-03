@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "package": "nib_motion",
+  "package_version": "0.3.5",
+  "channel": "stable",
+  "runtime_commit": "166891c762f2579e470b6bb25c564b0ac95ad407",
+  "guides": [
+    {
+      "id": "introduction",
+      "source": "doc/guides/introduction.md"
+    },
+    {
+      "id": "installation",
+      "source": "doc/guides/installation.md"
+    },
+    {
+      "id": "getting-started",
+      "source": "doc/guides/getting-started.md"
+    },
+    {
+      "id": "first-animation",
+      "source": "doc/guides/first-animation.md"
+    },
+    {
+      "id": "springs",
+      "source": "doc/guides/springs.md"
+    },
+    {
+      "id": "keyframes",
+      "source": "doc/guides/keyframes.md"
+    },
+    {
+      "id": "motion-values",
+      "source": "doc/guides/motion-values.md"
+    },
+    {
+      "id": "presence",
+      "source": "doc/guides/presence.md"
+    },
+    {
+      "id": "gestures",
+      "source": "doc/guides/gestures.md"
+    },
+    {
+      "id": "scroll-motion",
+      "source": "doc/guides/scroll-motion.md"
+    },
+    {
+      "id": "accessibility",
+      "source": "doc/guides/accessibility.md"
+    },
+    {
+      "id": "transitions",
+      "source": "doc/guides/transitions.md"
+    },
+    {
+      "id": "variants-stagger",
+      "source": "doc/guides/variants-stagger.md"
+    },
+    {
+      "id": "layout-animations",
+      "source": "doc/guides/layout-animations.md"
+    },
+    {
+      "id": "layout-presence",
+      "source": "doc/guides/layout-presence.md"
+    },
+    {
+      "id": "performance",
+      "source": "doc/guides/performance.md"
+    },
+    {
+      "id": "api",
+      "source": "doc/guides/api.md"
+    },
+    {
+      "id": "platform-limits",
+      "source": "doc/guides/platform-limits.md"
+    },
+    {
+      "id": "troubleshooting",
+      "source": "doc/guides/troubleshooting.md"
+    },
+    {
+      "id": "controllers",
+      "source": "doc/guides/controllers.md"
+    },
+    {
+      "id": "timeline",
+      "source": "doc/guides/timeline.md"
+    },
+    {
+      "id": "text-motion",
+      "source": "doc/guides/text-motion.md"
+    },
+    {
+      "id": "path-motion",
+      "source": "doc/guides/path-motion.md"
+    },
+    {
+      "id": "navigation",
+      "source": "doc/guides/navigation.md"
+    },
+    {
+      "id": "shaders",
+      "source": "doc/guides/shaders.md"
+    },
+    {
+      "id": "physics",
+      "source": "doc/guides/physics.md"
+    },
+    {
+      "id": "presets",
+      "source": "doc/guides/presets.md"
+    },
+    {
+      "id": "motion-lists",
+      "source": "doc/guides/motion-lists.md"
+    },
+    {
+      "id": "viewport-motion",
+      "source": "doc/guides/viewport-motion.md"
+    },
+    {
+      "id": "drag-and-drop",
+      "source": "doc/guides/drag-and-drop.md"
+    },
+    {
+      "id": "animation-sequences",
+      "source": "doc/guides/animation-sequences.md"
+    },
+    {
+      "id": "routes",
+      "source": "doc/guides/routes.md"
+    },
+    {
+      "id": "water",
+      "source": "doc/guides/water.md"
+    },
+    {
+      "id": "debugging",
+      "source": "doc/guides/debugging.md"
+    },
+    {
+      "id": "migration",
+      "source": "doc/guides/migration.md"
+    }
+  ]
+}

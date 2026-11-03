@@ -101,22 +101,29 @@ class _Task {
 /// App shell
 /// ---------------------------------------------------------------------
 class DailyFocusApp extends StatelessWidget {
-  const DailyFocusApp({super.key});
+  const DailyFocusApp({super.key, this.embedded = false});
+
+  /// Keeps the gallery's browser route when hosted inside its navigator.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
+    final theme = ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: _Palette.bg,
+      fontFamily: 'Roboto',
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _Palette.coral,
+        brightness: Brightness.light,
+      ),
+    );
+    if (embedded) {
+      return Theme(data: theme, child: const _HomeScreen());
+    }
     return MaterialApp(
       title: 'Daily Focus',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: _Palette.bg,
-        fontFamily: 'Roboto',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _Palette.coral,
-          brightness: Brightness.light,
-        ),
-      ),
+      theme: theme,
       home: const _HomeScreen(),
     );
   }
@@ -675,15 +682,17 @@ class _DashboardScreenState extends State<_DashboardScreen> {
                                           Colors.white.withValues(alpha: 0.8),
                                       size: 16),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    _ringView == 'percent'
-                                        ? 'View streak'
-                                        : 'View progress',
-                                    style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.8),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600),
+                                  Flexible(
+                                    child: Text(
+                                      _ringView == 'percent'
+                                          ? 'View streak'
+                                          : 'View progress',
+                                      style: TextStyle(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.8),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -890,20 +899,26 @@ class _DashboardScreenState extends State<_DashboardScreen> {
   // Section header
   // -------------------------------------------------------------------------
   Widget _buildSectionHeader(String title, String trailing) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title,
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: _Palette.ink)),
-        Text(trailing,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _Palette.inkSoft)),
-      ],
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 4,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: _Palette.ink)),
+          Text(trailing,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _Palette.inkSoft)),
+        ],
+      ),
     );
   }
 

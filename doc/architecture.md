@@ -25,8 +25,10 @@ NibMotion is one runtime with several front doors.
    Anything that moves something writes a `MotionValue`; anything that draws
    listens to one. Gestures, scroll and layout do not have private animation
    engines.
-2. **Animating never rebuilds.** A `MotionValue` change calls `markNeedsPaint`
-   on the render object. `test/runtime/no_rebuild_test.dart` guards this.
+2. **Core paint animation avoids child rebuilds.** A `MotionValue` change
+   calls `markNeedsPaint` on `RenderNibMotion`.
+   `test/runtime/no_rebuild_test.dart` guards this path. `NibValueBuilder`
+   rebuilds its builder subtree each frame; application listeners can rebuild too.
 3. **Velocity is state.** `MotionValue.velocity` is written by whichever driver
    moved the value last, and read by whichever driver starts next. See
    [interruption.md](interruption.md).
@@ -57,7 +59,7 @@ NibMotion is one runtime with several front doors.
 ## Extension packages
 
 None are justified yet. Everything above shares one runtime and ships in
-`nib_motion` (zero dependencies). `nib_components` builds on it as a normal
+`nib_motion` (no direct pub dependencies beyond Flutter). `nib_components` builds on it as a normal
 package. A separate devtools package only makes sense once the debugger needs a
 dependency (e.g. `devtools_extensions`); until then `NibMotionDebugger` stays in
 core.
