@@ -4,18 +4,33 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NibMotion · Media review</title>
 <style>
-body{margin:0;background:#18191c;color:#f6f2ea;font:16px/1.6 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:32px 20px}h1{letter-spacing:-.04em}a{color:#f5ab38}video,img{display:block;width:100%;height:auto;border-radius:12px;margin:20px 0}p{max-width:75ch}small{color:#c9c3b8}
+body{margin:0;background:#18191c;color:#f6f2ea;font:16px/1.6 system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:32px 20px}h1{letter-spacing:-.04em}a{color:#f5ab38}video,img{display:block;width:100%;height:auto;border-radius:12px;margin:20px 0}p{max-width:75ch}small{color:#c9c3b8}.media{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:40px}.water video{max-width:340px}.water img{max-width:300px}summary{cursor:pointer}summary:focus-visible,a:focus-visible{outline:2px solid #f5ab38;outline-offset:4px}@media(max-width:800px){.media{grid-template-columns:1fr}}
 </style>
 <main>
 <h1>NibMotion in motion.</h1>
-<p>Initial media for owner review. These are recordings of the running Flutter gallery. Choose the final scenes before the release is approved.</p>
-<h2>Master recording</h2>
-<video controls playsinline preload="metadata" poster="nibmotion-poster.png" src="nibmotion-showcase.mp4" aria-label="NibMotion gallery demonstration"></video>
+<p>Two real Flutter applications, ready for owner review. Play each recording, then expand its README loop. Files work offline from this folder.</p>
+<div class="media">
+<section aria-labelledby="gallery-title">
+<h2 id="gallery-title">Interactive Motion Gallery</h2>
+<p>Springs, drag, layout, presence and text. The existing gallery recording is retained unchanged.</p>
+<video id="gallery-video" controls playsinline preload="metadata" poster="nibmotion-poster.png" src="nibmotion-showcase.mp4" aria-label="Play gallery recording"></video>
 <p><a href="nibmotion-showcase.mp4">Open MP4</a> · 40.1 seconds · 1920 × 1080 · H.264 · 30 FPS</p>
-<h2>README loop</h2>
+<details open><summary>Gallery README loop</summary>
 <img src="nibmotion-showcase.gif" alt="Real Flutter spring retargeting and layout transitions in the NibMotion gallery">
-<p><a href="nibmotion-showcase.gif">Open GIF</a> · 11.78 seconds · 960 × 540 · 845,428 bytes</p>
-<p><a href="nibmotion-poster.png">Open poster</a> · <a href="metadata.json">File metadata</a> · <a href="../../doc/maintainers/showcase-audit.md">Example audit</a></p>
-<small>Old recordings remain in assets/. No release tag or pub.dev publication accompanies these previews.</small>
+<p><a href="nibmotion-showcase.gif">Open GIF</a> · 11.78 seconds · 960 × 540 · 845,428 bytes</p></details>
+<p><a href="nibmotion-poster.png">Poster</a> · <a href="metadata.json">Metadata</a> · <a href="../../doc/maintainers/showcase-audit.md">Example audit</a></p>
+</section>
+<section class="water" aria-labelledby="water-title">
+<h2 id="water-title">Water Surface in Action</h2>
+<p>Lagoon in portrait: tap, swipe, dive and return. Linux/Impeller capture with experimental water refraction.</p>
+<video id="water-video" controls playsinline preload="metadata" poster="nibmotion-water-poster.png" src="nibmotion-water.mp4" aria-label="Play portrait water recording"></video>
+<p><a href="nibmotion-water.mp4">Open MP4</a> · 24 seconds · 494 × 960 · H.264 · 30 FPS</p>
+<details open><summary>Water README loop</summary>
+<img src="nibmotion-water.gif" alt="Portrait Lagoon app: two taps and a swipe create waves across the home screen">
+<p><a href="nibmotion-water.gif">Open GIF</a> · 10 seconds · 300 × 582 · 3,650,310 bytes</p></details>
+<p><a href="nibmotion-water-poster.png">Poster</a> · <a href="water-metadata.json">Metadata</a> · <a href="../../doc/maintainers/water-showcase.md">Capture and app assessment</a></p>
+</section>
+</div>
+<small>Both GIFs loop indefinitely. Daily Focus and older recordings remain in assets/. These previews do not merge a PR, create a tag or publish to pub.dev.</small>
 </main>
 </html>

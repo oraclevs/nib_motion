@@ -1,0 +1,45 @@
+{
+  "source_sha256": "3fabe83fbb5dc875531f5c6b2c50e923b47c70debf19462436aac8bdaec7eb93",
+  "master_cuts_seconds": [
+    [
+      2.4,
+      26.4
+    ]
+  ],
+  "gif_cuts_seconds": [
+    [
+      3.4,
+      13.4
+    ]
+  ],
+  "capture": "Actual Flutter Linux app, Impeller, wf-recorder, 494\u00d7960 portrait crop, 30 FPS",
+  "assets": {
+    "nibmotion-water.mp4": {
+      "bytes": 3482812,
+      "codec": "h264",
+      "width": 494,
+      "height": 960,
+      "duration": "24.000000",
+      "frame_rate": "30/1",
+      "sha256": "a62efe9e95fbb62982fd1c36ceec972bc5e4696a7118e71e1e6c5da1c87303d8"
+    },
+    "nibmotion-water.gif": {
+      "bytes": 3650310,
+      "codec": "gif",
+      "width": 300,
+      "height": 582,
+      "duration": "10.000000",
+      "frame_rate": "25/2",
+      "sha256": "58e5f2494fab9b8631879f21d0b68bd1dc78345337c69feddaab0aad0ece37c4"
+    },
+    "nibmotion-water-poster.png": {
+      "bytes": 540653,
+      "codec": "png",
+      "width": 494,
+      "height": 960,
+      "duration": null,
+      "frame_rate": "25/1",
+      "sha256": "0bc204594a50b7dea4b5ff5cb44964ed707a21eb45b5ccb00a2cb4066a166a72"
+    }
+  }
+}

@@ -1,0 +1,228 @@
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -24,7 +24,10 @@
+ }
+ 
+ class App extends StatelessWidget {
+-  const App({super.key});
++  const App({super.key, this.onWaterStatus});
++
++  final void Function(String surface, NibWaterRenderStatus status)?
++  onWaterStatus;
+ 
+   @override
+   Widget build(BuildContext context) => MaterialApp(
+@@ -32,6 +35,9 @@
+     debugShowCheckedModeBanner: false,
+     themeAnimationDuration: Duration.zero,
+     theme: ThemeData(brightness: Brightness.dark, fontFamily: 'LagoonSans'),
+-    home: const NibMotionConfig(entranceWarmup: Duration.zero, child: Lagoon()),
++    home: NibMotionConfig(
++      entranceWarmup: Duration.zero,
++      child: Lagoon(onWaterStatus: onWaterStatus),
++    ),
+   );
+ }
+--- a/lib/screens/lagoon.dart
++++ b/lib/screens/lagoon.dart
+@@ -134,7 +134,10 @@
+ 
+ // Static geometry and painting are Flutter; every changing visual value is NibMotion.
+ class Lagoon extends StatefulWidget {
+-  const Lagoon({super.key});
++  const Lagoon({super.key, this.onWaterStatus});
++
++  final void Function(String surface, NibWaterRenderStatus status)?
++  onWaterStatus;
+   @override
+   State<Lagoon> createState() => _LagoonState();
+ }
+@@ -321,6 +324,9 @@
+   Widget _shore(Size size, bool compact) => NibWaterSurface(
+     key: const ValueKey('shore-water'),
+     controller: shoreWater,
++    onStatus: widget.onWaterStatus == null
++        ? null
++        : (status) => widget.onWaterStatus!('shore', status),
+     sampling: NibWaterSampling.live,
+     material: const NibWaterMaterial(refraction: 16, highlight: .6),
+     surface: true,
+@@ -669,6 +675,9 @@
+       NibWaterSurface(
+         key: const ValueKey('ocean-water'),
+         controller: water,
++        onStatus: widget.onWaterStatus == null
++            ? null
++            : (status) => widget.onWaterStatus!('ocean', status),
+         sampling: NibWaterSampling.live,
+         material: const NibWaterMaterial(refraction: 16, highlight: .6),
+         surface: true,
+@@ -1140,6 +1149,7 @@
+ 
+   @override
+   Widget build(BuildContext context) => Semantics(
++    container: true,
+     button: true,
+     label: widget.label,
+     excludeSemantics: true,
+@@ -1926,8 +1936,8 @@
+             transition: timing(650, cssEaseOut),
+           ),
+         );
+-        // Per-character layout loses pair kerning; keep short labels on one line.
+-        animated = unit == NibTextUnit.character
++        // Split units have different metrics; keep headings and short labels on one line.
++        animated = unit == NibTextUnit.character || variant == _TextEffect.rise
+             ? FittedBox(
+                 fit: BoxFit.scaleDown,
+                 alignment: Alignment.topLeft,
+--- a/linux/runner/my_application.cc
++++ b/linux/runner/my_application.cc
+@@ -32,7 +32,8 @@
+   // in case the window manager does more exotic layout, e.g. tiling.
+   // If running on Wayland assume the header bar will work (may need changing
+   // if future cases occur).
+-  gboolean use_header_bar = TRUE;
++  const bool portrait_capture = g_getenv("NIBMOTION_CAPTURE_PORTRAIT") != nullptr;
++  gboolean use_header_bar = !portrait_capture;
+ #ifdef GDK_WINDOWING_X11
+   GdkScreen* screen = gtk_window_get_screen(window);
+   if (GDK_IS_X11_SCREEN(screen)) {
+@@ -52,7 +53,12 @@
+     gtk_window_set_title(window, "motion_nib_0_3");
+   }
+ 
+-  gtk_window_set_default_size(window, 1280, 720);
++  gtk_window_set_default_size(window, portrait_capture ? 390 : 1280,
++                              portrait_capture ? 740 : 720);
++  if (portrait_capture) {
++    gtk_window_set_decorated(window, FALSE);
++    gtk_window_set_resizable(window, FALSE);
++  }
+ 
+   g_autoptr(FlDartProject) project = fl_dart_project_new();
+   fl_dart_project_set_dart_entrypoint_arguments(
+--- a/test/lagoon_test.dart
++++ b/test/lagoon_test.dart
+@@ -19,6 +19,19 @@
+     }
+   });
+   tearDown(() => NibMotionConfig.setReducedMotion(null));
++
++  testWidgets('dive semantics stay within the visible control', (tester) async {
++    final semantics = tester.ensureSemantics();
++    await tester.pumpWidget(const App());
++    await tester.pump(const Duration(seconds: 1));
++    final dive = tester.getSemantics(find.byKey(const ValueKey('dive')));
++    expect(dive.rect.size, tester.getSize(find.byKey(const ValueKey('dive'))));
++    expect(dive.label, 'Take the plunge');
++    semantics.dispose();
++    await tester.pumpWidget(const SizedBox());
++    await tester.pump(const Duration(seconds: 2));
++    expect(tester.takeException(), isNull);
++  });
+ 
+   testWidgets(
+     'both screens use responsive shared water and pause the hidden surface',
+@@ -107,7 +120,13 @@
+           findsWidgets,
+         );
+       }
+-      for (final id in ['brand', 'cta', 'footer-left', 'footer-right']) {
++      for (final id in [
++        'brand',
++        'title',
++        'cta',
++        'footer-left',
++        'footer-right',
++      ]) {
+         final group = find.byKey(ValueKey('shore-$id'));
+         final units = find.descendant(
+           of: group,
+--- /dev/null
++++ b/integration_test/showcase_capture_test.dart
+@@ -0,0 +1,78 @@
++import 'dart:convert';
++import 'dart:io';
++
++import 'package:flutter/material.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:integration_test/integration_test.dart';
++import 'package:motion_nib_0_3/main.dart';
++import 'package:nib_motion/nib_motion.dart';
++
++void main() {
++  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
++  binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
++  testWidgets('record portrait water interactions at real speed', (
++    tester,
++  ) async {
++    final paths = <String, NibWaterRenderPath>{};
++    await tester.pumpWidget(
++      App(
++        onWaterStatus: (surface, status) {
++          if (paths[surface] == status.path) return;
++          paths[surface] = status.path;
++          debugPrint(
++            'WATER_RENDER ${jsonEncode({'surface': surface, 'path': status.path.name, 'backend': status.backend, 'message': status.message})}',
++          );
++        },
++      ),
++    );
++    await tester.pump(const Duration(seconds: 5));
++    final rect = tester.getRect(find.byKey(const ValueKey('shore-water')));
++    expect(rect.height, greaterThan(rect.width));
++    expect(paths['shore'], NibWaterRenderPath.refractive);
++    debugPrint('WATER_READY ${rect.size}');
++    const marker = String.fromEnvironment('CAPTURE_START');
++    expect(marker, isNotEmpty, reason: 'Pass an absolute start-marker path.');
++    final timeout = Stopwatch()..start();
++    while (!File(marker).existsSync()) {
++      expect(timeout.elapsed.inMinutes, lessThan(10));
++      await tester.pump(const Duration(milliseconds: 200));
++    }
++    final clock = Stopwatch()..start();
++    void scene(String name) =>
++        debugPrint('WATER_SCENE $name ${clock.elapsedMilliseconds}');
++    Offset point(double x, double y) =>
++        rect.topLeft + Offset(rect.width * x, rect.height * y);
++    scene('opening');
++    await tester.pump(const Duration(seconds: 2));
++    scene('first-wave');
++    await tester.tapAt(point(.32, .32));
++    await tester.pump(const Duration(seconds: 3));
++    scene('second-wave');
++    await tester.tapAt(point(.70, .43));
++    await tester.pump(const Duration(seconds: 3));
++    scene('swipe');
++    await tester.timedDragFrom(
++      point(.26, .38),
++      Offset(rect.width * .46, 35),
++      const Duration(milliseconds: 1100),
++    );
++    await tester.pump(const Duration(seconds: 3));
++    scene('dive');
++    await tester.tap(find.byKey(const ValueKey('dive')));
++    await tester.pump(const Duration(seconds: 3));
++    expect(paths['ocean'], NibWaterRenderPath.refractive);
++    scene('pearl');
++    await tester.tap(find.bySemanticsLabel('Collect pearl 3'));
++    await tester.pump(const Duration(seconds: 3));
++    scene('return');
++    await tester.tap(find.byKey(const ValueKey('back')));
++    await tester.pump(const Duration(seconds: 4));
++    scene('closing');
++    expect(tester.takeException(), isNull);
++    // Leave a clean closing hold while the recorder is stopped.
++    await tester.pump(const Duration(seconds: 12));
++    await tester.pumpWidget(const SizedBox());
++    await tester.pump(const Duration(seconds: 2));
++    expect(tester.takeException(), isNull);
++  });
++}
+--- /dev/null
++++ b/test_driver/showcase_capture.dart
+@@ -0,0 +1,3 @@
++import 'package:integration_test/integration_test_driver.dart';
++
++Future<void> main() => integrationDriver(timeout: const Duration(minutes: 12));

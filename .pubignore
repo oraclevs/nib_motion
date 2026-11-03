@@ -3,13 +3,14 @@ build/
 coverage/
 *.log
 
-# README media is hosted on GitHub. Include the logo and one pub.dev demo.
+# README media is hosted on GitHub. Include the logo and two pub.dev demos.
 assets/*
 !assets/nib-logo.svg
 !assets/nib-logo.png
 !assets/showcase/
 assets/showcase/*
 !assets/showcase/nibmotion-showcase.gif
+!assets/showcase/nibmotion-water.gif
 
 # Website MDX docs — these are for the nib website, not the pub package
 doc/

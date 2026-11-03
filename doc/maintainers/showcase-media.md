@@ -21,6 +21,24 @@ The GIF's Netscape loop extension is set to zero (repeat indefinitely).
 Its first and last scenes show the composed gallery overview; the first frame
 is intentional because pub.dev uses it for the package thumbnail.
 
+## Portrait water recording
+
+The second promotional demonstration is the existing Lagoon app, captured on
+Linux in portrait on November 3. See [the app assessment and capture workflow](water-showcase.md).
+The gallery assets above remain byte-for-byte unchanged.
+
+| Asset | Format | Dimensions | Duration | Size |
+|---|---|---|---|---|
+| [Water master](../../assets/showcase/nibmotion-water.mp4) | H.264, yuv420p, MP4, 30 FPS | 494×960 | 24 s | 3,482,812 bytes |
+| [Water README loop](../../assets/showcase/nibmotion-water.gif) | GIF, infinite loop | 300×582 | 10 s | 3,650,310 bytes |
+| [Water poster](../../assets/showcase/nibmotion-water-poster.png) | PNG | 494×960 | Still | 540,653 bytes |
+
+[Water metadata](../../assets/showcase/water-metadata.json) records hashes and cut
+intervals. The GIF samples real footage at 12 FPS, with centisecond GIF timing.
+An earlier 320-pixel edit exceeded 4 MB; the reviewed 300-pixel version keeps the
+same interactions within the publication budget. The master preserves the
+native portrait capture resolution rather than upscaling it.
+
 ## What was captured
 
 The running Flutter application was displayed fullscreen on a 1920×1080 Linux
@@ -84,8 +102,8 @@ The README uses an absolute HTTPS GIF URL on the showcase branch and links the
 MP4 separately. Validate those URLs after pushing the branch. Do not change
 references to `main` until the approved files exist there. Pub.dev supports
 [screenshot images up to 4 MB](https://dart.dev/tools/pub/pubspec#screenshots);
-the declared GIF is below that limit. `.pubignore` includes that GIF and excludes
-the MP4, poster, metadata, offline page and raw captures from the package archive.
+both declared GIFs are below that limit. `.pubignore` includes both GIFs and excludes
+the MP4s, posters, metadata, offline page and raw captures from the package archive.
 The old GIFs remain in the checkout for comparison.
 
 This task does not publish version 0.3.6. The new media has not been verified on
