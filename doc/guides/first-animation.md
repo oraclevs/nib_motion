@@ -16,6 +16,8 @@ Keep bool saved = false in the owning State. The button changes it with setState
 
 Keep the Save idea button outside the animated wrapper, giving pointer and keyboard users a stable action target.
 
+Try the same Save and Undo sequence with a keyboard before tuning the spring.
+
 <!-- section: source -->
 ## Describe the two states
 
