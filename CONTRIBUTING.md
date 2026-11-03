@@ -100,3 +100,11 @@ create release tags.
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md). Report vulnerabilities
 privately using [the security policy](SECURITY.md).
+
+## Website documentation
+
+Edit `doc/guides/*.md` for the technical guides shown on nibmotion.xyz.
+The route inventory and supported package version are in `doc/website.json`.
+Run `python3 tool/check_documentation.py` before opening a documentation PR.
+The website repository owns rendering and playground bindings, not another copy
+of this prose. See [documentation delivery](doc/maintainers/documentation-sync.md).

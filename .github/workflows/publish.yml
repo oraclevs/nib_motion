@@ -17,7 +17,7 @@ jobs:
     name: Verify release identity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Require a commit merged into main
@@ -41,10 +41,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # setup-dart provisions pub.dev's OIDC token; Flutter supplies the SDK used below.
-      - uses: dart-lang/setup-dart@v1
-      - uses: subosito/flutter-action@v2
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: '3.47.8'
           channel: stable
