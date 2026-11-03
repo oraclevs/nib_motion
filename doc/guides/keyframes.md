@@ -16,6 +16,13 @@ Each tile in this example has a list of NibKeyframe values. A keyframe records o
 
 Choose Scatter, Cross or Align to inspect the exact values at that stage. Amber moves across the top, teal crosses below it, and sage changes scale before the three form a row. The labels, colors and positions make each track easy to follow. The excerpt below is the amber track; Copy runnable example includes all three tracks and their controls.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| at | double | required | Normalized progress position from 0.0 to 1.0. |
+| value | NibAnim | required | This one child’s state at the progress position. |
+| curve / spring | Curve? / NibSpringDescription? | null / null | Shape the incoming segment; they are mutually exclusive. |
+
 ```dart
 NibMotion(
   keyframes: const [
@@ -27,13 +34,6 @@ NibMotion(
   child: const Icon(Icons.star),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| at | double | required | Normalized progress position from 0.0 to 1.0. |
-| value | NibAnim | required | This one child’s state at the progress position. |
-| curve / spring | Curve? / NibSpringDescription? | null / null | Shape the incoming segment; they are mutually exclusive. |
 
 <!-- section: place-a-track -->
 ## Put one list on each moving child

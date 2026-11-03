@@ -28,13 +28,6 @@ duration is a Duration, such as 450 milliseconds. curve is a Flutter Curve. dela
 
 NibTransition without a spring is a tween: duration defaults to 300 ms, curve to easeInOut, and delay to zero. Choose an explicit duration for a deliberately timed entrance or a sequence with a known beat. Negative durations and delays are invalid; animation entry points validate them in debug builds and clamp them in release builds.
 
-```dart
-const NibTransition(
-  duration: Duration(milliseconds: 450),
-  curve: Curves.easeOutCubic,
-)
-```
-
 <!-- api -->
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -42,6 +35,13 @@ const NibTransition(
 | curve | Curve | easeInOut | Tween easing; ignored by a spring driver. |
 | delay | Duration | zero | Wait before starting either transition type. |
 | spring | NibSpringDescription? | null | Selects spring physics when supplied. |
+
+```dart
+const NibTransition(
+  duration: Duration(milliseconds: 450),
+  curve: Curves.easeOutCubic,
+)
+```
 
 <!-- section: spring -->
 ## Use spring physics for retargeting

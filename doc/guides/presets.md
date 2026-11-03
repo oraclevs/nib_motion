@@ -16,6 +16,13 @@ NibAnimPresets has two kinds of values. fadeUp, fadeDown, fadeLeft, fadeRight, z
 
 The named widgets package some of these patterns with their timing and lifecycle. Start with one NibBounce for an entrance or NibRubberBand for a one-time emphasis. Keep a stable key so an unrelated parent rebuild does not restart an entrance. Copying the keyframe list is useful when the preset timing or intermediate poses need to change.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| fadeUp | NibAnim | opacity 0, y 24 | A starting pose for an entrance. |
+| bounceIn | List<NibKeyframe> | six stages | A timed drop and bounce sequence. |
+| NibBounce.duration | Duration | 800 ms | Time for the one-time entrance. |
+
 ```dart
 NibMotion(
   initial: NibAnimPresets.fadeUp,
@@ -25,13 +32,6 @@ NibMotion(
 
 const NibBounce(child: Text('Arrived'))
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| fadeUp | NibAnim | opacity 0, y 24 | A starting pose for an entrance. |
-| bounceIn | List<NibKeyframe> | six stages | A timed drop and bounce sequence. |
-| NibBounce.duration | Duration | 800 ms | Time for the one-time entrance. |
 
 <!-- section: repeat -->
 ## Reserve loops for ambient motion

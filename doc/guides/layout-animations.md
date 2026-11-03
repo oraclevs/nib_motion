@@ -23,6 +23,13 @@ NibMotion(layout:) uses FLIP: it measures before and after a layout change, pain
 
 In the live example, Move first to end updates the Row’s order. NibLayoutScope supplies the measurement space; each keyed tile uses layout: NibLayout.position. New children need an entrance animation if they should move in, because there is no previous layout to invert.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| layout | NibLayout | inherit | Position, size, both, none, or a scope-provided default. |
+| layoutSizeMode | NibLayoutSizeMode | scale | Scale size changes; clip reveals final-layout content. |
+| layoutId | Object? | null | Shared identity for detached-to-mounted handoff in one scope. |
+
 ```dart
 // In build(); items comes from State.
 NibLayoutScope(
@@ -39,13 +46,6 @@ NibLayoutScope(
   ),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| layout | NibLayout | inherit | Position, size, both, none, or a scope-provided default. |
-| layoutSizeMode | NibLayoutSizeMode | scale | Scale size changes; clip reveals final-layout content. |
-| layoutId | Object? | null | Shared identity for detached-to-mounted handoff in one scope. |
 
 <!-- section: walkthrough -->
 ## Build and inspect a reorder

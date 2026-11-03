@@ -23,6 +23,13 @@ NibMotion accepts whileTap, whileHover, whileFocus, and whileDrag as NibAnim ove
 
 Hover is a pointer affordance; it is not the only way to expose an action. The live example pairs horizontal dragging with a Move right button so keyboard and touch users can reach the same endpoint.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| axis | Axis? | null | Null allows free drag; otherwise lock one axis. |
+| constraints | Rect? | null | Offset bounds relative to the resting position. |
+| releaseMode | NibDragReleaseMode | springBack | Spring back, coast with inertia, or stay at release. |
+
 ```dart
 NibMotion(
   whileTap: const NibAnim(scale: 0.9),
@@ -32,13 +39,6 @@ NibMotion(
   child: const Icon(Icons.drag_indicator),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| axis | Axis? | null | Null allows free drag; otherwise lock one axis. |
-| constraints | Rect? | null | Offset bounds relative to the resting position. |
-| releaseMode | NibDragReleaseMode | springBack | Spring back, coast with inertia, or stay at release. |
 
 <!-- section: bound-the-drag -->
 ## Add direct manipulation deliberately

@@ -21,6 +21,13 @@ For a static status mark, give NibDrawPath a short path and let autoPlay start i
 
 NibDrawPath takes a Flutter Path and paints its stroke progressively. strokeWidth defaults to 2 logical pixels, duration to 1000 ms, curve to easeOut, and autoPlay to true. Use NibDrawPathController for play, pause, and restart; NibMotionController does not control this widget.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| path | Path | required | Geometry of the stroke to reveal. |
+| strokeWidth | double | 2.0 | Stroke width in logical pixels. |
+| duration | Duration | 1000 ms | Time for one draw traversal. |
+
 ```dart
 // In build(); signaturePath uses this box’s local coordinates.
 NibDrawPath(
@@ -30,13 +37,6 @@ NibDrawPath(
   duration: const Duration(milliseconds: 1200),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| path | Path | required | Geometry of the stroke to reveal. |
-| strokeWidth | double | 2.0 | Stroke width in logical pixels. |
-| duration | Duration | 1000 ms | Time for one draw traversal. |
 
 <!-- section: follow -->
 ## Move a child along the path

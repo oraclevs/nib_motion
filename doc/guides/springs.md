@@ -27,6 +27,8 @@ Create a Flutter app and add nib_motion. This complete example needs no website 
 
 Press Change target, then press it again before the square arrives. The square reverses from its current position. The reserved 260-pixel lane leaves room for the 160-pixel travel and square. A transform changes the painted position without reserving a new layout slot.
 
+[Installation and package versions](installation.md)
+
 ```dart
 import 'package:flutter/material.dart';
 import 'package:nib_motion/nib_motion.dart';
@@ -65,8 +67,6 @@ class _SpringLessonState extends State<SpringLesson> {
 }
 ```
 
-[Installation and package versions](installation.md)
-
 <!-- section: parameters -->
 ## Parameters
 
@@ -90,6 +90,13 @@ NibTransition(spring: description), NibTransition.of(description), and NibMotion
 
 NibTransition.springWith(duration: ..., bounce: ...) converts a perceptual duration and bounce into coefficients at mass 1. Defaults are 500 ms and bounce 0. Duration must be at least 1 ms; bounce is strictly between -1 and 1. Zero bounce is critically damped; positive values oscillate; negative values are overdamped. Perceptual duration is not a completion deadline.
 
+| Description | Mass | Stiffness | Damping |
+| --- | --- | --- | --- |
+| gentle | 1 | 120 | 14 |
+| snappy | 1 | 300 | 20 |
+| wobbly | 1 | 180 | 12 |
+| stiff | 1 | 400 | 28 |
+
 ```dart
 final response = NibTransition.springWith(
   duration: const Duration(milliseconds: 450),
@@ -97,13 +104,6 @@ final response = NibTransition.springWith(
 );
 // Or: const NibTransition(spring: NibSpringDescription.gentle)
 ```
-
-| Description | Mass | Stiffness | Damping |
-| --- | --- | --- | --- |
-| gentle | 1 | 120 | 14 |
-| snappy | 1 | 300 | 20 |
-| wobbly | 1 | 180 | 12 |
-| stiff | 1 | 400 | 28 |
 
 <!-- section: retarget -->
 ## Retargeting

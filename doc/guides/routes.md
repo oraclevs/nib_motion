@@ -16,6 +16,13 @@ NibPageRoute is a PageRoute. Pass a builder to Navigator.push and let the Naviga
 
 Keep page data and decisions in the destination widget as usual. A route animation should not become the only way to understand which page is open. Press Back during entrance and check that the content heads toward its exit without briefly returning to the start pose.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| backSwipe | bool | false | Enable the start-edge interactive pop gesture. |
+| parallax | double | 0.3 | Fractional shift of the covered route during a back swipe above it. |
+| maintainState | bool | true | Keep the covered page state alive. |
+
 ```dart
 Navigator.of(context).push(
   NibPageRoute<void>(
@@ -25,13 +32,6 @@ Navigator.of(context).push(
   ),
 );
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| backSwipe | bool | false | Enable the start-edge interactive pop gesture. |
-| parallax | double | 0.3 | Fractional shift of the covered route during a back swipe above it. |
-| maintainState | bool | true | Keep the covered page state alive. |
 
 <!-- section: back-swipe -->
 ## Test an interrupted back swipe

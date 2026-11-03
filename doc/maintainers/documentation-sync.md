@@ -21,6 +21,11 @@ notes using `>`, lists, tables and standalone Markdown links. An API table uses
 HTML, JSX and MDX execution are not supported; the importer fails on unsupported
 block syntax instead of evaluating it.
 
+Within a section, use this order: paragraphs, lists/tables/links, API table,
+code, then note. This matches the Flutter and static renderers. Split a section
+when an explanation needs to follow a code example; the importer rejects
+out-of-order blocks instead of silently moving them.
+
 Use relative Markdown links between canonical guides. The importer maps those
 links to the existing website routes. Use HTTPS for external resources. The
 website retains its existing route inventory and redirects; adding a guide

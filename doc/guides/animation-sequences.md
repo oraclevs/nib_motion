@@ -16,6 +16,14 @@ NibAnimationSequence records steps for one NibMotionController. Create the contr
 
 Each animate step can take its own NibTransition. If omitted, the attached NibMotion supplies its default. The sequence does not create or dispose the controller. On route disposal, stop and dispose the sequence, then dispose the controller. A controller may be attached to several widgets, but this builder is easiest to reason about when one visible object owns the story.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| animate | NibAnim + NibTransition? | transition null | Queue one controller target and wait for completion. |
+| wait | Duration | required | Pause before the next step. |
+| call | VoidCallback | required | Run synchronous work at this point. |
+| loop | count + NibLoopMode | no loop | Repeat finite times or until stopped. |
+
 ```dart
 final controller = NibMotionController(); // State field
 late final sequence = NibAnimationSequence(controller)
@@ -30,14 +38,6 @@ late final sequence = NibAnimationSequence(controller)
 // On Play: await sequence.play();
 // In State.dispose: sequence.dispose(); controller.dispose();
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| animate | NibAnim + NibTransition? | transition null | Queue one controller target and wait for completion. |
-| wait | Duration | required | Pause before the next step. |
-| call | VoidCallback | required | Run synchronous work at this point. |
-| loop | count + NibLoopMode | no loop | Repeat finite times or until stopped. |
 
 <!-- section: repeat-modes -->
 ## Choose what repeat means

@@ -102,6 +102,13 @@ NibMotion wraps an ordinary child. Its initial value is the entrance state; anim
 
 NibAnim properties are nullable. An omitted property stays untouched by that state. x and y are logical pixel offsets from the child’s natural position; opacity runs from zero to one; rotate, rotateX, and rotateY use turns, where one turn is a full rotation. Keep the child’s layout and hit target useful at both endpoints.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| initial | NibAnim or String? | NibAnim.identity | Entrance state or named variant. |
+| animate | NibAnim or String? | null | Current target or named variant. |
+| child | Widget | required | The Flutter widget painted through the motion wrapper. |
+
 ```dart
 NibMotion(
   initial: const NibAnim(opacity: 1, x: -36, scale: 0.9),
@@ -110,13 +117,6 @@ NibMotion(
   child: const Icon(Icons.touch_app),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| initial | NibAnim or String? | NibAnim.identity | Entrance state or named variant. |
-| animate | NibAnim or String? | null | Current target or named variant. |
-| child | Widget | required | The Flutter widget painted through the motion wrapper. |
 
 <!-- section: read-the-example -->
 ## Read the three lines that control movement

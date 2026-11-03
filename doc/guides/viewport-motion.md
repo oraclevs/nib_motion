@@ -16,6 +16,13 @@ NibMotion.whileInView applies a NibAnim while the widget meets its viewport test
 
 The source widget still needs a useful resting state. For a one-time entrance, set once true so leaving the viewport does not hide content again. A NibScrollReveal wrapper has different defaults, amount 0.2 and once true, and is the short form when no custom in-view state is needed.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| amount | double | 0.5 | Visible fraction needed for whileInView. |
+| once | bool | false | Keep the in-view state after first entry when true. |
+| margin | EdgeInsets | EdgeInsets.zero | Expand or shrink the tested viewport bounds. |
+
 ```dart
 NibMotion(
   initial: const NibAnim(opacity: 0, y: 24),
@@ -24,13 +31,6 @@ NibMotion(
   child: const Text('Visible when reached'),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| amount | double | 0.5 | Visible fraction needed for whileInView. |
-| once | bool | false | Keep the in-view state after first entry when true. |
-| margin | EdgeInsets | EdgeInsets.zero | Expand or shrink the tested viewport bounds. |
 
 <!-- section: continuous -->
 ## Use continuous progress for a parallax-style response

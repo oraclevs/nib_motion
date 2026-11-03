@@ -16,6 +16,13 @@ NibMotionList wraps every child in a NibMotion and offsets each transition delay
 
 Without presenceEnabled, the list uses a Column with minimum main-axis size. A parent Row or grid is not preserved by this wrapper. If you need a different layout, put keyed NibMotion children in that layout directly and use parent variants with delayChildren and staggerChildren, or compose NibPresence with a layoutBuilder.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| staggerDelay | Duration | 50 ms | Added per child index to the base transition delay. |
+| staggerDirection | NibStaggerDirection | forward | Chooses which end starts first. |
+| presenceEnabled | bool | false | Uses NibPresence for keyed exits when true. |
+
 ```dart
 NibMotionList(
   initial: const NibAnim(opacity: 0, y: 12),
@@ -27,13 +34,6 @@ NibMotionList(
   ],
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| staggerDelay | Duration | 50 ms | Added per child index to the base transition delay. |
-| staggerDirection | NibStaggerDirection | forward | Chooses which end starts first. |
-| presenceEnabled | bool | false | Uses NibPresence for keyed exits when true. |
 
 <!-- section: delay-math -->
 ## Know when each row starts

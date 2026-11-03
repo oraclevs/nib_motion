@@ -21,6 +21,13 @@ The code excerpt assumes items is that State collection and ItemTile is your nor
 
 NibPresence compares child keys from one build to the next. Every direct child needs a unique non-null key. A keyed NibMotion child needs an exit NibAnim to animate before removal; without exit, it leaves immediately.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| children | List<Widget> | required | Direct children with unique non-null keys. |
+| exitLayout | NibExitLayout | sync | Keep the slot until exit; pop reflows siblings immediately. |
+| onChildExit | ValueChanged<Key>? | null | Called after a departing child leaves the tree. |
+
 ```dart
 NibPresence(
   children: [
@@ -33,13 +40,6 @@ NibPresence(
   ],
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| children | List<Widget> | required | Direct children with unique non-null keys. |
-| exitLayout | NibExitLayout | sync | Keep the slot until exit; pop reflows siblings immediately. |
-| onChildExit | ValueChanged<Key>? | null | Called after a departing child leaves the tree. |
 
 <!-- section: exit-state -->
 ## Define a visible exit

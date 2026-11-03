@@ -23,6 +23,14 @@ NibTimeline takes NibTimelineEntry values and sorts their resolved start offsets
 
 Relative references must point to entries already defined in the input list. The constructor rejects duplicate labels and unknown or later references. For a single controller’s sequential changes, NibAnimationSequence is the simpler fluent API.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| controller | NibMotionController | required | The element driven by this entry. |
+| target | NibAnim | required | State to reach when the entry runs. |
+| at | Duration | required | Absolute offset from timeline play start. |
+| from | NibAnim? | null | Optional start state for precise scrubbing. |
+
 ```dart
 // In State, after creating both controllers.
 final timeline = NibTimeline([
@@ -38,14 +46,6 @@ final timeline = NibTimeline([
   ),
 ]);
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| controller | NibMotionController | required | The element driven by this entry. |
-| target | NibAnim | required | State to reach when the entry runs. |
-| at | Duration | required | Absolute offset from timeline play start. |
-| from | NibAnim? | null | Optional start state for precise scrubbing. |
 
 <!-- section: scrub -->
 ## Scrub with explicit starts

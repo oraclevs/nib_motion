@@ -44,19 +44,19 @@ NibDissolve is a one-shot reveal or removal around a child. direction decides wh
 
 NibShimmer makes a diagonal loading sweep, with speed 1.5 and enabled true by default. NibDissolve takes 500 ms by default and can run inward or outward; if its program is unavailable it falls back to a plain opacity fade. NibGlass uses a refractive path where shader filters are supported, otherwise a frosted blur, tint, and rim.
 
-```dart
-// In build() while the content is loading.
-NibShimmer(
-  child: const SizedBox(width: 160, height: 20),
-)
-```
-
 <!-- api -->
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | NibShimmer.speed | double | 1.5 | Rate of the diagonal sweep. |
 | NibDissolve.duration | Duration | 500 ms | Time for inward or outward dissolve. |
 | NibGlass.blurSigma | double | 1.0 | Backdrop blur strength in its surface effect. |
+
+```dart
+// In build() while the content is loading.
+NibShimmer(
+  child: const SizedBox(width: 160, height: 20),
+)
+```
 
 <!-- section: asset-check -->
 ## Inspect the built consumer

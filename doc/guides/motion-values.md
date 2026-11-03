@@ -23,18 +23,18 @@ MotionValue<T> is a ValueListenable and ChangeNotifier. Setting value notifies l
 
 Use transform for a general mapping or mapRange for piecewise linear numeric mapping. mapRange needs at least two stops and clamps outside the input range by default. Its result is another MotionValue that updates when the source changes.
 
-```dart
-final progress = MotionValue<double>(0.5);
-final x = progress.mapRange([0, 1], [-62, 62]);
-final opacity = progress.mapRange([0, 1], [0.3, 1]);
-```
-
 <!-- api -->
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | value | T | constructor initial | Notifies listeners synchronously when it changes. |
 | transform | DerivedMotionValue<S, T> | none | Map source changes with a function. |
 | mapRange | DerivedMotionValue<double, double> | clamp: true | Piecewise linear mapping with at least two stops. |
+
+```dart
+final progress = MotionValue<double>(0.5);
+final x = progress.mapRange([0, 1], [-62, 62]);
+final opacity = progress.mapRange([0, 1], [0.3, 1]);
+```
 
 <!-- section: connect -->
 ## Feed the render object

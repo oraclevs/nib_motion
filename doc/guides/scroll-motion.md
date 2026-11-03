@@ -23,6 +23,13 @@ NibScrollReveal wraps a child in viewport-driven NibMotion. Its default initial 
 
 Scroll inside the framed window in the live example. The final card uses once: false, so it can reveal again after leaving and re-entering that viewport. Use a one-time reveal for content that should stay visible after first exposure.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| initial | NibAnim | opacity: 0, y: 32 | State before the child enters the viewport. |
+| once | bool | true | Keep the revealed state after the first entry. |
+| amount | double | 0.2 | Fraction of the child that must be visible. |
+
 ```dart
 NibScrollReveal(
   once: false,
@@ -30,13 +37,6 @@ NibScrollReveal(
   child: const Text('In view'),
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| initial | NibAnim | opacity: 0, y: 32 | State before the child enters the viewport. |
-| once | bool | true | Keep the revealed state after the first entry. |
-| amount | double | 0.2 | Fraction of the child that must be visible. |
 
 <!-- section: viewport -->
 ## Use the actual viewport

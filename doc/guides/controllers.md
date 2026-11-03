@@ -14,6 +14,12 @@ Drive one or more NibMotion widgets from an imperative event.
 
 NibMotionController attaches to each NibMotion receiving it. The same controller can drive several widgets. Create it in the owning State, pass it through controller, and dispose it in State.dispose; NibMotion does not take ownership of the external handle.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| controller | NibMotionController? | null | Externally owned handle attached to this widget. |
+| dispose() | void | caller action | Release the external controller from the owning State. |
+
 ```dart
 class FadeLogo extends StatefulWidget {
   const FadeLogo({super.key});
@@ -42,12 +48,6 @@ class _FadeLogoState extends State<FadeLogo> {
   }
 }
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| controller | NibMotionController? | null | Externally owned handle attached to this widget. |
-| dispose() | void | caller action | Release the external controller from the owning State. |
 
 <!-- section: walkthrough -->
 ## Follow one command from button to pixels

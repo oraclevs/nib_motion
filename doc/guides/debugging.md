@@ -16,14 +16,14 @@ NibSpringTuner compares duration/bounce and mass/stiffness/damping with a real S
 
 The live springs guide lets you retarget while moving. Compare travel distance and interruption as well as overshoot; a spring that feels good for a short press may be too loose for a large panel.
 
+[Try the spring controls](springs.md)
+
 ```dart
 // In a development panel.
 NibSpringTuner(
   onChanged: (spring) => debugPrint('$spring'),
 )
 ```
-
-[Try the spring controls](springs.md)
 
 <!-- section: inspect -->
 ## Inspect values before changing timing

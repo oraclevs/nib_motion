@@ -16,19 +16,19 @@ NibPageRoute and NibModalRoute wrap route content in NibMotion. Their defaults f
 
 NibPageRoute.backSwipe is off by default. When enabled, a start-edge drag can pop after crossing 40 percent of the page width or a fast release. Keep a non-gesture back action and test RTL and nested navigation in the host app.
 
-```dart
-// Inside a button callback with a mounted context.
-Navigator.of(context).push(
-  NibPageRoute<void>(builder: (_) => const DetailsPage()),
-);
-```
-
 <!-- api -->
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | builder | WidgetBuilder | required | Route content. |
 | backSwipe | bool | false | Enable start-edge interactive pop on a page route. |
 | duration | Duration | 350 ms | Route entrance lifetime, distinct from content spring settling. |
+
+```dart
+// Inside a button callback with a mounted context.
+Navigator.of(context).push(
+  NibPageRoute<void>(builder: (_) => const DetailsPage()),
+);
+```
 
 <!-- section: route-lifecycle -->
 ## Understand the route and content clocks

@@ -40,6 +40,12 @@ NibVariants is a map from a string name to NibAnim. NibMotion.initial and animat
 
 Use an explicit animate value on a child when it should ignore the inherited name. Keep all names present in the relevant map; a missing name cannot describe a target.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| variants | Map<String, NibAnim>? | null | Named states available to this NibMotion. |
+| animate | NibAnim or String? | null | Literal target, named target, or inherited variant. |
+
 ```dart
 const states = <String, NibAnim>{
   'closed': NibAnim(opacity: 0, y: 12),
@@ -51,12 +57,6 @@ NibMotion(
   child: content,
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| variants | Map<String, NibAnim>? | null | Named states available to this NibMotion. |
-| animate | NibAnim or String? | null | Literal target, named target, or inherited variant. |
 
 <!-- section: stagger -->
 ## Delay inherited children

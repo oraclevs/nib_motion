@@ -23,6 +23,13 @@ Keep the chip IDs in State and build the children from that list. NibPresence.la
 
 Start with sync if a departing row must still hold its slot while it fades. Choose pop when an immediate reflow is important, such as dismissing a tag from a dense group. For a custom grid or unusual parent, use NibPresence with layoutBuilder and explicitly choose exitLayout. Its default container is Stack, which will not reproduce a Row or Wrap layout.
 
+<!-- api -->
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| axis | NibPresenceAxis | column | Choose Column, Row, or Wrap for the layout factory. |
+| exitLayout | NibExitLayout | pop in layout factory; sync in base constructor | Controls when the departing child releases its layout slot. |
+| stagger | Duration | Duration.zero | Delay between children in the same enter or exit batch. |
+
 ```dart
 // In build(); tags comes from State.
 NibPresence.layout(
@@ -39,13 +46,6 @@ NibPresence.layout(
   ],
 )
 ```
-
-<!-- api -->
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| axis | NibPresenceAxis | column | Choose Column, Row, or Wrap for the layout factory. |
-| exitLayout | NibExitLayout | pop in layout factory; sync in base constructor | Controls when the departing child releases its layout slot. |
-| stagger | Duration | Duration.zero | Delay between children in the same enter or exit batch. |
 
 <!-- section: reflow -->
 ## Choose when the gap closes
