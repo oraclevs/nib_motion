@@ -52,8 +52,8 @@ refractive `layerSampler` path. Water rendering varies by platform and renderer.
 
 [Watch the full water recording](https://github.com/oraclevs/nib_motion/blob/115644ca416a9efdd686b2770322ce329dd86dbf/assets/showcase/nibmotion-water.mp4) · [Review both recordings locally](assets/showcase/index.html) · [Capture details](doc/maintainers/water-showcase.md)
 
-These recordings are approved for the release candidate. Version 0.3.6 has not
-been published; media URLs use an immutable commit so branch cleanup keeps them available.
+These recordings accompany the published 0.3.6 release. Media URLs use an
+immutable commit so branch cleanup keeps them available.
 
 ## Start with a destination
 
