@@ -52,11 +52,11 @@ For path drawing and path following, choose NibDrawPath or NibPathMotion and the
 
 The API browser lists declarations exported by the public package barrel, with their source documentation and member signatures. Search for a type after you know the behavior you want, then read its constructor defaults and callbacks in context. A signature tells you that a parameter exists; it cannot explain how layout space, cancellation, or accessibility behave. This guide links those decisions to the deeper topic pages.
 
-As a practice task, build the small fade above, then replace the tween with NibTransition.springGentle and compare interruption while toggling the parent state. Next inspect NibMotionController in the API browser and decide whether the use case actually needs start() or if a changing animate value is simpler. Run the snippet against the exact dependency graph in your pubspec.lock; the 0.3.6 gallery candidate is separate from the hosted 0.3.5 API.
+As a practice task, build the small fade above, then replace the tween with NibTransition.springGentle and compare interruption while toggling the parent state. Next inspect NibMotionController in the API browser and decide whether the use case actually needs start() or if a changing animate value is simpler. Run the snippet against the exact dependency graph in your pubspec.lock; the website examples were checked against 0.3.5.
 
 <!-- section: boundaries -->
 ## Check ownership and version
 
 The widget owns its internal animation values. The caller owns a controller, a MotionValue passed through NibMotionValues, and a directly created ScrollMotionBridge. Read the guide for that family before wiring disposal.
 
-These Motion guides target published 0.3.5. Version 0.3.6 remains a review candidate. Check pubspec.lock when comparing an older example or API reference.
+These Motion guides were checked against published 0.3.5. Version 0.3.6 is also published. Check pubspec.lock when comparing an example or API reference.

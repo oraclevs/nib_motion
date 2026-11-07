@@ -19,7 +19,7 @@ If you only want animation, add nib_motion. nib_components is a separate package
 <!-- section: add -->
 ## Add the package
 
-Run the package manager from your Flutter app, then import the public barrel. These Motion guides target the hosted 0.3.5 API. The separate 0.3.6 documentation and gallery candidate is still under review.
+Run the package manager from your Flutter app, then import the public barrel. These Motion guides were checked against 0.3.5. Version 0.3.6 is published; check pubspec.lock for the version your app resolved.
 
 ```dart
 flutter pub add nib_motion
@@ -60,7 +60,7 @@ NibMotion(
 
 The published 0.3.5 package requires Flutter 3.29 or newer and Dart 3.0 or newer. Check the constraints in the exact version you resolve, then compile a copied example against your own SDK. A web build or widget test does not establish physical-device rendering behavior.
 
-Read the changelog before moving between hosted and candidate versions. The preview uses the 0.3.5 implementation. The 0.3.6 candidate is not a published release.
+Read the changelog when updating to 0.3.6. The live examples on the website still use the 0.3.5 implementation; compile copied code against the version resolved in your app.
 
 <!-- section: resolution-problems -->
 ## If installation or compilation fails

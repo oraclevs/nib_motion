@@ -14,7 +14,7 @@ Move one interaction from implicit widgets or an AnimationController to state ta
 
 Keep your state management, layout and business callbacks. Select a small animation with a clear endpoint and keyboard action. Replace its paint animation, compare the behavior, then decide whether more of the screen benefits.
 
-These guides target nib_motion 0.3.5 on pub.dev. 0.3.6 is pending review and is not published. Shader rendering needs checks on your target device.
+These guides were checked against nib_motion 0.3.5. Version 0.3.6 is published on pub.dev. Shader rendering needs checks on your target device.
 
 <!-- section: concepts -->
 ## Map responsibility before syntax
@@ -47,6 +47,6 @@ Effects from other libraries may combine several properties. Compose NibAnim fie
 <!-- section: applications -->
 ## Explore the complete example application
 
-The separate official gallery candidate exposes 29 examples: the original 21 demos, Daily Focus, two quick starts and five additional examples. It is review work for 0.3.6, not a published 0.3.5 gallery. Its README includes local launch instructions. Promotional recordings remain subject to owner approval.
+The NibMotion gallery includes 29 examples: the original 21 demos, Daily Focus, two quick starts and five additional examples. It is included with the published 0.3.6 release. Its README has local launch instructions.
 
-[Review the 29-example gallery and launch instructions](https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/example/README.md)
+[Review the 29-example gallery and launch instructions](https://github.com/oraclevs/nib_motion/blob/v0.3.6/example/README.md)

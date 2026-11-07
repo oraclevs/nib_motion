@@ -16,7 +16,7 @@ NibMotion connects targets, reactive motion values and drivers in one model. A d
 
 Begin with initial, animate and a transition on one widget. Controllers and lower-level solvers are available when your interaction needs them. Continuous paint updates can avoid rebuilding the child every frame; text content changes and application state still rebuild where needed.
 
-These guides target nib_motion 0.3.5 on pub.dev. 0.3.6 is pending review and is not published. Shader rendering needs checks on your target device.
+These guides were checked against nib_motion 0.3.5. Version 0.3.6 is published on pub.dev. Shader rendering needs checks on your target device.
 
 NibComponents is a separate UI library that depends on NibMotion. NibGenUI is a separate, unpublished structured-UI preview. Neither is required to animate an existing Flutter widget.
 

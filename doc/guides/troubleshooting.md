@@ -16,7 +16,7 @@ The gallery audit reproduced a second-ticker assertion when reduced motion is to
 
 NibGlass can use a frosted fallback in the browser. That is supported behavior, not evidence of shader refraction. NibTextReveal accepts a controller but the current implementation does not attach it; remounting replays the reveal and also resets local State.
 
-[Review the gallery audit and reproductions](https://github.com/oraclevs/nib_motion/blob/feat/interactive-showcase-0.3.6/doc/maintainers/showcase-audit.md)
+[Review the gallery audit and reproductions](https://github.com/oraclevs/nib_motion/blob/v0.3.6/doc/maintainers/showcase-audit.md)
 
 <!-- section: triage -->
 ## Reduce the problem to one moving child
