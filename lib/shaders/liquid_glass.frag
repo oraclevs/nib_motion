@@ -75,7 +75,7 @@ vec3 sampleBg(vec2 coordPx) {
   // (or, past the texture, the transparent decal border).
   vec2 c = clamp(coordPx, vec2(0.5), uGlassSize - vec2(0.5));
   vec2 uv = (c + uOrigin) / uSize;
-#ifdef IMPELLER_TARGET_OPENGLES
+#if defined(IMPELLER_TARGET_OPENGLES) && !defined(IMPELLER_OPENGLES_UNFLIPPED_DEPRECATED)
   uv.y = 1.0 - uv.y;
 #endif
   return texture(uTexture, clamp(uv, vec2(0.0), vec2(1.0))).rgb;

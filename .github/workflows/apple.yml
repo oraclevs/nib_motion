@@ -1,0 +1,41 @@
+name: Apple compatibility
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: macOS build and renderer tests (Flutter 3.50)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+      - name: Analyze package and example
+        run: |
+          flutter pub get
+          flutter analyze --fatal-infos
+          cd example
+          flutter pub get
+          flutter analyze --fatal-infos
+      - name: Run Impeller widget tests
+        run: flutter test --enable-impeller test/shaders test/water
+      - name: Build and run macOS integration tests
+        run: python3 qa/apple_runner.py macos
+      - name: Preserve Apple diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-compatibility-results
+          path: qa/results/
+          if-no-files-found: warn

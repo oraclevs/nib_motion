@@ -22,5 +22,5 @@ void main() {
   // Pixel dissolves when progress exceeds its noise threshold
   float alpha = step(uProgress, noise);
 
-  fragColor = vec4(color.rgb, color.a * alpha);
+  fragColor = vec4(color.rgb * alpha, color.a * alpha);
 }

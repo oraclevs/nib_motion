@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flutter: ['3.29.0', '3.47.8']
+        flutter: ['3.29.0', '3.50.0']
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -43,6 +43,9 @@ jobs:
 
       - name: Analyze
         run: flutter analyze --fatal-infos
+
+      - name: Check generated Metal shader bindings
+        run: python3 tool/check_metal_bindings.py
 
       - name: Run tests
         run: flutter test --coverage
@@ -66,7 +69,7 @@ jobs:
 
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: '3.47.8'
+          flutter-version: '3.50.0'
           channel: stable
           cache: true
 
@@ -87,7 +90,7 @@ jobs:
 
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: '3.47.8'
+          flutter-version: '3.50.0'
           channel: stable
           cache: true
 

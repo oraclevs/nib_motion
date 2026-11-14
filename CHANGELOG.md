@@ -1,3 +1,15 @@
+## 0.3.7
+
+* Pack water shader uniforms so generated Metal bindings stay within the
+  supported buffer range. Preserve ten droplets, twelve impulses, and all
+  existing optical controls on Flutter 3.29 and newer.
+* Correct dissolve transparency so removed pixels reveal the content behind
+  the transition, with premultiplied output color.
+* Keep liquid-glass texture coordinates correct across Flutter's OpenGL ES
+  render-target orientation change.
+* Add generated Metal binding checks, macOS CI, and repeatable Apple device QA
+  instructions and evidence reports. Physical Apple validation is pending.
+
 ## 0.3.6
 
 * Rewrite the package introduction around declarative state, interruptible
