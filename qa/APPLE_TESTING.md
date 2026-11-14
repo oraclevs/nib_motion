@@ -7,20 +7,28 @@ candidate SHA supplied with the handoff; a branch name alone can move.
 
 ## 1. Set up Xcode and Flutter once
 
-Install Xcode from the App Store and open it once. In Terminal, run:
+Install Xcode from the App Store and open it once. Run this single command in
+Terminal and wait for it to finish:
 
 ```sh
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-sudo xcodebuild -runFirstLaunch
+sudo sh -c 'xcode-select -s /Applications/Xcode.app/Contents/Developer && xcodebuild -runFirstLaunch'
+```
+
+Then read and accept the Xcode license interactively:
+
+```sh
 sudo xcodebuild -license
-xcodebuild -downloadPlatform iOS
+```
+
+Check the available tools:
+
+```sh
 python3 --version
 xcodebuild -version
 ```
 
-The license command asks you to read and accept Apple's terms. The iOS
-platform download can take a while. If Python 3 is missing, install it before
-continuing. Flutter's [macOS setup](https://docs.flutter.dev/platform-integration/macos/setup)
+If Python 3 is missing, install it before continuing. Flutter's
+[macOS setup](https://docs.flutter.dev/platform-integration/macos/setup)
 and [iOS setup](https://docs.flutter.dev/platform-integration/ios/setup) cover
 Xcode problems.
 
@@ -95,7 +103,13 @@ The status command must again print nothing.
 
 Connect and unlock the iPhone with a cable. Tap **Trust This Computer**. On the
 phone, enable **Settings > Privacy & Security > Developer Mode** and restart if
-prompted. In Terminal, still at the repository root, run:
+prompted. Download Xcode's iOS platform support; this can take a while:
+
+```sh
+xcodebuild -downloadPlatform iOS
+```
+
+Then, in Terminal at the repository root, run:
 
 ```sh
 xcrun devicectl list devices
