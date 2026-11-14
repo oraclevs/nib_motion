@@ -42,7 +42,13 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
-        run: flutter analyze --fatal-infos
+        run: |
+          if [ '${{ matrix.flutter }}' = '3.29.0' ]; then
+            flutter analyze --fatal-infos
+          else
+            # Flutter 3.50 deprecates material.dart, which remains necessary at the 3.29 floor.
+            flutter analyze --fatal-warnings
+          fi
 
       - name: Check generated Metal shader bindings
         run: python3 tool/check_metal_bindings.py
@@ -54,7 +60,11 @@ jobs:
         working-directory: example
         run: |
           flutter pub get
-          flutter analyze --fatal-infos
+          if [ '${{ matrix.flutter }}' = '3.29.0' ]; then
+            flutter analyze --fatal-infos
+          else
+            flutter analyze --fatal-warnings
+          fi
           flutter test
 
       - name: Validate pub.dev publish (dry run)
