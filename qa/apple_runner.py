@@ -37,6 +37,22 @@ def parse_event(line, names, outcomes):
             }.get(event.get("result"), "failed")
 
 
+def collect_screenshots(log_text, shots):
+    for line in log_text.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        message = event.get("message", "") if event.get("type") == "print" else ""
+        if not message.startswith("QA-SCREENSHOT "):
+            continue
+        name, path = message[len("QA-SCREENSHOT "):].split(" ", 1)
+        source = Path(path)
+        if name in {"water", "glass", "dissolve"} and source.name.startswith("nib-qa-"):
+            shutil.copy2(source, shots / f"{name}.png")
+            source.unlink()
+
+
 def command(args, cwd, log):
     with log.open("a") as output:
         output.write(f"\n$ {' '.join(map(str, args))}\n")
@@ -82,7 +98,8 @@ def main():
         git = capture(["git", "rev-parse", "HEAD"], ROOT, preflight)
         if git.returncode:
             raise RuntimeError("Cannot identify source commit")
-        environment["source_commit"] = git.stdout.strip()
+        environment["tested_commit"] = git.stdout.strip()
+        environment["source_commit"] = os.environ.get("NIB_QA_SOURCE_SHA") or git.stdout.strip()
         status = capture(["git", "status", "--porcelain"], ROOT, preflight)
         environment["source_dirty"] = bool(status.stdout.strip())
         if environment["source_dirty"]:
@@ -149,7 +166,7 @@ def main():
             raise RuntimeError("macOS example build failed")
         phase = "tests"
         cmd = ["flutter", "test", "--no-pub", "--reporter", "json", "-d", device_id,
-               f"--dart-define=NIB_QA_SCREENSHOT_DIR={shots}",
+               "--dart-define=NIB_QA_SCREENSHOTS=true",
                "integration_test/apple_compatibility_test.dart"]
         with test_log.open("w") as output:
             output.write(f"$ {' '.join(cmd)}\n")
@@ -169,7 +186,9 @@ def main():
                     process.kill()
                     process.wait()
                 raise
-        fatal = [line.strip() for line in test_log.read_text(errors="replace").splitlines()
+        log_text = test_log.read_text(errors="replace")
+        collect_screenshots(log_text, shots)
+        fatal = [line.strip() for line in log_text.splitlines()
                  if FATAL.search(line)]
         if fatal:
             reason = "Fatal Flutter or Impeller diagnostics found"
@@ -177,6 +196,8 @@ def main():
             reason = f"Flutter integration tests exited {test_exit}"
         elif len(outcomes) != len(PLAN):
             reason = "Some test outcomes are missing"
+        elif args.platform == "macos" and len(list(shots.glob("*.png"))) != 3:
+            reason = "Mac screenshots are missing"
         exit_code = 1 if reason else 0
     except KeyboardInterrupt:
         reason, exit_code = "Interrupted", 130
@@ -196,7 +217,7 @@ def main():
         results = []
         for test in PLAN:
             automatic = outcomes.get(test["id"], "blocked" if exit_code == 2 else "not_run")
-            if errors and automatic == "passed":
+            if exit_code == 1 and automatic == "passed":
                 automatic = "failed"
             manual = "not_run" if test["manual"] else "passed"
             overall = automatic if automatic != "passed" else manual
@@ -215,7 +236,8 @@ def main():
                   "unverified": ["Physical Mac status requires owner attestation",
                                  "Manual visual checks pending", "Renderer identity not verified by Flutter API"]}
         (folder / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-        lines = [f"# Apple QA {run_id}", "", f"Commit: `{environment.get('source_commit', 'unknown')}`",
+        lines = [f"# Apple QA {run_id}", "", f"Candidate commit: `{environment.get('source_commit', 'unknown')}`",
+                 f"Tested checkout: `{environment.get('tested_commit', 'unknown')}`",
                  f"Platform: {args.platform}; device: {selected.get('name') if selected else 'unavailable'}",
                  f"Exit: {exit_code}; reason: {reason or 'Automatic tests completed'}", "",
                  "| Test | Automatic | Manual | Overall |", "|---|---|---|---|"]

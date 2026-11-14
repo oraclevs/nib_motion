@@ -32,6 +32,8 @@ jobs:
         run: flutter test --enable-impeller test/shaders test/water
       - name: Build and run macOS integration tests
         run: python3 qa/apple_runner.py macos
+        env:
+          NIB_QA_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Preserve Apple diagnostics
         if: always()
         uses: actions/upload-artifact@v4

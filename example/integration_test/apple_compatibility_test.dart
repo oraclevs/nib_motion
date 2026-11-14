@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:nib_motion/nib_motion.dart';
 
-const _evidence = String.fromEnvironment('NIB_QA_SCREENSHOT_DIR');
+const _captureScreenshots = bool.fromEnvironment('NIB_QA_SCREENSHOTS');
 final _shot = GlobalKey();
 
 Widget _host(Widget child) => MaterialApp(
@@ -47,7 +47,7 @@ Future<Uint8List> _pixels(WidgetTester tester) async {
 }
 
 Future<void> _screenshot(WidgetTester tester, String name) async {
-  if (!Platform.isMacOS || _evidence.isEmpty) return;
+  if (!Platform.isMacOS || !_captureScreenshots) return;
   final boundary =
       _shot.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   final bytes = await tester.runAsync(() async {
@@ -60,7 +60,11 @@ Future<void> _screenshot(WidgetTester tester, String name) async {
       image.dispose();
     }
   });
-  await File('$_evidence/$name.png').writeAsBytes(bytes!);
+  // The macOS app sandbox cannot write into the host checkout.
+  final file = File(
+      '${Directory.systemTemp.path}/nib-qa-$name-${DateTime.now().microsecondsSinceEpoch}.png');
+  await file.writeAsBytes(bytes!);
+  debugPrint('QA-SCREENSHOT $name ${file.path}');
 }
 
 Widget _stripes() => Row(children: [
