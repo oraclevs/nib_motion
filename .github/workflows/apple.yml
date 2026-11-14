@@ -24,10 +24,10 @@ jobs:
       - name: Analyze package and example
         run: |
           flutter pub get
-          flutter analyze --fatal-warnings
+          flutter analyze --no-fatal-infos --fatal-warnings
           cd example
           flutter pub get
-          flutter analyze --fatal-warnings
+          flutter analyze --no-fatal-infos --fatal-warnings
       - name: Run Impeller widget tests
         run: flutter test --enable-impeller test/shaders test/water
       - name: Build and run macOS integration tests

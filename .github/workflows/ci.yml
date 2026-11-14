@@ -47,7 +47,7 @@ jobs:
             flutter analyze --fatal-infos
           else
             # Flutter 3.50 deprecates material.dart, which remains necessary at the 3.29 floor.
-            flutter analyze --fatal-warnings
+            flutter analyze --no-fatal-infos --fatal-warnings
           fi
 
       - name: Check generated Metal shader bindings
@@ -63,7 +63,7 @@ jobs:
           if [ '${{ matrix.flutter }}' = '3.29.0' ]; then
             flutter analyze --fatal-infos
           else
-            flutter analyze --fatal-warnings
+            flutter analyze --no-fatal-infos --fatal-warnings
           fi
           flutter test
 
