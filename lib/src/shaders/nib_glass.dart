@@ -118,7 +118,8 @@ class _NibGlassState extends State<NibGlass> {
     try {
       final program = await NibShaderLoader.liquidGlass();
       if (mounted) setState(() => _program = program);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('NibGlass shader load failed: $error');
       // Shader unavailable — the build falls back to a blur + painted rim.
     }
   }

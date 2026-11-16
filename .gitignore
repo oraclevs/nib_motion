@@ -51,3 +51,4 @@ __pycache__/
 /example/linux/
 /example/macos/
 /example/windows/
+/qa/results/

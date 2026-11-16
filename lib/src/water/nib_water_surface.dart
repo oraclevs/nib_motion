@@ -217,12 +217,13 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
       _report(
           'Canvas fragment shader loaded; controlled Flutter background sampling.');
       _queueCapture();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      debugPrint('NibWaterSurface shader load failed: $error');
       _failed = true;
       _report(widget.sampling == NibWaterSampling.legacy
-          ? 'Water shader unavailable. Static outline fallback; no refraction.'
-          : 'Water shader unavailable. Direct live source; no refraction. Remount to retry.');
+          ? 'Water shader unavailable. Static outline fallback; no refraction. $error'
+          : 'Water shader unavailable. Direct live source; no refraction. Remount to retry. $error');
       _revision.value++;
     }
   }
@@ -340,6 +341,7 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
   }
 
   Future<void> _capture() async {
+    if (_failed) return;
     final boundary = _backgroundKey.currentContext?.findRenderObject();
     if (boundary is! RenderRepaintBoundary ||
         !boundary.attached ||
@@ -359,6 +361,7 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
           math.sqrt(2000000 / (boundary.size.width * boundary.size.height)));
       final image = await boundary.toImage(pixelRatio: scale);
       if (!mounted ||
+          _failed ||
           !_enabled ||
           generation != _generation ||
           !boundary.attached ||
@@ -378,11 +381,12 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
               .addPostFrameCallback((_) => previous.dispose());
         }
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
+        debugPrint('NibWaterSurface background capture failed: $error');
         _failed = true;
         _report(
-            'Background capture unavailable. Static outline fallback; no refraction.');
+            'Background capture unavailable. Static outline fallback; no refraction. $error');
         _revision.value++;
       }
     } finally {
@@ -392,9 +396,13 @@ class _NibWaterSurfaceState extends State<NibWaterSurface>
   }
 
   void _report(String message) => widget.onStatus?.call(NibWaterRenderStatus(
-      backend: widget.sampling == NibWaterSampling.legacy
-          ? 'snapshot'
-          : (_failed ? 'direct' : 'layerSampler'),
+      backend: _failed
+          ? (widget.sampling == NibWaterSampling.legacy
+              ? 'staticOutline'
+              : 'direct')
+          : widget.sampling == NibWaterSampling.legacy
+              ? 'snapshot'
+              : 'layerSampler',
       path: _failed
           ? NibWaterRenderPath.fallback
           : _shader != null && _image != null
@@ -568,6 +576,8 @@ class _WaterPainter extends CustomPainter {
     final config = controller.config;
     final drops = controller.drops;
     final impulses = controller.impulses;
+    // Metal binds each declaration separately. These 28 vec4 uniforms use
+    // 112 float slots, matching water_material.frag's declaration order.
     var index = 0;
     for (final value in <double>[
       size.width,
@@ -621,7 +631,10 @@ class _WaterPainter extends CustomPainter {
       program.setFloat(index++, value);
     }
     program.setFloat(
-        index, compositeSource && controller.emitter != null ? 1 : 0);
+        index++, compositeSource && controller.emitter != null ? 1 : 0);
+    for (; index < 112; index++) {
+      program.setFloat(index, 0);
+    }
     program.setImageSampler(0, background);
     canvas.drawRect(Offset.zero & size, Paint()..shader = program);
   }

@@ -99,6 +99,52 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('NibDissolve reveals backdrop through dissolved pixels',
+      (tester) async {
+    await tester.runAsync(NibShaderLoader.dissolve);
+    await tester.pumpWidget(_host(const Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Color(0xFFFF0000)),
+        NibDissolve(
+          duration: Duration(seconds: 1),
+          child: ColoredBox(color: Color(0xFF00FF00)),
+        ),
+      ],
+    )));
+    for (var i = 0; i < 6 && find.byType(Opacity).evaluate().isNotEmpty; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump();
+    }
+    expect(find.byType(Opacity), findsNothing);
+    await tester.pump(const Duration(milliseconds: 500));
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump();
+    }
+    final boundary =
+        tester.renderObject<RenderRepaintBoundary>(find.byKey(_shot));
+    final bytes = await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      try {
+        return (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!
+            .buffer
+            .asUint8List();
+      } finally {
+        image.dispose();
+      }
+    });
+    var red = 0, green = 0;
+    for (var i = 0; i < bytes!.length; i += 4) {
+      if (bytes[i] > 200 && bytes[i + 1] < 50) red++;
+      if (bytes[i + 1] > 200 && bytes[i] < 50) green++;
+    }
+    expect(red, greaterThan(0));
+    expect(green, greaterThan(0));
+  });
+
   testWidgets('NibShaderEffect with a real program loads and paints',
       (tester) async {
     final u = MotionValue<double>(1);

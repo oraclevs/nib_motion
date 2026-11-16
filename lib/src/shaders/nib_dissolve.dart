@@ -85,7 +85,8 @@ class _NibDissolveState extends State<NibDissolve>
       final program = await NibShaderLoader.dissolve();
       if (!mounted) return;
       setState(() => _program = program);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('NibDissolve shader load failed: $error');
       // Shader unavailable — `build` falls back to a plain opacity fade.
     }
   }
@@ -282,8 +283,6 @@ class RenderNibDissolve extends RenderRepaintBoundary {
       return;
     }
 
-    super.paint(context, offset);
-
     // `toImage`/`toImageSync` cannot be called synchronously from within
     // this render object's own `paint()` — the boundary's layer hasn't
     // finished compositing yet at this point in the frame, so the engine
@@ -293,8 +292,10 @@ class RenderNibDissolve extends RenderRepaintBoundary {
     // has fully committed, and reuse it for the rest of this dissolve
     // cycle — the dissolving content is expected to be static during a
     // single transition, so a single snapshot covers the whole animation.
+    // shortcut: child pixels stay static per transition; recapture for live children.
     final snapshot = _snapshot;
     if (snapshot == null) {
+      super.paint(context, offset);
       _scheduleSnapshotCapture();
       return;
     }

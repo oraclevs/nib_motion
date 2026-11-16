@@ -30,6 +30,36 @@ void main() {
     });
   });
 
+  testWidgets('shader failure reports real fallback path and error',
+      (tester) async {
+    NibShaderLoader.assetKeyResolver = (_) => 'missing-water-probe.frag';
+    for (final policy in [NibWaterSampling.legacy, NibWaterSampling.live]) {
+      final water = NibWaterController(drops: const []);
+      final reports = <NibWaterRenderStatus>[];
+      await tester.pumpWidget(MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 100,
+            height: 100,
+            child: NibWaterSurface(
+              controller: water,
+              sampling: policy,
+              onStatus: reports.add,
+              background: const ColoredBox(color: Colors.blue),
+            ),
+          ),
+        ),
+      ));
+      await frames(tester);
+      expect(reports.last.path, NibWaterRenderPath.fallback);
+      expect(reports.last.backend,
+          policy == NibWaterSampling.legacy ? 'staticOutline' : 'direct');
+      expect(reports.last.message, contains('missing-water-probe.frag'));
+      await tester.pumpWidget(const SizedBox());
+      water.dispose();
+    }
+  });
+
   testWidgets(
       'live underwater controls retain taps, focus, slider and semantics',
       (tester) async {
